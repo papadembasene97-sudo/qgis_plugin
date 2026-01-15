@@ -1,0 +1,9 @@
+# Dépendances Python pour le plugin CheminerIndus
+
+# Génération de PDF
+fpdf2>=2.7.0
+
+# Gestion d'images (pour les dimensions dans les PDF, optionnel mais recommandé)
+Pillow>=9.0.0
+
+# Taper sur consol :pip install -r requirements.txt

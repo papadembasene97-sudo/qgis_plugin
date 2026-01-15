@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/icon.png</file>
+        <file>icons/flux.png</file>
+        <file>icons/select.png</file>
+        <file>icons/trace.png</file>
+        <file>icons/report.png</file>
+        <file>icons/save.png</file>
+        <file>icons/load.png</file>
+        <file>icons/reset.png</file>
+        <file>icons/exit.png</file>
+        <file>icons/pollueur.png</file>
+        <file>fonts/DejaVuSans.ttf</file>
+        <file>fonts/DejaVuSans-Bold.ttf</file>
+    </qresource>
+</RCC>
