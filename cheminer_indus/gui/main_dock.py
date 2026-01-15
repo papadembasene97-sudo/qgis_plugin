@@ -33,6 +33,7 @@ from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
+from ..gui.main_dock_optimized  import OptimizedNodeOps
 
 
 # Catégories utilisées dans LABEL_CI
@@ -107,6 +108,9 @@ class MainDock:
 
         # masque étiquettes (via LABEL_CI)
         self._mask_on = False
+
+        # Optimisations pour désélection de nœuds
+        self._node_ops: Optional[OptimizedNodeOps] = None
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -776,6 +780,21 @@ class MainDock:
             QMessageBox.information(self.iface.mainWindow(),"Info","Saisir un ID visite.")
             return
 
+        # Initialiser l'optimiseur si nécessaire et construire les caches
+        if not self._node_ops:
+            self._node_ops = OptimizedNodeOps(
+                self.canal_layer, self.fosse_layer, 
+                self.liaison_layer, self.indus_layer
+            )
+        else:
+            # Mettre à jour les couches au cas où elles auraient changé
+            self._node_ops.canal_layer = self.canal_layer
+            self._node_ops.fosse_layer = self.fosse_layer
+            self._node_ops.liaison_layer = self.liaison_layer
+            self._node_ops.indus_layer = self.indus_layer
+            # Invalider les caches pour refléter les changements
+            self._node_ops.invalidate_caches()
+
         # 1) Confirmer la pollution au nœud
         resp = QMessageBox.question(
             self.iface.mainWindow(), "Pollué ?",
@@ -830,10 +849,10 @@ class MainDock:
                     else:
                         return
                 # Désélectionner toutes les branches AMONT non cochées (et tout leur amont récursif + indus)
-                removed_indus_up = self._bulk_deselect_unselected_branches(node_id, branches, chosen_keep)
+                removed_indus_up = self._node_ops.bulk_deselect_unselected_branches_optimized(node_id, branches, chosen_keep)
             else:
                 # Pollué = NON → tout l'amont doit être désélectionné automatiquement
-                removed_indus_up = self._bulk_deselect_unselected_branches(node_id, branches, chosen_ids=set())
+                removed_indus_up = self._node_ops.bulk_deselect_unselected_branches_optimized(node_id, branches, chosen_ids=set())
         else:
             removed_indus_up = set()
 
@@ -844,13 +863,14 @@ class MainDock:
         keep_nodes: Set[str] = set()
 
         if polluted:
-            # 5.a Désélectionner l'AVAL de ce nœud (sur la sélection courante)
-            cids_ds, fids_ds, nodes_ds = self._walk_downstream_on_selected(node_id)
+            # 5.a Désélectionner l'AVAL de ce nœud (sur la sélection courante) - VERSION OPTIMISÉE
+            sel_c, sel_f = self._selected_id_sets()
+            cids_ds, fids_ds, nodes_ds = self._node_ops.walk_downstream_on_selected_optimized(node_id, sel_c, sel_f)
             if self.canal_layer and cids_ds:
                 self.canal_layer.deselect(list(cids_ds))
             if self.fosse_layer and fids_ds:
                 self.fosse_layer.deselect(list(fids_ds))
-            removed_indus_down = self._deselect_liaisons_and_indus_from_nodes(nodes_ds)
+            removed_indus_down = self._node_ops.deselect_liaisons_and_indus_from_nodes_optimized(nodes_ds)
 
             # 5.b Construire l'ensemble KEEP = branches cochées + tout leur amont (sur la sélection)
             for typ, fid, amont, _ in branches:
@@ -860,9 +880,10 @@ class MainDock:
                     keep_cids.add(fid)
                 elif typ == "fosse":
                     keep_fids.add(fid)
-                # Remonter sur la sélection à partir de l'amont de la branche cochée
+                # Remonter sur la sélection à partir de l'amont de la branche cochée - VERSION OPTIMISÉE
                 if amont:
-                    kc, kf, kn = self._walk_upstream_on_selected(amont)
+                    sel_c, sel_f = self._selected_id_sets()
+                    kc, kf, kn = self._node_ops.walk_upstream_on_selected_optimized(amont, sel_c, sel_f)
                     keep_cids.update(kc); keep_fids.update(kf); keep_nodes.update(kn)
             # Inclure le nœud visité dans l'ensemble KEEP de nœuds
             keep_nodes.add(node_id.strip())
@@ -898,7 +919,7 @@ class MainDock:
             # Attention à ne pas supprimer ce qui est dans KEEP
             nodes_removed.difference_update(keep_nodes)
             if nodes_removed:
-                removed_indus_down.update(self._deselect_liaisons_and_indus_from_nodes(nodes_removed))
+                removed_indus_down.update(self._node_ops.deselect_liaisons_and_indus_from_nodes_optimized(nodes_removed))
 
         # 6) Exclure dans le tableau des indus
         removed_indus_all = set()
