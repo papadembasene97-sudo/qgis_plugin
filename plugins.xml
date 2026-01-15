@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugins>
+    <pyqgis_plugin name="CheminerIndus" version="1.1.1">
+        <description><![CDATA[CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP), détection d'industries connectées, diagnostics automatiques et génération de rapports.]]></description>
+        <about><![CDATA[CheminerIndus est un outil métier complet permettant de :
+  - Réaliser des cheminements réseaux (amont→aval, aval→amont, multi-directionnels)
+  - Tracer automatiquement les réseaux EU/EP/mixtes
+  - Détecter les industriels connectés et générer un tableau interactif avancé
+  - Diagnostiquer les inversions EP/EU, réductions de diamètre, trop-pleins
+  - Rattacher un point d'astreinte, intégrer des photos et exporter en PDF
+  - Produire un rapport professionnel complet et horodaté
+  - Rejouer une session enregistrée grâce à un système de sauvegarde automatique
+  - Visualiser les flux animés, clignotants ou colorés jusqu'à l'échelle 1/20 000
+  - Intégrer la logique métier d'assainissement intercommunal
+  
+  Version 1.1.1 avec optimisations de performance (85-90% plus rapide sur la désélection de nœuds)]]></about>
+        <version>1.1.1</version>
+        <qgis_minimum_version>3.28</qgis_minimum_version>
+        <qgis_maximum_version>3.40</qgis_maximum_version>
+        <homepage><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin]]></homepage>
+        <file_name>cheminer_indus.zip</file_name>
+        <icon>https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/cheminer_indus/icons/icon.png</icon>
+        <author_name><![CDATA[Papa Demba SENE]]></author_name>
+        <download_url>https://github.com/papadembasene97-sudo/qgis_plugin/releases/download/v1.1.1/cheminer_indus.zip</download_url>
+        <uploaded_by><![CDATA[Papa Demba SENE]]></uploaded_by>
+        <create_date>2026-01-15</create_date>
+        <update_date>2026-01-15</update_date>
+        <experimental>False</experimental>
+        <deprecated>False</deprecated>
+        <tracker><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin/issues]]></tracker>
+        <repository><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin]]></repository>
+        <tags><![CDATA[assainissement,cheminement,eaux usées,eaux pluviales,industrie,pollution,réseau,hydraulique,EU,EP,diagnostic,analyse,postgis]]></tags>
+        <category>Analysis</category>
+        <server>False</server>
+    </pyqgis_plugin>
+</plugins>
