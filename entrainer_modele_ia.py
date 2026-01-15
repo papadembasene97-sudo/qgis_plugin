@@ -89,13 +89,20 @@ def preparer_donnees(df):
     y = df['pollution_detectee_label']
     X = df.drop(['pollution_detectee_label'], axis=1)
     
+    # ⚠️ CORRECTION : Exclure les colonnes non numériques
+    colonnes_non_numeriques = X.select_dtypes(include=['object', 'string']).columns.tolist()
+    if colonnes_non_numeriques:
+        print(f"   ⚠️  Colonnes non-numériques exclues : {colonnes_non_numeriques}")
+        X = X.drop(columns=colonnes_non_numeriques)
+    
     # Remplacer NaN par 0
     nb_nan = X.isna().sum().sum()
     if nb_nan > 0:
         print(f"   ⚠️  {nb_nan} valeurs manquantes remplacées par 0")
         X = X.fillna(0)
     
-    print(f"✓ {X.shape[1]} features préparées")
+    print(f"✓ {X.shape[1]} features numériques préparées")
+    print(f"   Features utilisées : {X.columns.tolist()}")
     
     return X, y
 
