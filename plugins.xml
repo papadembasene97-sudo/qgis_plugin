@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-    <pyqgis_plugin name="CheminerIndus" version="1.2.0">
-        <description><![CDATA[CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP) avec IA pour prédiction de pollution, visualisation 3D et optimisation des tournées de visite.]]></description>
+    <pyqgis_plugin name="CheminerIndus" version="1.2.1">
+        <description><![CDATA[CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP) avec IA pour prédiction de pollution, visualisation 3D et optimisation des tournées de visite - Interface graphique complète !]]></description>
         <about><![CDATA[CheminerIndus est un outil métier complet permettant de :
   - Réaliser des cheminements réseaux (amont→aval, aval→amont, multi-directionnels)
   - Tracer automatiquement les réseaux EU/EP/mixtes
@@ -13,21 +13,21 @@
   - Visualiser les flux animés, clignotants ou colorés jusqu'à l'échelle 1/20 000
   - Intégrer la logique métier d'assainissement intercommunal
   
-  🆕 Version 1.2.0 avec Module IA :
-  • Prédiction de pollution par Machine Learning (27 features, précision 85-90%)
-  • Optimisation de parcours de visite (-30 à 50% de temps terrain)
-  • Visualisation 3D interactive des réseaux (PyVista)
-  • Détection automatique des zones complexes
-  • Colorations intelligentes (diamètre, pente, élévation)
-  • Profil en long et export JSON des analyses]]></about>
-        <version>1.2.0</version>
+  🆕 Version 1.2.1 avec Interface IA complète :
+  • 🎨 Onglet "IA" intégré dans l'interface principale
+  • ⚙️ Entraînement et prédiction via interface graphique
+  • 🗺️ Optimisation de parcours en quelques clics
+  • 🌐 Visualisation 3D accessible sans code
+  • 📊 Affichage et export des résultats
+  • ✨ Pas besoin de coder : tout est dans l'interface !]]></about>
+        <version>1.2.1</version>
         <qgis_minimum_version>3.28</qgis_minimum_version>
         <qgis_maximum_version>3.40</qgis_maximum_version>
         <homepage><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin]]></homepage>
         <file_name>cheminer_indus.zip</file_name>
         <icon>https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/cheminer_indus/icons/icon.png</icon>
         <author_name><![CDATA[Papa Demba SENE]]></author_name>
-        <download_url>https://github.com/papadembasene97-sudo/qgis_plugin/releases/download/v1.2.0/cheminer_indus.zip</download_url>
+        <download_url>https://github.com/papadembasene97-sudo/qgis_plugin/releases/download/v1.2.1/cheminer_indus.zip</download_url>
         <uploaded_by><![CDATA[Papa Demba SENE]]></uploaded_by>
         <create_date>2026-01-15</create_date>
         <update_date>2026-01-15</update_date>
@@ -35,7 +35,7 @@
         <deprecated>False</deprecated>
         <tracker><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin/issues]]></tracker>
         <repository><![CDATA[https://github.com/papadembasene97-sudo/qgis_plugin]]></repository>
-        <tags><![CDATA[assainissement,cheminement,eaux usées,eaux pluviales,industrie,pollution,réseau,hydraulique,EU,EP,diagnostic,analyse,postgis,IA,machine learning,3D,visualisation]]></tags>
+        <tags><![CDATA[assainissement,cheminement,eaux usées,eaux pluviales,industrie,pollution,réseau,hydraulique,EU,EP,diagnostic,analyse,postgis,IA,machine learning,3D,visualisation,interface,GUI]]></tags>
         <category>Analysis</category>
         <server>False</server>
     </pyqgis_plugin>
