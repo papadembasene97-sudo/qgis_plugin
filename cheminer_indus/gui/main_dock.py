@@ -31,6 +31,7 @@ from ..report.pdf_generator     import PDFGenerator
 from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
+from ..gui.ai_tab               import AITab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
 from ..gui.main_dock_optimized  import OptimizedNodeOps
@@ -244,11 +245,12 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, IA
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
         tabs.addTab(self._tab_layers(),      "COUCHES")
+        tabs.addTab(self._tab_ai(),          "🤖 IA")
 
         self.dock.setWidget(main)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
@@ -549,6 +551,13 @@ class MainDock:
         btn_rst = QPushButton("Réinitialiser"); btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
         btn_rst.clicked.connect(self._confirm_reset); l.addWidget(btn_rst)
         return w
+
+    # ---------------------------------------------------------
+    # Onglet IA
+    # ---------------------------------------------------------
+    def _tab_ai(self) -> QWidget:
+        """Crée l'onglet IA pour prédiction et visualisation 3D"""
+        return AITab(self)
 
     # ---------------------------------------------------------
     # Sélection / Recherche

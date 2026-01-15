@@ -3,7 +3,7 @@ name=CheminerIndus
 qgisMinimumVersion=3.28
 qgisMaximumVersion=3.40
 description=CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP), détection d'industries connectées, diagnostics automatiques, génération de rapports et IA prédictive.
-version=1.2.0
+version=1.2.1
 author=Papa Demba SENE
 email=papademba.sene97@gmail.com
 category=Analysis
@@ -39,7 +39,19 @@ about=CheminerIndus est un outil métier complet permettant de :
   Le plugin est conçu pour les pratiques opérationnelles des services SIG,
   exploitation, hydraulique et gestion des pollutions industrielles.
 
-changelog=Version 1.2.0 :
+changelog=Version 1.2.1 :
+  - 🎨 Ajout de l'onglet "IA" dans l'interface principale du plugin
+  - 🖥️ Interface graphique complète pour le module IA
+  - ⚙️ Entraînement du modèle directement depuis QGIS
+  - 🎯 Prédiction de pollution via interface intuitive
+  - 🗺️ Optimisation de parcours intégrée
+  - 🌐 Visualisation 3D accessible en un clic
+  - 🔍 Détection de zones complexes depuis l'interface
+  - 📊 Affichage des résultats dans l'onglet IA
+  - 💾 Export des résultats en fichiers texte
+  - ✅ Intégration complète du module IA dans le GUI
+  
+  Version 1.2.0 :
   - 🤖 Module IA de prédiction de pollution par Machine Learning
   - 🎯 27 features analysées (topologie, géométrie, historique, temporel)
   - 🗺️ Optimiseur de parcours de visite intelligent
