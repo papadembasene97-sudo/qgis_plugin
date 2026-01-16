@@ -192,6 +192,7 @@ class PostgreSQLConnector:
                 print("⚠️  Table POINT_NOIR_EGIS non disponible ou sans géométrie")
             
             # 8. 🆕 PV Conformité (utilise lat/lon pour créer des Points)
+            # ⚠️ Schéma corrigé : osmose.PV_CONFORMITE (pas exploit)
             try:
                 # Créer une URI spéciale avec lat/lon comme géométrie
                 uri_pv = QgsDataSourceUri()
@@ -213,11 +214,12 @@ class PostgreSQLConnector:
                     )
                 
                 # Utiliser une vue SQL pour créer la géométrie depuis lat/lon
+                # ⚠️ CORRECTION : osmose.PV_CONFORMITE (pas exploit)
                 sql = f"""
                     SELECT 
                         *,
                         ST_SetSRID(ST_MakePoint(lon, lat), 4326) as geom
-                    FROM exploit."PV_CONFORMITE"
+                    FROM osmose."PV_CONFORMITE"
                     WHERE lat IS NOT NULL AND lon IS NOT NULL
                 """
                 
@@ -240,7 +242,7 @@ class PostgreSQLConnector:
                     print("⚠️  Table PV_CONFORMITE : géométrie invalide")
             
             except Exception as e:
-                print(f"⚠️  Table PV_CONFORMITE non disponible : {e}")
+                print(f"⚠️  Table osmose.PV_CONFORMITE non disponible : {e}")
             
             print(f"\n✅ {len(layers)} couches chargées avec succès !")
             

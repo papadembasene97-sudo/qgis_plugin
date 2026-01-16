@@ -88,11 +88,11 @@ SELECT
     -- ========================================================================
     -- 🆕 POINTS NOIRS MODÉLISÉS (5 features)
     -- ========================================================================
-    COUNT(CASE WHEN pnm.commune = o.commune AND pnm."Type" = 'Bouchage' THEN 1 END) AS nb_points_noirs_bouchage_modelise,
-    COUNT(CASE WHEN pnm.commune = o.commune AND pnm."Type" = 'Débordement' THEN 1 END) AS nb_points_noirs_debordement_modelise,
-    COUNT(CASE WHEN pnm.commune = o.commune AND pnm."Type" = 'Mise en charge' THEN 1 END) AS nb_points_noirs_mise_en_charge_modelise,
-    COUNT(CASE WHEN pnm.commune = o.commune AND pnm."Priorité" = '1' THEN 1 END) AS nb_points_noirs_priorite_1_modelise,
-    COUNT(CASE WHEN pnm.commune = o.commune THEN 1 END) AS nb_points_noirs_total_modelise,
+    COUNT(CASE WHEN pnm."Commune" = o.commune AND pnm."Type" = 'Bouchage' THEN 1 END) AS nb_points_noirs_bouchage_modelise,
+    COUNT(CASE WHEN pnm."Commune" = o.commune AND pnm."Type" = 'Débordement' THEN 1 END) AS nb_points_noirs_debordement_modelise,
+    COUNT(CASE WHEN pnm."Commune" = o.commune AND pnm."Type" = 'Mise en charge' THEN 1 END) AS nb_points_noirs_mise_en_charge_modelise,
+    COUNT(CASE WHEN pnm."Commune" = o.commune AND pnm."Priorité" = '1' THEN 1 END) AS nb_points_noirs_priorite_1_modelise,
+    COUNT(CASE WHEN pnm."Commune" = o.commune THEN 1 END) AS nb_points_noirs_total_modelise,
     
     -- ========================================================================
     -- 🆕 POINTS NOIRS EGIS (8 features)
@@ -218,7 +218,7 @@ SELECT
         
         -- 🆕 Points noirs modélisés prioritaires (max 20 points)
         LEAST(COUNT(CASE 
-            WHEN pnm.commune = o.commune 
+            WHEN pnm."Commune" = o.commune 
             AND pnm."Priorité" = '1'
             THEN 1 
         END) * 10, 20) +
@@ -258,7 +258,7 @@ LEFT JOIN sda."POINT_NOIR_MODELISATION" pnm
 LEFT JOIN sda."POINT_NOIR_EGIS" pne 
     ON pne.commune = o.commune
 
-LEFT JOIN exploit."PV_CONFORMITE" pv 
+LEFT JOIN osmose."PV_CONFORMITE" pv 
     ON pv.nom_com ILIKE '%' || o.commune || '%'
     -- Optionnel : ajouter une contrainte de distance si géocodage disponible
     -- AND ST_DWithin(ST_SetSRID(ST_MakePoint(pv.lon, pv.lat), 4326)::geography, o.geom::geography, 500)
