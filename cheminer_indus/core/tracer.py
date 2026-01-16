@@ -238,3 +238,70 @@ class NetworkTracer:
                     stack.append(nxt)
 
         return canal_ids, fosse_ids
+
+    def trace_from_pv(
+        self,
+        pv_geometry: QgsGeometry,
+        downstream: bool = True,
+        search_distance: float = 50.0
+    ) -> Tuple[List[int], List[int], Optional[str]]:
+        """
+        Lance un cheminement depuis un PV en trouvant la canalisation la plus proche.
+        
+        Paramètres
+        ----------
+        pv_geometry : QgsGeometry
+            Géométrie du PV (point)
+        downstream : bool
+            True = Amont→Aval, False = Aval→Amont
+        search_distance : float
+            Distance de recherche maximale en mètres (défaut: 50m)
+            
+        Retour
+        ------
+        (canal_ids, fosse_ids, start_node_id) : Tuple[List[int], List[int], Optional[str]]
+            Les FIDs sélectionnés par couche et l'ID du nœud de départ trouvé
+        """
+        # 1. Trouver la canalisation la plus proche du PV
+        closest_canal = None
+        min_distance = search_distance
+        closest_node_id = None
+        
+        # Créer une bbox autour du PV
+        pv_point = pv_geometry.asPoint()
+        bbox = pv_geometry.buffer(search_distance, 5).boundingBox()
+        
+        # Parcourir les canalisations dans la bbox
+        request = QgsFeatureRequest().setFilterRect(bbox)
+        for feat in self.canal_layer.getFeatures(request):
+            geom = feat.geometry()
+            if not geom or geom.isEmpty():
+                continue
+            
+            # Calculer la distance
+            distance = pv_geometry.distance(geom)
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest_canal = feat
+        
+        if not closest_canal:
+            # Aucune canalisation trouvée dans le rayon de recherche
+            return [], [], None
+        
+        # 2. Récupérer le nœud de départ (idnini ou idnterm selon downstream)
+        if downstream:
+            # Amont→Aval : partir du nœud amont (idnini)
+            start_node_id = _as_str(closest_canal.attribute("idnini"))
+        else:
+            # Aval→Amont : partir du nœud aval (idnterm)
+            start_node_id = _as_str(closest_canal.attribute("idnterm"))
+        
+        if not start_node_id or start_node_id == "INCONNU":
+            # Nœud invalide
+            return [], [], None
+        
+        # 3. Lancer le cheminement depuis ce nœud
+        canal_ids, fosse_ids = self.trace(start_node_id, downstream=downstream)
+        
+        return canal_ids, fosse_ids, start_node_id

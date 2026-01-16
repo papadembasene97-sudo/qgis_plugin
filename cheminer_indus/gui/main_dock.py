@@ -32,6 +32,7 @@ from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
 from ..gui.ai_tab               import AITab
+from ..gui.pv_conformite_tab    import PVConformiteTab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
 from ..gui.main_dock_optimized  import OptimizedNodeOps
@@ -245,11 +246,12 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, IA
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, PV, IA
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
         tabs.addTab(self._tab_layers(),      "COUCHES")
+        tabs.addTab(self._tab_pv(),          "🏠 PV")
         tabs.addTab(self._tab_ai(),          "🤖 IA")
 
         self.dock.setWidget(main)
@@ -551,6 +553,13 @@ class MainDock:
         btn_rst = QPushButton("Réinitialiser"); btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
         btn_rst.clicked.connect(self._confirm_reset); l.addWidget(btn_rst)
         return w
+
+    # ---------------------------------------------------------
+    # Onglet PV Conformité
+    # ---------------------------------------------------------
+    def _tab_pv(self) -> QWidget:
+        """Crée l'onglet PV Conformité pour l'analyse industrielle"""
+        return PVConformiteTab(self)
 
     # ---------------------------------------------------------
     # Onglet IA
