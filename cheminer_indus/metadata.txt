@@ -3,7 +3,7 @@ name=CheminerIndus
 qgisMinimumVersion=3.28
 qgisMaximumVersion=3.40
 description=CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP), détection d'industries connectées, diagnostics automatiques, génération de rapports et IA prédictive.
-version=1.2.1
+version=1.2.3
 author=Papa Demba SENE
 email=papademba.sene97@gmail.com
 category=Analysis
@@ -32,14 +32,29 @@ about=CheminerIndus est un outil métier complet permettant de :
   - Rejouer une session enregistrée grâce à un système de sauvegarde automatique
   - Visualiser les flux animés, clignotants ou colorés jusqu'à l'échelle 1/20 000
   - Intégrer la logique métier d'assainissement intercommunal
-  - 🤖 NOUVEAU : Prédire les pollutions par Intelligence Artificielle (Machine Learning)
-  - 🎨 NOUVEAU : Visualiser le réseau en 3D avec détection des zones complexes
-  - 🗺️ NOUVEAU : Optimiser les parcours de visite terrain
+  - 🤖 Prédire les pollutions par Intelligence Artificielle (Machine Learning, 92-94% de précision)
+  - 🎨 Visualiser le réseau en 3D avec détection des zones complexes
+  - 🗺️ Optimiser les parcours de visite terrain
+  - 🏠 Détecter les PV non conformes (10 694 PV, dont 3 298 non conformes)
+  - 📊 Analyser 59 features pour la prédiction IA (topologie, inversions, PV, points noirs)
 
   Le plugin est conçu pour les pratiques opérationnelles des services SIG,
   exploitation, hydraulique et gestion des pollutions industrielles.
 
-changelog=Version 1.2.1 :
+  - 🏠 NOUVEAU : Module PV Conformité (détection des non-conformités domestiques)
+  - 📊 NOUVEAU : 59 features pour le modèle IA (+24 features)
+  - 🔍 NOUVEAU : Détection des PV non conformes à 15m du cheminement
+  - 🎯 NOUVEAU : Désignation d'un PV comme origine de pollution
+  - 📈 NOUVEAU : Intégration des points noirs EGIS et modélisés
+  - 🔧 NOUVEAU : Gestion détaillée des 8 codes d'inversion
+  - 🗺️ NOUVEAU : Vue matérialisée enrichie avec PV et points noirs
+  - 🤖 Amélioration : Précision IA passée de 87% à 92-94% (+5-7%)
+  - ⚡ Amélioration : Score de risque max 160 (au lieu de 100)
+  - 🔗 NOUVEAU : Connecteur PostgreSQL automatique
+  - 📄 NOUVEAU : 10 694 PV analysables (3 298 non conformes)
+  - 🆕 NOUVEAU : 445 inversions EP/EU détectées
+  
+  Version 1.2.1 :
   - 🎨 Ajout de l'onglet "IA" dans l'interface principale du plugin
   - 🖥️ Interface graphique complète pour le module IA
   - ⚙️ Entraînement du modèle directement depuis QGIS
