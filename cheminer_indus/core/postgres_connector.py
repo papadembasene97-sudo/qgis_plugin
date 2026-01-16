@@ -191,17 +191,56 @@ class PostgreSQLConnector:
             except:
                 print("⚠️  Table POINT_NOIR_EGIS non disponible ou sans géométrie")
             
-            # 8. 🆕 PV Conformité
+            # 8. 🆕 PV Conformité (utilise lat/lon pour créer des Points)
             try:
-                layers['pv_conformite'] = self.load_layer(
-                    schema='exploit',
-                    table='PV_CONFORMITE',
-                    layer_name='PV Conformité',
-                    geom_column=None,  # Utilise lat/lon si besoin
-                    key_column='id'
-                )
-            except:
-                print("⚠️  Table PV_CONFORMITE non disponible ou sans géométrie")
+                # Créer une URI spéciale avec lat/lon comme géométrie
+                uri_pv = QgsDataSourceUri()
+                
+                if self.db_params.get('service'):
+                    uri_pv.setConnection(
+                        self.db_params['service'],
+                        self.db_params['database'],
+                        self.db_params['username'],
+                        self.db_params['password']
+                    )
+                else:
+                    uri_pv.setConnection(
+                        self.db_params['host'],
+                        self.db_params['port'],
+                        self.db_params['database'],
+                        self.db_params['username'],
+                        self.db_params['password']
+                    )
+                
+                # Utiliser une vue SQL pour créer la géométrie depuis lat/lon
+                sql = f"""
+                    SELECT 
+                        *,
+                        ST_SetSRID(ST_MakePoint(lon, lat), 4326) as geom
+                    FROM exploit."PV_CONFORMITE"
+                    WHERE lat IS NOT NULL AND lon IS NOT NULL
+                """
+                
+                uri_pv.setDataSource("", f"({sql})", "geom", "", "id")
+                
+                # Charger la couche
+                layer_pv = QgsVectorLayer(uri_pv.uri(), 'PV Conformité', 'postgres')
+                
+                if layer_pv.isValid():
+                    # Vérifier si la couche n'existe pas déjà
+                    existing = self.project.mapLayersByName('PV Conformité')
+                    if not existing:
+                        self.project.addMapLayer(layer_pv)
+                        print(f"✓ Couche 'PV Conformité' chargée : {layer_pv.featureCount()} entités")
+                        layers['pv_conformite'] = layer_pv
+                    else:
+                        print(f"✓ Couche 'PV Conformité' déjà chargée")
+                        layers['pv_conformite'] = existing[0]
+                else:
+                    print("⚠️  Table PV_CONFORMITE : géométrie invalide")
+            
+            except Exception as e:
+                print(f"⚠️  Table PV_CONFORMITE non disponible : {e}")
             
             print(f"\n✅ {len(layers)} couches chargées avec succès !")
             
