@@ -56,9 +56,24 @@ SELECT
     COUNT(CASE WHEN c.typreseau = '01' THEN 1 END) AS nb_ep,
     COUNT(CASE WHEN c.typreseau = '02' THEN 1 END) AS nb_eu,
     COUNT(CASE WHEN c.typreseau = '03' THEN 1 END) AS nb_unitaire,
-    COUNT(CASE WHEN c.inversion = '1' THEN 1 END) AS nb_inversions_ep_dans_eu,
-    COUNT(CASE WHEN c.inversion = '2' THEN 1 END) AS nb_inversions_eu_dans_ep,
-    COUNT(CASE WHEN c.inversion IS NOT NULL AND c.inversion != '' THEN 1 END) AS nb_inversions_total,
+    
+    -- Inversions EP → EU (avérées + trop-pleins actifs)
+    COUNT(CASE WHEN c.inversion IN ('1', '3') THEN 1 END) AS nb_inversions_ep_dans_eu,
+    
+    -- Inversions EU → EP (avérées + trop-pleins actifs)
+    COUNT(CASE WHEN c.inversion IN ('2', '4') THEN 1 END) AS nb_inversions_eu_dans_ep,
+    
+    -- Inversions supprimées (travaux réalisés)
+    COUNT(CASE WHEN c.inversion IN ('5', '6') THEN 1 END) AS nb_inversions_supprimees,
+    
+    -- Trop-pleins condamnés
+    COUNT(CASE WHEN c.inversion IN ('7', '8') THEN 1 END) AS nb_trop_pleins_condamnes,
+    
+    -- Total inversions/trop-pleins actifs uniquement (1-4)
+    COUNT(CASE WHEN c.inversion IN ('1', '2', '3', '4') THEN 1 END) AS nb_inversions_actives,
+    
+    -- Total TOUTES inversions (y compris historiques)
+    COUNT(CASE WHEN c.inversion IN ('1', '2', '3', '4', '5', '6', '7', '8') THEN 1 END) AS nb_inversions_total,
     
     -- ========================================================================
     -- INDUSTRIELS (7 features)
@@ -176,8 +191,9 @@ SELECT
     -- 🆕 SCORE DE RISQUE AMÉLIORÉ (intégrant tous les facteurs)
     -- ========================================================================
     (
-        -- Inversions réseau (max 30 points)
-        LEAST(COUNT(CASE WHEN c.inversion IS NOT NULL THEN 1 END) * 10, 30) +
+        -- Inversions ACTIVES uniquement (max 30 points)
+        -- Ne compte que les inversions non résolues (codes 1-4)
+        LEAST(COUNT(CASE WHEN c.inversion IN ('1', '2', '3', '4') THEN 1 END) * 10, 30) +
         
         -- Industriels à risque (max 40 points)
         LEAST(COUNT(CASE 
