@@ -413,8 +413,21 @@ class MainDock:
 
         # trouver/assurer LABEL_CI si présent
         self.label_layer = None
+        
+        # DEBUG: Logger les couches disponibles
+        print("=== DEBUG _populate_layers ===")
+        print(f"pv_combo existe: {self.pv_combo is not None}")
+        print(f"Couches dans QGIS: {len(QgsProject.instance().mapLayers())}")
+        
         for lyr in QgsProject.instance().mapLayers().values():
             name = lyr.name().lower()
+            
+            # DEBUG pour PV
+            if "pv" in name:
+                print(f"Couche avec 'pv': {lyr.name()} (name.lower()={name})")
+                print(f"  - Contient 'conform': {'conform' in name}")
+                print(f"  - Contient 'confomit': {'confomit' in name}")
+            
             if "canal" in name:
                 self.canal_combo.addItem(lyr.name(), lyr)
             if "ouvr" in name or "ouvrage" in name:
@@ -427,12 +440,22 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
-            # Ajout détection PV_CONFORMITE (flexible: accepte confomite, conformite, conform, etc.)
+            
+            # Détection PV_CONFORMITE (très flexible maintenant)
             if "pv" in name and ("conform" in name or "confomit" in name):
+                print(f"  → PV DÉTECTÉE: {lyr.name()}")
                 if self.pv_combo:
                     self.pv_combo.addItem(lyr.name(), lyr)
+                    print(f"  → Ajoutée au combo (items: {self.pv_combo.count()})")
+                else:
+                    print(f"  → ERREUR: pv_combo est None!")
+            
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                 self.label_layer = lyr
+        
+        print(f"pv_combo final count: {self.pv_combo.count() if self.pv_combo else 'None'}")
+        print("=== FIN DEBUG ===")
+        print("")
 
         # Si LABEL_CI introuvable : créer une mémoire (sécurité)
         if not self.label_layer:
