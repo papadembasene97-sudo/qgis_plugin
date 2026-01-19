@@ -966,18 +966,82 @@ class MainDock:
             if nodes_removed:
                 removed_indus_down.update(self._node_ops.deselect_liaisons_and_indus_from_nodes_optimized(nodes_removed))
 
-        # 6) Exclure dans le tableau des indus
+        # 6) Exclure dans le tableau des indus + PV
         removed_indus_all = set()
         removed_indus_all.update(removed_indus_up or set())
         removed_indus_all.update(removed_indus_down or set())
-        if self.industrial_dock and removed_indus_all:
+        
+        # ✅ NOUVEAU v1.2.3 : Calculer les PV à exclure
+        removed_pv_all = set()
+        if nodes_removed:  # Nœuds des branches désélectionnées
+            removed_pv_all.update(self._get_pv_from_nodes(nodes_removed))
+        # Ajouter aussi les PV en aval si pollution = OUI
+        if polluted and 'nodes_ds' in locals() and nodes_ds:
+            removed_pv_all.update(self._get_pv_from_nodes(nodes_ds))
+        
+        if self.industrial_dock:
             try:
-                self.industrial_dock.exclude_ids(sorted(removed_indus_all))
-            except Exception:
-                pass
+                # Exclure industriels (existant)
+                if removed_indus_all:
+                    self.industrial_dock.exclude_ids(sorted(removed_indus_all))
+                
+                # ✅ NOUVEAU v1.2.3 : Exclure PV
+                if removed_pv_all:
+                    self.industrial_dock.exclude_pv_ids(sorted(removed_pv_all))
+            except Exception as e:
+                print(f"Erreur lors de l'exclusion indus/PV : {e}")
 
         self.canvas.refresh()
         self._autosave()
+
+    # ---------------------------------------------------------
+    # Récupération des PV connectés à des nœuds (NOUVEAU v1.2.3)
+    # ---------------------------------------------------------
+    def _get_pv_from_nodes(self, nodes: Set[str]) -> Set[str]:
+        """
+        Retourne les IDs des PV connectés aux nœuds donnés.
+        Utilisé pour exclure les PV lors de la désélection de branches.
+        
+        Args:
+            nodes: Set de nœuds (ex: {"N_12345", "N_67890"})
+        
+        Returns:
+            Set[str]: IDs des PV connectés à ces nœuds
+        """
+        pv_ids = set()
+        
+        # Vérifier si le PVAnalyzer est disponible
+        if not hasattr(self, 'pv_analyzer') or not self.pv_analyzer:
+            return pv_ids
+        
+        # Récupérer les canalisations de ces nœuds
+        canal_ids = set()
+        if self.canal_layer and self.canal_layer.isValid():
+            for node in nodes:
+                node_esc = str(node).replace("'", "''")
+                expr = QgsExpression(
+                    "trim(\"idnini\") = '{}' OR trim(\"idnterm\") = '{}'".format(
+                        node_esc, node_esc
+                    )
+                )
+                req = QgsFeatureRequest(expr)
+                for feat in self.canal_layer.getFeatures(req):
+                    canal_ids.add(feat.id())
+        
+        # Trouver les PV proches de ces canalisations
+        if canal_ids:
+            try:
+                pv_list = self.pv_analyzer.find_pv_in_path(list(canal_ids), distance=15.0)
+                # Extraire les IDs des PV (gérer différents formats)
+                for pv in pv_list:
+                    if pv:
+                        pv_id = str(pv.get('id', pv.get('num_pv', '')))
+                        if pv_id:
+                            pv_ids.add(pv_id)
+            except Exception as e:
+                print(f"Erreur lors de la récupération des PV : {e}")
+        
+        return pv_ids
 
     # --- Parcours amont existant ---
     def _iter_incoming_edges_mixed(self, node: str):
@@ -1382,7 +1446,7 @@ class MainDock:
         if self.industrial_dock:
             self.industrial_dock.set_data(details)
 
-    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None):
+    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None, pv_data: Optional[List[Dict]] = None):
         if not self.indus_svc:
             self.indus_layer   = self.indus_combo.currentData()
             self.liaison_layer = self.liaison_combo.currentData()
@@ -1404,6 +1468,13 @@ class MainDock:
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
 
         self.industrial_dock.set_data(data)
+        
+        # Définir les données PV si disponibles
+        if pv_data is not None:
+            self._last_pv_data = pv_data
+            if hasattr(self.industrial_dock, 'set_pv_data'):
+                self.industrial_dock.set_pv_data(pv_data)
+        
         self.industrial_dock.show()
         self.industrial_dock.raise_()
 
@@ -2196,6 +2267,7 @@ class MainDock:
         self._last_trace_nodes.clear()
         self._mask_on = False
         self._last_indus_data = {}
+        self._last_pv_data = []
 
         if self.industrial_dock:
             self.iface.removeDockWidget(self.industrial_dock); self.industrial_dock = None

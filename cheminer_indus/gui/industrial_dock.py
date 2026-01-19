@@ -550,6 +550,77 @@ class IndustrialDock(QDockWidget):
         self._refresh_table()
 
     # ----------------------------------------------------------------------
+    # Gestion des PV Conformité (NOUVEAU v1.2.3)
+    # ----------------------------------------------------------------------
+    def set_pv_data(self, pv_data: List[Dict]):
+        """
+        Définit les données PV à afficher.
+        pv_data : Liste de dictionnaires [{id, num_pv, adresse, conforme, ...}, ...]
+        """
+        self._raw_pv_data = {}
+        self._visible_pv_data = {}
+        
+        if not pv_data:
+            return
+        
+        # Convertir la liste en dictionnaire {id: {champs}}
+        for pv in pv_data:
+            pv_id = str(pv.get('id', pv.get('num_pv', '')))
+            if pv_id:
+                self._raw_pv_data[pv_id] = pv
+        
+        self._visible_pv_data = dict(self._raw_pv_data)
+        
+        # Mettre à jour le titre du dock
+        self._update_dock_title()
+    
+    def exclude_pv_ids(self, pv_ids: List[str]):
+        """
+        Exclut du tableau PV les PV dont l'ID figure dans pv_ids.
+        Identique à exclude_ids() mais pour les PV.
+        
+        Args:
+            pv_ids: Liste de chaînes (id PV ou num_pv)
+        """
+        if not pv_ids:
+            return
+        
+        # Vérifier que les données PV existent
+        if not hasattr(self, '_raw_pv_data') or not hasattr(self, '_visible_pv_data'):
+            self._raw_pv_data = {}
+            self._visible_pv_data = {}
+            return
+        
+        spv = set(str(i) for i in pv_ids)
+        
+        # Retirer des données brutes
+        self._raw_pv_data = {
+            k: v for k, v in self._raw_pv_data.items()
+            if str(k) not in spv
+        }
+        
+        # Retirer des données visibles
+        self._visible_pv_data = {
+            k: v for k, v in self._visible_pv_data.items()
+            if str(k) not in spv
+        }
+        
+        # Mettre à jour le titre
+        self._update_dock_title()
+    
+    def _update_dock_title(self):
+        """Met à jour le titre du dock avec les compteurs Industriels et PV"""
+        nb_indus = len(self._visible_data) if hasattr(self, '_visible_data') else 0
+        nb_pv = len(self._visible_pv_data) if hasattr(self, '_visible_pv_data') else 0
+        
+        if nb_pv > 0:
+            self.setWindowTitle(
+                "Industriels connectés ({}) | PV non conformes ({})".format(nb_indus, nb_pv)
+            )
+        else:
+            self.setWindowTitle("Industriels connectés ({})".format(nb_indus))
+
+    # ----------------------------------------------------------------------
     # Export CSV de la vue filtrée
     # ----------------------------------------------------------------------
     def _export_csv(self):
