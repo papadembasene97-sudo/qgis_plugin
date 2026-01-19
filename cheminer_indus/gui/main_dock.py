@@ -694,7 +694,8 @@ class MainDock:
         - trace en aval→amont,
         - sélectionne les liaisons,
         - sélectionne les industriels dans la couche INDUITS,
-        - remplit le dock industriels.
+        - détecte les PV non conformes,
+        - remplit le dock industriels + PV.
         """
         self.tracer = NetworkTracer(
             canal_layer=self.canal_layer,
@@ -739,7 +740,31 @@ class MainDock:
 
         details = self.indus_svc.fetch_many(ind_ids)
         self._last_indus_data = details
-        self._open_or_update_industrial_dock(data=details)
+        
+        # NOUVEAU : Détection des PV non conformes
+        pv_list = []
+        try:
+            from ..core.pv_analyzer import PVAnalyzer
+            
+            # Chercher la couche PV
+            pv_layer = None
+            for layer in QgsProject.instance().mapLayers().values():
+                if 'PV_CONFORMITE' in layer.name() or 'pv_conformite' in layer.name().lower():
+                    pv_layer = layer
+                    break
+            
+            if pv_layer and canal_ids:
+                # Créer l'analyseur PV
+                pv_analyzer = PVAnalyzer(pv_layer, self.canal_layer, search_distance=15.0)
+                
+                # Trouver les PV non conformes sur le cheminement
+                pv_list = pv_analyzer.find_pv_in_path(canal_ids)
+                
+        except Exception as e:
+            print(f"Erreur lors de la détection des PV : {e}")
+        
+        # Ouvrir le dock avec industriels + PV
+        self._open_or_update_industrial_dock(data=details, pv_data=pv_list)
 
         # résumé
         dist = round(self.tracer.total_length, 2)
@@ -747,8 +772,10 @@ class MainDock:
         labels = sorted({ self._flux_labels.get(c, c) for c in codes }) or ["Aucun"]
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Cheminement (Industriels)",
-            "Industriels : {}\nLongueur : {} m\nFlux : {}".format(len(ind_ids), dist, " / ".join(labels))
+            "Cheminement (Industriels + PV)",
+            "Industriels : {}\nPV non conformes : {}\nLongueur : {} m\nFlux : {}".format(
+                len(ind_ids), len(pv_list), dist, " / ".join(labels)
+            )
         )
 
     # ---------------------------------------------------------
