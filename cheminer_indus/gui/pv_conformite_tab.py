@@ -321,8 +321,11 @@ class PVConformiteTab(QWidget):
             if not canal_layer or not canal_layer.isValid():
                 raise Exception("Couche de canalisations non chargée. Veuillez sélectionner une couche dans l'onglet COUCHES.")
             
-            # Créer l'analyseur
-            self.pv_analyzer = PVAnalyzer(pv_layer, canal_layer)
+            # Créer l'analyseur avec seulement la couche PV
+            self.pv_analyzer = PVAnalyzer(pv_layer)
+            
+            # La couche de canalisations n'est pas nécessaire dans le constructeur
+            # Elle sera utilisée lors de l'appel à find_pv_in_path()
             
             # Configurer la distance de recherche
             distance = self.distance_spin.value()

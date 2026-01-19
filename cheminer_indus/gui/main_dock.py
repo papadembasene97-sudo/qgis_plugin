@@ -260,11 +260,10 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, PV, IA, PARAMÈTRES
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, IA, PARAMÈTRES
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
-        tabs.addTab(self._tab_layers(),      "COUCHES")
         tabs.addTab(self._tab_pv(),          "🏠 PV")
         tabs.addTab(self._tab_ai(),          "🤖 IA")
         tabs.addTab(self._tab_settings(),    "⚙️ PARAMÈTRES")
@@ -584,9 +583,48 @@ class MainDock:
         return AITab(self)
 
     def _tab_settings(self) -> QWidget:
-        """Crée l'onglet PARAMÈTRES pour personnaliser logo et icône"""
+        """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""
         w = QWidget()
         lay = QVBoxLayout(w)
+        
+        # === SECTION COUCHES SIG ===
+        grp_layers = QGroupBox("🗺️ Sélection des couches SIG")
+        grp_layers_lay = QGridLayout(grp_layers)
+        
+        # Créer les combos (réutilisation du code de _tab_layers)
+        self.canal_combo    = QComboBox()
+        self.ouvr_combo     = QComboBox()
+        self.fosse_combo    = QComboBox()
+        self.indus_combo    = QComboBox()
+        self.liaison_combo  = QComboBox()
+        self.astreint_combo = QComboBox()
+        
+        # Ajouter dans une grille compacte
+        grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
+        grp_layers_lay.addWidget(self.canal_combo, 0, 1)
+        
+        grp_layers_lay.addWidget(QLabel("🔴 Ouvrages :"), 1, 0)
+        grp_layers_lay.addWidget(self.ouvr_combo, 1, 1)
+        
+        grp_layers_lay.addWidget(QLabel("🌊 Cours d'eau / fossés :"), 2, 0)
+        grp_layers_lay.addWidget(self.fosse_combo, 2, 1)
+        
+        grp_layers_lay.addWidget(QLabel("🏭 Industriels :"), 3, 0)
+        grp_layers_lay.addWidget(self.indus_combo, 3, 1)
+        
+        grp_layers_lay.addWidget(QLabel("🔗 Liaisons Indus :"), 4, 0)
+        grp_layers_lay.addWidget(self.liaison_combo, 4, 1)
+        
+        grp_layers_lay.addWidget(QLabel("⚠️ Astreinte-Exploit :"), 5, 0)
+        grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
+        
+        # Info couches
+        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels.")
+        info_layers.setWordWrap(True)
+        info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
+        grp_layers_lay.addWidget(info_layers, 6, 0, 1, 2)
+        
+        lay.addWidget(grp_layers)
         
         # === SECTION LOGO ===
         grp_logo = QGroupBox("🖼️ Logo du plugin")
@@ -892,11 +930,11 @@ class MainDock:
                     break
             
             if pv_layer and canal_ids:
-                # Créer l'analyseur PV
-                pv_analyzer = PVAnalyzer(pv_layer, self.canal_layer, search_distance=15.0)
+                # Créer l'analyseur PV (seule la couche PV est nécessaire)
+                pv_analyzer = PVAnalyzer(pv_layer)
                 
                 # Trouver les PV non conformes sur le cheminement
-                pv_list = pv_analyzer.find_pv_in_path(canal_ids)
+                pv_list = pv_analyzer.find_pv_in_path(canal_ids, distance=15.0)
                 
         except Exception as e:
             print(f"Erreur lors de la détection des PV : {e}")
