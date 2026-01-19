@@ -901,8 +901,11 @@ class PVConformiteTab(QWidget):
             # Importer le générateur de rapport
             from ..report.pv_report_generator import PVReportGenerator
             
-            # Créer le générateur
-            generator = PVReportGenerator()
+            # Obtenir le logo personnalisé depuis main_dock
+            logo_path = self.main_dock.get_logo_path() if hasattr(self.main_dock, 'get_logo_path') else ""
+            
+            # Créer le générateur avec logo personnalisé
+            generator = PVReportGenerator(logo_path=logo_path)
             
             # Préparer les données pour le rapport
             # Si un PV ou industriel est sélectionné, créer un rapport détaillé

@@ -138,12 +138,21 @@ class MainDock:
         }
 
         self._last_trace_nodes: Set[str] = set()
+        
+        # Chemins personnalisés pour logo et icône
+        self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
+        self.custom_icon_path: str = ""  # Chemin vers l'icône personnalisée
 
     # ---------------------------------------------------------
     # Integration QGIS
     # ---------------------------------------------------------
     def init_gui(self):
-        icon = QIcon(os.path.join(ICONS_DIR, 'icon.png'))
+        # Charger les paramètres pour obtenir l'icône personnalisée
+        self._load_settings_on_startup()
+        
+        # Utiliser l'icône personnalisée s'il existe
+        icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
+        icon = QIcon(icon_path)
         act = QAction(icon, "CheminerIndus", self.iface.mainWindow())
         act.triggered.connect(self._show_with_splash)
         self.iface.addToolBarIcon(act)
@@ -214,6 +223,9 @@ class MainDock:
 
         self.dock = QDockWidget("CHEMINEMENT RESEAUX", self.iface.mainWindow())
         self.dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        
+        # Charger les paramètres personnalisés au démarrage
+        self._load_settings_on_startup()
 
         main = QWidget()
         lay  = QVBoxLayout(main)
@@ -229,7 +241,9 @@ class MainDock:
         logo_layout.setContentsMargins(0, 0, 0, 0)
 
         logo = QLabel()
-        pix = QPixmap(os.path.join(ICONS_DIR, 'icon.png'))
+        # Utiliser le logo personnalisé s'il existe
+        logo_path = self.get_logo_path() if hasattr(self, 'get_logo_path') else os.path.join(ICONS_DIR, 'logo.png')
+        pix = QPixmap(logo_path)
         scaled = pix.scaledToHeight(70, Qt.SmoothTransformation)
         logo.setPixmap(scaled)
         logo.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -246,13 +260,14 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, PV, IA
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES, PV, IA, PARAMÈTRES
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
         tabs.addTab(self._tab_layers(),      "COUCHES")
         tabs.addTab(self._tab_pv(),          "🏠 PV")
         tabs.addTab(self._tab_ai(),          "🤖 IA")
+        tabs.addTab(self._tab_settings(),    "⚙️ PARAMÈTRES")
 
         self.dock.setWidget(main)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
@@ -567,6 +582,129 @@ class MainDock:
     def _tab_ai(self) -> QWidget:
         """Crée l'onglet IA pour prédiction et visualisation 3D"""
         return AITab(self)
+
+    def _tab_settings(self) -> QWidget:
+        """Crée l'onglet PARAMÈTRES pour personnaliser logo et icône"""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        
+        # === SECTION LOGO ===
+        grp_logo = QGroupBox("🖼️ Logo du plugin")
+        grp_logo_lay = QVBoxLayout(grp_logo)
+        
+        # Aperçu du logo actuel
+        self.logo_preview_label = QLabel()
+        self.logo_preview_label.setFixedSize(200, 80)
+        self.logo_preview_label.setScaledContents(True)
+        self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
+        self._update_logo_preview()
+        grp_logo_lay.addWidget(self.logo_preview_label, alignment=Qt.AlignCenter)
+        
+        # Chemin du logo
+        logo_path_lay = QHBoxLayout()
+        logo_path_lay.addWidget(QLabel("Chemin du logo :"))
+        self.logo_path_input = QLineEdit()
+        self.logo_path_input.setPlaceholderText("Chemin vers le fichier logo (PNG, JPG)")
+        self.logo_path_input.setText(self.custom_logo_path)
+        self.logo_path_input.setReadOnly(True)
+        logo_path_lay.addWidget(self.logo_path_input, stretch=1)
+        
+        btn_browse_logo = QPushButton("📁 Parcourir")
+        btn_browse_logo.clicked.connect(self._on_browse_logo)
+        logo_path_lay.addWidget(btn_browse_logo)
+        
+        btn_reset_logo = QPushButton("🔄 Réinitialiser")
+        btn_reset_logo.clicked.connect(self._on_reset_logo)
+        logo_path_lay.addWidget(btn_reset_logo)
+        
+        grp_logo_lay.addLayout(logo_path_lay)
+        
+        # Info logo
+        info_logo = QLabel("💡 Le logo apparaît dans les rapports PDF et en haut du plugin.")
+        info_logo.setWordWrap(True)
+        info_logo.setStyleSheet("color: #666; font-size: 10px;")
+        grp_logo_lay.addWidget(info_logo)
+        
+        lay.addWidget(grp_logo)
+        
+        # === SECTION ICÔNE ===
+        grp_icon = QGroupBox("⭐ Icône du plugin")
+        grp_icon_lay = QVBoxLayout(grp_icon)
+        
+        # Aperçu de l'icône actuelle
+        self.icon_preview_label = QLabel()
+        self.icon_preview_label.setFixedSize(64, 64)
+        self.icon_preview_label.setScaledContents(True)
+        self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
+        self._update_icon_preview()
+        grp_icon_lay.addWidget(self.icon_preview_label, alignment=Qt.AlignCenter)
+        
+        # Chemin de l'icône
+        icon_path_lay = QHBoxLayout()
+        icon_path_lay.addWidget(QLabel("Chemin de l'icône :"))
+        self.icon_path_input = QLineEdit()
+        self.icon_path_input.setPlaceholderText("Chemin vers le fichier icône (PNG, 64x64 recommandé)")
+        self.icon_path_input.setText(self.custom_icon_path)
+        self.icon_path_input.setReadOnly(True)
+        icon_path_lay.addWidget(self.icon_path_input, stretch=1)
+        
+        btn_browse_icon = QPushButton("📁 Parcourir")
+        btn_browse_icon.clicked.connect(self._on_browse_icon)
+        icon_path_lay.addWidget(btn_browse_icon)
+        
+        btn_reset_icon = QPushButton("🔄 Réinitialiser")
+        btn_reset_icon.clicked.connect(self._on_reset_icon)
+        icon_path_lay.addWidget(btn_reset_icon)
+        
+        grp_icon_lay.addLayout(icon_path_lay)
+        
+        # Info icône
+        info_icon = QLabel("💡 L'icône apparaît dans la barre d'outils QGIS et dans l'interface du plugin.\n⚠️ Nécessite un redémarrage de QGIS pour prendre effet.")
+        info_icon.setWordWrap(True)
+        info_icon.setStyleSheet("color: #666; font-size: 10px;")
+        grp_icon_lay.addWidget(info_icon)
+        
+        lay.addWidget(grp_icon)
+        
+        # === BOUTONS D'ACTION ===
+        btn_lay = QHBoxLayout()
+        btn_lay.addStretch()
+        
+        btn_save = QPushButton("💾 Sauvegarder les paramètres")
+        btn_save.clicked.connect(self._on_save_settings)
+        btn_save.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; }")
+        btn_lay.addWidget(btn_save)
+        
+        btn_export = QPushButton("📤 Exporter les paramètres")
+        btn_export.clicked.connect(self._on_export_settings)
+        btn_lay.addWidget(btn_export)
+        
+        btn_import = QPushButton("📥 Importer les paramètres")
+        btn_import.clicked.connect(self._on_import_settings)
+        btn_lay.addWidget(btn_import)
+        
+        lay.addLayout(btn_lay)
+        
+        # Spacer
+        lay.addStretch()
+        
+        # === INFORMATIONS ===
+        info_final = QLabel(
+            "<b>ℹ️ Informations :</b><br>"
+            "• Les paramètres sont sauvegardés automatiquement<br>"
+            "• Le logo est utilisé dans les rapports PDF<br>"
+            "• L'icône nécessite un redémarrage de QGIS<br>"
+            "• Formats supportés : PNG, JPG, JPEG<br>"
+            "• Taille recommandée icône : 64x64 pixels"
+        )
+        info_final.setWordWrap(True)
+        info_final.setStyleSheet(
+            "background-color: #e3f2fd; padding: 10px; "
+            "border-left: 4px solid #2196F3; margin-top: 10px;"
+        )
+        lay.addWidget(info_final)
+        
+        return w
 
     # ---------------------------------------------------------
     # Sélection / Recherche
@@ -1926,9 +2064,9 @@ class MainDock:
             screenshot = os.path.join(tmp_dir, "cheminer_carte.png")
             self.canvas.grab().save(screenshot)
 
-            # Construire le PDF
+            # Construire le PDF avec logo personnalisé
             pdf = PDFGenerator(
-                logo_path=os.path.join(ICONS_DIR,'logo.png'),
+                logo_path=self.get_logo_path(),
                 legend_path=os.path.join(ICONS_DIR,'legende.png')
             )
             pdf.alias_nb_pages()
@@ -2352,3 +2490,247 @@ class MainDock:
         self.canvas.refresh()
         QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Plugin réinitialisé.")
         self._autosave()
+
+    # ---------------------------------------------------------
+    # Gestion des paramètres (Logo et Icône)
+    # ---------------------------------------------------------
+    def _update_logo_preview(self):
+        """Met à jour l'aperçu du logo"""
+        logo_path = self.custom_logo_path or os.path.join(ICONS_DIR, 'logo.png')
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            self.logo_preview_label.setPixmap(pixmap)
+        else:
+            self.logo_preview_label.setText("❌ Logo non trouvé")
+            self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: #f5f5f5; color: red;")
+
+    def _update_icon_preview(self):
+        """Met à jour l'aperçu de l'icône"""
+        icon_path = self.custom_icon_path or os.path.join(ICONS_DIR, 'icon.png')
+        if os.path.exists(icon_path):
+            pixmap = QPixmap(icon_path)
+            self.icon_preview_label.setPixmap(pixmap)
+        else:
+            self.icon_preview_label.setText("❌ Icône\nnon trouvée")
+            self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: #f5f5f5; color: red;")
+
+    def _on_browse_logo(self):
+        """Ouvre un dialogue pour sélectionner un fichier logo"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.iface.mainWindow(),
+            "Sélectionner un logo",
+            os.path.expanduser("~"),
+            "Images (*.png *.jpg *.jpeg);;Tous les fichiers (*.*)"
+        )
+        
+        if file_path:
+            self.custom_logo_path = file_path
+            self.logo_path_input.setText(file_path)
+            self._update_logo_preview()
+            
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                "Logo modifié",
+                f"Le nouveau logo sera utilisé dans les rapports PDF.\n\n"
+                f"Chemin : {file_path}\n\n"
+                f"💾 N'oubliez pas de sauvegarder les paramètres !"
+            )
+
+    def _on_browse_icon(self):
+        """Ouvre un dialogue pour sélectionner un fichier icône"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.iface.mainWindow(),
+            "Sélectionner une icône",
+            os.path.expanduser("~"),
+            "Images (*.png *.jpg *.jpeg);;Tous les fichiers (*.*)"
+        )
+        
+        if file_path:
+            self.custom_icon_path = file_path
+            self.icon_path_input.setText(file_path)
+            self._update_icon_preview()
+            
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                "Icône modifiée",
+                f"La nouvelle icône sera visible après le redémarrage de QGIS.\n\n"
+                f"Chemin : {file_path}\n\n"
+                f"💾 N'oubliez pas de sauvegarder les paramètres !"
+            )
+
+    def _on_reset_logo(self):
+        """Réinitialise le logo au logo par défaut"""
+        reply = QMessageBox.question(
+            self.iface.mainWindow(),
+            "Réinitialiser le logo",
+            "Voulez-vous réinitialiser le logo au logo par défaut ?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.custom_logo_path = ""
+            self.logo_path_input.setText("")
+            self._update_logo_preview()
+            
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                "Logo réinitialisé",
+                "Le logo par défaut sera utilisé.\n\n"
+                "💾 N'oubliez pas de sauvegarder les paramètres !"
+            )
+
+    def _on_reset_icon(self):
+        """Réinitialise l'icône à l'icône par défaut"""
+        reply = QMessageBox.question(
+            self.iface.mainWindow(),
+            "Réinitialiser l'icône",
+            "Voulez-vous réinitialiser l'icône à l'icône par défaut ?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.custom_icon_path = ""
+            self.icon_path_input.setText("")
+            self._update_icon_preview()
+            
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                "Icône réinitialisée",
+                "L'icône par défaut sera utilisée après le redémarrage de QGIS.\n\n"
+                "💾 N'oubliez pas de sauvegarder les paramètres !"
+            )
+
+    def _on_save_settings(self):
+        """Sauvegarde les paramètres dans un fichier de configuration"""
+        try:
+            import json
+            
+            settings = {
+                'custom_logo_path': self.custom_logo_path,
+                'custom_icon_path': self.custom_icon_path
+            }
+            
+            # Chemin du fichier de configuration
+            config_dir = os.path.join(os.path.dirname(__file__), '..')
+            config_file = os.path.join(config_dir, 'settings.json')
+            
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+            
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                "Paramètres sauvegardés",
+                f"✅ Les paramètres ont été sauvegardés avec succès !\n\n"
+                f"Fichier : {config_file}\n\n"
+                f"Les modifications du logo seront visibles dans les prochains rapports PDF.\n"
+                f"Les modifications de l'icône nécessitent un redémarrage de QGIS."
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self.iface.mainWindow(),
+                "Erreur",
+                f"Impossible de sauvegarder les paramètres :\n{str(e)}"
+            )
+
+    def _on_export_settings(self):
+        """Exporte les paramètres dans un fichier JSON"""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.iface.mainWindow(),
+            "Exporter les paramètres",
+            os.path.join(os.path.expanduser("~"), "cheminer_indus_settings.json"),
+            "Fichiers JSON (*.json)"
+        )
+        
+        if file_path:
+            try:
+                import json
+                
+                settings = {
+                    'custom_logo_path': self.custom_logo_path,
+                    'custom_icon_path': self.custom_icon_path,
+                    'exported_date': str(datetime.now())
+                }
+                
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(settings, f, indent=2, ensure_ascii=False)
+                
+                QMessageBox.information(
+                    self.iface.mainWindow(),
+                    "Export réussi",
+                    f"✅ Paramètres exportés vers :\n{file_path}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self.iface.mainWindow(),
+                    "Erreur d'export",
+                    f"Impossible d'exporter les paramètres :\n{str(e)}"
+                )
+
+    def _on_import_settings(self):
+        """Importe les paramètres depuis un fichier JSON"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.iface.mainWindow(),
+            "Importer les paramètres",
+            os.path.expanduser("~"),
+            "Fichiers JSON (*.json)"
+        )
+        
+        if file_path:
+            try:
+                import json
+                
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                
+                # Appliquer les paramètres
+                if 'custom_logo_path' in settings:
+                    self.custom_logo_path = settings['custom_logo_path']
+                    self.logo_path_input.setText(self.custom_logo_path)
+                    self._update_logo_preview()
+                
+                if 'custom_icon_path' in settings:
+                    self.custom_icon_path = settings['custom_icon_path']
+                    self.icon_path_input.setText(self.custom_icon_path)
+                    self._update_icon_preview()
+                
+                QMessageBox.information(
+                    self.iface.mainWindow(),
+                    "Import réussi",
+                    f"✅ Paramètres importés depuis :\n{file_path}\n\n"
+                    f"💾 N'oubliez pas de sauvegarder les paramètres !"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self.iface.mainWindow(),
+                    "Erreur d'import",
+                    f"Impossible d'importer les paramètres :\n{str(e)}"
+                )
+
+    def _load_settings_on_startup(self):
+        """Charge les paramètres au démarrage du plugin"""
+        try:
+            import json
+            
+            config_dir = os.path.join(os.path.dirname(__file__), '..')
+            config_file = os.path.join(config_dir, 'settings.json')
+            
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                
+                self.custom_logo_path = settings.get('custom_logo_path', '')
+                self.custom_icon_path = settings.get('custom_icon_path', '')
+        except Exception as e:
+            print(f"Impossible de charger les paramètres : {e}")
+
+    def get_logo_path(self) -> str:
+        """Retourne le chemin du logo (personnalisé ou par défaut)"""
+        if self.custom_logo_path and os.path.exists(self.custom_logo_path):
+            return self.custom_logo_path
+        return os.path.join(ICONS_DIR, 'logo.png')
+
+    def get_icon_path(self) -> str:
+        """Retourne le chemin de l'icône (personnalisée ou par défaut)"""
+        if self.custom_icon_path and os.path.exists(self.custom_icon_path):
+            return self.custom_icon_path
+        return os.path.join(ICONS_DIR, 'icon.png')
