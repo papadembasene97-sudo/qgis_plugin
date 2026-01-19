@@ -24,6 +24,7 @@ from ..utils.config             import ICONS_DIR
 from ..core.selection           import MapSelectionTool, AstreintSelectionTool
 from ..core.tracer              import NetworkTracer
 from ..core.industrials         import IndustrialsService
+from ..core.pv_service          import PVService
 from ..core.diagnostics         import Diagnostics
 from ..core.highlight_manager   import HighlightManager
 from ..animation.flow_animator  import FlowAnimator
@@ -32,7 +33,6 @@ from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
 from ..gui.ai_tab               import AITab
-from ..gui.pv_conformite_tab    import PVConformiteTab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
 from ..gui.main_dock_optimized  import OptimizedNodeOps
@@ -82,11 +82,13 @@ class MainDock:
         self.indus_layer   : Optional[QgsVectorLayer] = None
         self.liaison_layer : Optional[QgsVectorLayer] = None
         self.astreint_layer : Optional[QgsVectorLayer] = None
+        self.pv_layer      : Optional[QgsVectorLayer] = None  # PV_CONFORMITE
         self.label_layer   : Optional[QgsVectorLayer] = None  # LABEL_CI
 
         # services / managers
         self.tracer         : Optional[NetworkTracer] = None
         self.indus_svc      : Optional[IndustrialsService] = None
+        self.pv_svc         : Optional['PVService'] = None  # Service PV
         self.highlight_mgr   = HighlightManager(self.canvas)
         self.flow_anim       = FlowAnimator(self.canvas)
         self.ph_mgr          = PhotoManager()
@@ -96,6 +98,7 @@ class MainDock:
         self.industrial_dock: Optional[IndustrialDock] = None
         self.diag_dock      : Optional[DiagnosticsDock] = None
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
+        self._last_pv_data: Dict[str, Dict[str, str]] = {}  # Données PV détectés
 
         # selection tools
         self.tool_select    = None
@@ -117,6 +120,7 @@ class MainDock:
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
         self.indus_combo = self.liaison_combo = self.astreint_combo = None
+        self.pv_combo = None  # Combo PV_CONFORMITE
         self.id_input = self.search_input = None
         self.trace_btn = self.flux_btn = None
         self.direction_combo = self.cat_combo = self.func_combo = None
@@ -406,7 +410,7 @@ class MainDock:
 
     def _populate_layers(self):
         for c in (self.canal_combo, self.ouvr_combo, self.fosse_combo,
-                  self.indus_combo, self.liaison_combo, self.astreint_combo):
+                  self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
             if c:  # Vérifier que le combo existe
                 c.clear()
 
@@ -415,12 +419,6 @@ class MainDock:
         
         for lyr in QgsProject.instance().mapLayers().values():
             name = lyr.name().lower()
-            
-            # DEBUG pour PV
-            if "pv" in name:
-                print(f"Couche avec 'pv': {lyr.name()} (name.lower()={name})")
-                print(f"  - Contient 'conform': {'conform' in name}")
-                print(f"  - Contient 'confomit': {'confomit' in name}")
             
             if "canal" in name:
                 self.canal_combo.addItem(lyr.name(), lyr)
@@ -434,6 +432,8 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
+            if "pv" in name or "conformite" in name or "conformité" in name:
+                self.pv_combo.addItem(lyr.name(), lyr)
             
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                 self.label_layer = lyr
@@ -628,6 +628,7 @@ class MainDock:
         self.indus_combo    = QComboBox()
         self.liaison_combo  = QComboBox()
         self.astreint_combo = QComboBox()
+        self.pv_combo       = QComboBox()
         
         # Ajouter dans une grille compacte
         grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
@@ -648,15 +649,18 @@ class MainDock:
         grp_layers_lay.addWidget(QLabel("⚠️ Astreinte-Exploit :"), 5, 0)
         grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
         
+        grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
+        grp_layers_lay.addWidget(self.pv_combo, 6, 1)
+        
         # Bouton Actualiser les couches
         btn_refresh_layers = QPushButton("🔄 Actualiser les couches")
         btn_refresh_layers.setToolTip("Recharge la liste des couches disponibles dans QGIS")
         btn_refresh_layers.clicked.connect(self._populate_layers)
         btn_refresh_layers.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px; font-weight: bold; }")
-        grp_layers_lay.addWidget(btn_refresh_layers, 6, 0, 1, 2)
+        grp_layers_lay.addWidget(btn_refresh_layers, 7, 0, 1, 2)
         
         # Info couches
-        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
+        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
         grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
@@ -954,10 +958,56 @@ class MainDock:
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
-        details = self._last_indus_data = details
+        details = self.indus_svc.fetch_many(ind_ids)
+        self._last_indus_data = details
         
-        # Ouvrir le dock avec industriels
-        self._open_or_update_industrial_dock(data=details)
+        # PV non conformes (même pattern que les industriels)
+        pv_ids = []
+        if not self.pv_svc:
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+            if self.pv_layer and self.pv_layer.isValid():
+                self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+        
+        if self.pv_svc and self.pv_layer:
+            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=15.0)
+            
+            # Sélection explicite des PV sur la carte
+            if pv_ids:
+                # Trouver les FIDs correspondants
+                pv_fids = []
+                for pv_id in pv_ids:
+                    # Chercher le feature avec cet ID
+                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                        if self.pv_layer.fields().indexOf(field_name) >= 0:
+                            expr = QgsExpression("\"{}\" = '{}'".format(
+                                field_name, 
+                                str(pv_id).replace("'", "''")
+                            ))
+                            req = QgsFeatureRequest(expr)
+                            for feat in self.pv_layer.getFeatures(req):
+                                pv_fids.append(feat.id())
+                                break
+                            if pv_fids and len(pv_fids) == len([x for x in pv_ids if str(x) == str(pv_id)]):
+                                break
+                
+                if pv_fids:
+                    self.pv_layer.removeSelection()
+                    self.pv_layer.selectByIds(pv_fids)
+        
+        # Récupérer les données PV
+        pv_details = {}
+        if self.pv_svc and pv_ids:
+            pv_details = self.pv_svc.fetch_many(pv_ids)
+            # Ajouter la distance au réseau pour chaque PV
+            for pv_id in pv_details:
+                distance = self.pv_svc.get_distance_to_network(pv_id)
+                if distance is not None:
+                    pv_details[pv_id]['distance'] = str(distance)
+        
+        self._last_pv_data = pv_details
+        
+        # Ouvrir le dock avec industriels + PV
+        self._open_or_update_industrial_dock(data=details, pv_data=pv_details)
 
         # résumé
         dist = round(self.tracer.total_length, 2)
@@ -965,9 +1015,9 @@ class MainDock:
         labels = sorted({ self._flux_labels.get(c, c) for c in codes }) or ["Aucun"]
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Cheminement (Industriels)",
-            "Industriels : {}\nLongueur : {} m\nFlux : {}".format(
-                len(ind_ids), dist, " / ".join(labels)
+            "Cheminement (Industriels + PV)",
+            "Industriels : {}\nPV non conformes : {}\nLongueur : {} m\nFlux : {}".format(
+                len(ind_ids), len(pv_ids), dist, " / ".join(labels)
             )
         )
 
@@ -1593,7 +1643,8 @@ class MainDock:
         if self.industrial_dock:
             self.industrial_dock.set_data(details)
 
-    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None):
+    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None, 
+                                         pv_data: Optional[Dict[str,Dict[str,str]]] = None):
         if not self.indus_svc:
             self.indus_layer   = self.indus_combo.currentData()
             self.liaison_layer = self.liaison_combo.currentData()
@@ -1607,6 +1658,10 @@ class MainDock:
                 data = self.indus_svc.fetch_many(ids)
                 self._last_indus_data = data
         
+        # Gérer les données PV
+        if pv_data is None:
+            pv_data = self._last_pv_data if hasattr(self, '_last_pv_data') else {}
+        
         if not self.industrial_dock:
             from ..gui.industrial_dock_v2 import IndustrialDockV2
             self.industrial_dock = IndustrialDockV2(self.iface.mainWindow())
@@ -1618,6 +1673,10 @@ class MainDock:
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
 
         self.industrial_dock.set_data(data)
+        
+        # Définir les données PV si le dock supporte cette méthode
+        if pv_data and hasattr(self.industrial_dock, 'set_pv_data'):
+            self.industrial_dock.set_pv_data(pv_data)
         
         self.industrial_dock.show()
         self.industrial_dock.raise_()
@@ -2418,6 +2477,7 @@ class MainDock:
         self._last_trace_nodes.clear()
         self._mask_on = False
         self._last_indus_data = {}
+        self._last_pv_data = {}
 
         if self.industrial_dock:
             self.iface.removeDockWidget(self.industrial_dock); self.industrial_dock = None

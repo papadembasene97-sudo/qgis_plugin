@@ -1,0 +1,287 @@
+# -*- coding: utf-8 -*-
+# cheminer_indus/core/pv_service.py
+
+from __future__ import annotations
+from typing import List, Dict, Set, Optional
+
+from qgis.core import (
+    QgsVectorLayer, QgsExpression, QgsFeatureRequest, 
+    QgsGeometry, QgsCoordinateTransform, QgsProject
+)
+
+
+class PVService:
+    """
+    Service pour les opérations sur la couche PV_CONFORMITE.
+    Suit le même pattern que IndustrialsService.
+    """
+
+    def __init__(self, pv_layer: Optional[QgsVectorLayer], 
+                 canal_layer: Optional[QgsVectorLayer] = None):
+        """
+        Args:
+            pv_layer: Couche PV_CONFORMITE (ou toute couche PV)
+            canal_layer: Couche canalisations (pour calculs de distance)
+        """
+        self.pv_layer = pv_layer
+        self.canal_layer = canal_layer
+
+    # ------------------------------------------------------------------
+    # Sélection via nœuds atteints
+    # ------------------------------------------------------------------
+    def select_pv_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[int]:
+        """
+        À partir d'un ensemble de nœuds, sélectionne les PV dans un rayon donné
+        et renvoie la liste de leurs FIDs.
+        
+        Args:
+            nodes: Ensemble de nœuds du réseau (ex: {"N_12345", "N_67890"})
+            distance: Distance de recherche en mètres (défaut: 15m)
+        
+        Returns:
+            Liste des FIDs des PV sélectionnés
+        """
+        if not self.pv_layer or not self.canal_layer or not nodes:
+            if self.pv_layer:
+                self.pv_layer.removeSelection()
+            return []
+
+        # Récupérer toutes les canalisations liées à ces nœuds
+        canal_ids = self._get_canals_from_nodes(nodes)
+        
+        if not canal_ids:
+            self.pv_layer.removeSelection()
+            return []
+
+        # Trouver les PV proches de ces canalisations
+        pv_fids = self._find_pv_near_canals(canal_ids, distance)
+        
+        # Sélectionner les PV dans la couche
+        self.pv_layer.removeSelection()
+        if pv_fids:
+            self.pv_layer.selectByIds(pv_fids)
+
+        return pv_fids
+
+    def _get_canals_from_nodes(self, nodes: Set[str]) -> Set[int]:
+        """
+        Récupère les FIDs des canalisations connectées aux nœuds donnés.
+        
+        Args:
+            nodes: Ensemble de nœuds
+        
+        Returns:
+            Set des FIDs de canalisations
+        """
+        canal_ids = set()
+        
+        if not self.canal_layer or not self.canal_layer.isValid():
+            return canal_ids
+
+        for node in nodes:
+            node_esc = str(node).replace("'", "''")
+            expr = QgsExpression(
+                "trim(\"idnini\") = '{}' OR trim(\"idnterm\") = '{}'".format(
+                    node_esc, node_esc
+                )
+            )
+            req = QgsFeatureRequest(expr)
+            for feat in self.canal_layer.getFeatures(req):
+                canal_ids.add(feat.id())
+
+        return canal_ids
+
+    def _find_pv_near_canals(self, canal_ids: Set[int], distance: float) -> List[int]:
+        """
+        Trouve les PV dans un rayon autour des canalisations données.
+        Gère automatiquement les différences de CRS (4326 vs 2154).
+        
+        Args:
+            canal_ids: Set des FIDs de canalisations
+            distance: Distance de recherche en mètres
+        
+        Returns:
+            Liste des FIDs de PV trouvés
+        """
+        if not self.pv_layer or not self.canal_layer:
+            return []
+
+        pv_fids = []
+        
+        # Préparer la transformation CRS si nécessaire
+        canal_crs = self.canal_layer.crs()
+        pv_crs = self.pv_layer.crs()
+        transform = None
+        
+        if canal_crs != pv_crs:
+            transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
+
+        # Pour chaque canalisation, chercher les PV proches
+        req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
+        
+        for canal_feat in self.canal_layer.getFeatures(req_canals):
+            canal_geom = canal_feat.geometry()
+            if not canal_geom:
+                continue
+
+            # Créer un buffer autour de la canalisation (dans le CRS du canal)
+            buffer_geom = canal_geom.buffer(distance, 8)
+
+            # Chercher les PV dans ce buffer
+            for pv_feat in self.pv_layer.getFeatures():
+                pv_geom = pv_feat.geometry()
+                
+                # Transformer le PV dans le CRS du canal si nécessaire
+                if transform:
+                    pv_geom_transformed = QgsGeometry(pv_geom)
+                    pv_geom_transformed.transform(transform)
+                else:
+                    pv_geom_transformed = pv_geom
+                
+                # Vérifier si le PV est dans le buffer
+                if buffer_geom.intersects(pv_geom_transformed):
+                    if pv_feat.id() not in pv_fids:
+                        pv_fids.append(pv_feat.id())
+
+        return pv_fids
+
+    def connected_ids_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[str]:
+        """
+        Raccourci : à partir des nœuds → sélectionner PV → renvoyer IDs texte.
+        
+        Args:
+            nodes: Ensemble de nœuds du réseau
+            distance: Distance de recherche en mètres
+        
+        Returns:
+            Liste des IDs texte des PV (colonne 'id' ou 'num_pv')
+        """
+        fids = self.select_pv_from_nodes(nodes, distance)
+        
+        if not fids or not self.pv_layer:
+            return []
+
+        # Récupérer les IDs texte depuis les features
+        ids = []
+        req = QgsFeatureRequest().setFilterFids(fids)
+        
+        for feat in self.pv_layer.getFeatures(req):
+            # Essayer plusieurs noms de colonnes possibles
+            pv_id = None
+            for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                if feat.fields().indexOf(field_name) >= 0:
+                    pv_id = feat.attribute(field_name)
+                    if pv_id:
+                        break
+            
+            if pv_id:
+                ids.append(str(pv_id))
+
+        return ids
+
+    # ------------------------------------------------------------------
+    # Récupération d'infos
+    # ------------------------------------------------------------------
+    def fetch(self, pv_id: str) -> Dict[str, str]:
+        """
+        Renvoie un dictionnaire {champ: valeur} pour un PV donné.
+        
+        Args:
+            pv_id: ID du PV (colonne 'id' ou 'num_pv')
+        
+        Returns:
+            Dictionnaire avec tous les champs du PV
+        """
+        if not self.pv_layer:
+            return {}
+
+        # Essayer plusieurs noms de colonnes
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name, 
+                    str(pv_id).replace("'", "''")
+                ))
+                req = QgsFeatureRequest(expr)
+
+                for f in self.pv_layer.getFeatures(req):
+                    out: Dict[str, str] = {}
+                    for name in f.fields().names():
+                        out[name] = "" if f[name] is None else str(f[name])
+
+                    # Normaliser les noms de champs
+                    out.setdefault("id", str(pv_id))
+                    out.setdefault("num_pv", out.get("num_pv", pv_id))
+                    
+                    return out
+
+        return {}
+
+    def fetch_many(self, ids: List[str]) -> Dict[str, Dict[str, str]]:
+        """
+        Renvoie {pv_id: {champ: valeur, ...}, ...}
+        
+        Args:
+            ids: Liste des IDs de PV
+        
+        Returns:
+            Dictionnaire {id: données}
+        """
+        out: Dict[str, Dict[str, str]] = {}
+        for pv_id in ids:
+            out[pv_id] = self.fetch(pv_id)
+        return out
+
+    def get_distance_to_network(self, pv_id: str) -> Optional[float]:
+        """
+        Calcule la distance entre un PV et le réseau de canalisations le plus proche.
+        
+        Args:
+            pv_id: ID du PV
+        
+        Returns:
+            Distance en mètres, ou None si impossible à calculer
+        """
+        if not self.pv_layer or not self.canal_layer:
+            return None
+
+        # Trouver le PV
+        pv_geom = None
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name, 
+                    str(pv_id).replace("'", "''")
+                ))
+                req = QgsFeatureRequest(expr)
+                
+                for feat in self.pv_layer.getFeatures(req):
+                    pv_geom = feat.geometry()
+                    break
+                
+                if pv_geom:
+                    break
+
+        if not pv_geom:
+            return None
+
+        # Transformer dans le CRS du canal si nécessaire
+        canal_crs = self.canal_layer.crs()
+        pv_crs = self.pv_layer.crs()
+        
+        if canal_crs != pv_crs:
+            transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
+            pv_geom = QgsGeometry(pv_geom)
+            pv_geom.transform(transform)
+
+        # Trouver la canalisation la plus proche
+        min_distance = float('inf')
+        
+        for canal_feat in self.canal_layer.getFeatures():
+            canal_geom = canal_feat.geometry()
+            if canal_geom:
+                dist = pv_geom.distance(canal_geom)
+                if dist < min_distance:
+                    min_distance = dist
+
+        return round(min_distance, 2) if min_distance != float('inf') else None
