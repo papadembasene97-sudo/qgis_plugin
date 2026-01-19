@@ -456,6 +456,28 @@ class MainDock:
         print(f"pv_combo final count: {self.pv_combo.count() if self.pv_combo else 'None'}")
         print("=== FIN DEBUG ===")
         print("")
+        
+        # Message de confirmation si appelé manuellement (via bouton Actualiser)
+        # On vérifie si on est dans le contexte d'un appel manuel (pas au démarrage)
+        if hasattr(self, 'dock') and self.dock and self.dock.isVisible():
+            pv_count = self.pv_combo.count() if self.pv_combo else 0
+            total_layers = len(QgsProject.instance().mapLayers())
+            
+            msg = f"Couches actualisées !\n\n"
+            msg += f"Total QGIS : {total_layers} couches\n"
+            msg += f"Canalisations : {self.canal_combo.count()}\n"
+            msg += f"Ouvrages : {self.ouvr_combo.count()}\n"
+            msg += f"Industriels : {self.indus_combo.count()}\n"
+            msg += f"PV Conformité : {pv_count}\n"
+            
+            if pv_count == 0:
+                msg += f"\n⚠️ Aucune couche PV détectée !\n"
+                msg += f"Assurez-vous que votre couche contient:\n"
+                msg += f"  • 'pv' dans son nom\n"
+                msg += f"  • 'conform' ou 'confomit'\n"
+                msg += f"\nExemple: PV_CONFORMITE"
+            
+            QMessageBox.information(self.iface.mainWindow(), "Actualisation des couches", msg)
 
         # Si LABEL_CI introuvable : créer une mémoire (sécurité)
         if not self.label_layer:
@@ -667,11 +689,18 @@ class MainDock:
         grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
         grp_layers_lay.addWidget(self.pv_combo, 6, 1)
         
+        # Bouton Actualiser les couches
+        btn_refresh_layers = QPushButton("🔄 Actualiser les couches")
+        btn_refresh_layers.setToolTip("Recharge la liste des couches disponibles dans QGIS")
+        btn_refresh_layers.clicked.connect(self._populate_layers)
+        btn_refresh_layers.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px; font-weight: bold; }")
+        grp_layers_lay.addWidget(btn_refresh_layers, 7, 0, 1, 2)
+        
         # Info couches
-        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.")
+        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
+        grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
         
         lay.addWidget(grp_layers)
         
