@@ -42,6 +42,10 @@ class PVAnalyzer(QObject):
         
         # Distance de recherche (15 mètres)
         self.buffer_distance = 15.0
+        
+        # ✅ NOUVEAU v1.2.3 Phase 2 : Cache PV par canalisation
+        self._pv_canal_cache = {}  # {canal_id: [pv_list]}
+        self._cache_enabled = True
     
     def set_pv_layer(self, layer):
         """
@@ -134,6 +138,162 @@ class PVAnalyzer(QObject):
         
         self.pv_found.emit(len(self.pv_list))
         return self.pv_list
+    
+    def find_pv_in_path(self, canal_ids, distance=15.0, use_cache=True):
+        """
+        Trouve les PV non conformes proches d'une liste de canalisations (par IDs).
+        Version optimisée avec cache pour éviter les recherches répétées.
+        
+        Args:
+            canal_ids: Liste d'IDs de canalisations (feature IDs)
+            distance: Distance de recherche en mètres (défaut 15m)
+            use_cache: Utiliser le cache (défaut True)
+        
+        Returns:
+            Liste des PV trouvés [{id, num_pv, adresse, ...}, ...]
+        """
+        if not self.pv_layer:
+            return []
+        
+        # Si cache désactivé, recherche directe
+        if not use_cache or not self._cache_enabled:
+            return self._search_pvs_direct(canal_ids, distance)
+        
+        # Vérifier le cache
+        cached_pvs = []
+        uncached_ids = []
+        seen_pv_ids = set()  # Pour éviter les doublons
+        
+        for cid in canal_ids:
+            if cid in self._pv_canal_cache:
+                # Ajouter les PV cachés sans doublons
+                for pv in self._pv_canal_cache[cid]:
+                    pv_id = str(pv.get('id', ''))
+                    if pv_id and pv_id not in seen_pv_ids:
+                        cached_pvs.append(pv)
+                        seen_pv_ids.add(pv_id)
+            else:
+                uncached_ids.append(cid)
+        
+        # Chercher seulement les canalisations non-cachées
+        if uncached_ids:
+            new_pvs = self._search_pvs_direct(uncached_ids, distance)
+            
+            # Mettre à jour le cache
+            # Associer chaque PV à sa canalisation rattachée
+            for pv in new_pvs:
+                canal_id = pv.get('canal_rattache')
+                if canal_id:
+                    if canal_id not in self._pv_canal_cache:
+                        self._pv_canal_cache[canal_id] = []
+                    
+                    # Vérifier que ce PV n'est pas déjà dans le cache
+                    pv_id = str(pv.get('id', ''))
+                    if pv_id and pv_id not in seen_pv_ids:
+                        self._pv_canal_cache[canal_id].append(pv)
+                        cached_pvs.append(pv)
+                        seen_pv_ids.add(pv_id)
+        
+        return cached_pvs
+    
+    def _search_pvs_direct(self, canal_ids, distance):
+        """
+        Recherche directe des PV proches d'une liste de canalisations.
+        Méthode interne sans cache.
+        
+        Args:
+            canal_ids: Liste d'IDs de canalisations
+            distance: Distance de recherche en mètres
+        
+        Returns:
+            Liste des PV trouvés
+        """
+        if not self.pv_layer:
+            return []
+        
+        # Récupérer la couche des canalisations depuis le projet
+        canal_layer = None
+        for layer in QgsProject.instance().mapLayers().values():
+            if 'canal' in layer.name().lower() and 'raepa' in layer.name().lower():
+                canal_layer = layer
+                break
+        
+        if not canal_layer:
+            return []
+        
+        pvs_found = []
+        seen_pv_ids = set()
+        
+        # Pour chaque canalisation
+        for cid in canal_ids:
+            # Récupérer la feature de canalisation
+            canal_feat = canal_layer.getFeature(cid)
+            if not canal_feat or not canal_feat.isValid():
+                continue
+            
+            canal_geom = canal_feat.geometry()
+            if not canal_geom:
+                continue
+            
+            # Créer un buffer autour de la canalisation
+            buffer_geom = canal_geom.buffer(distance, 8)
+            
+            # Chercher les PV dans ce buffer
+            for pv_feat in self.pv_layer.getFeatures():
+                pv_geom = pv_feat.geometry()
+                
+                # Vérifier si le PV est dans le buffer
+                if buffer_geom.intersects(pv_geom):
+                    # Vérifier la conformité
+                    conforme = pv_feat.attribute('conforme') if pv_feat.fields().indexOf('conforme') >= 0 else 'Non'
+                    
+                    # Ne garder que les PV non conformes
+                    if conforme == 'Non':
+                        pv_id = pv_feat.attribute('id') if pv_feat.fields().indexOf('id') >= 0 else pv_feat.id()
+                        pv_id_str = str(pv_id)
+                        
+                        # Éviter les doublons
+                        if pv_id_str in seen_pv_ids:
+                            continue
+                        seen_pv_ids.add(pv_id_str)
+                        
+                        # Construire les données PV
+                        pv_data = {
+                            'id': pv_id,
+                            'num_pv': pv_feat.attribute('num_pv') if pv_feat.fields().indexOf('num_pv') >= 0 else 'N/A',
+                            'adresse': pv_feat.attribute('adresse') if pv_feat.fields().indexOf('adresse') >= 0 else 'N/A',
+                            'code_postal': pv_feat.attribute('code_posta') if pv_feat.fields().indexOf('code_posta') >= 0 else '',
+                            'commune': pv_feat.attribute('nom_com') if pv_feat.fields().indexOf('nom_com') >= 0 else 'N/A',
+                            'conforme': conforme,
+                            'eu_vers_ep': pv_feat.attribute('eu_vers_ep') if pv_feat.fields().indexOf('eu_vers_ep') >= 0 else 'Non',
+                            'ep_vers_eu': pv_feat.attribute('ep_vers_eu') if pv_feat.fields().indexOf('ep_vers_eu') >= 0 else 'Non',
+                            'date_pv': pv_feat.attribute('date_pv') if pv_feat.fields().indexOf('date_pv') >= 0 else 'N/A',
+                            'nb_chamb': pv_feat.attribute('nb_chamb') if pv_feat.fields().indexOf('nb_chamb') >= 0 else 'N/A',
+                            'surf_ep': pv_feat.attribute('surf_ep') if pv_feat.fields().indexOf('surf_ep') >= 0 else 0,
+                            'lien_osmose': pv_feat.attribute('lien_osmose') if pv_feat.fields().indexOf('lien_osmose') >= 0 else '',
+                            'lat': pv_feat.attribute('lat') if pv_feat.fields().indexOf('lat') >= 0 else None,
+                            'lon': pv_feat.attribute('lon') if pv_feat.fields().indexOf('lon') >= 0 else None,
+                            'canal_rattache': cid,
+                            'geometry': pv_geom,
+                            'feature': pv_feat
+                        }
+                        
+                        pvs_found.append(pv_data)
+        
+        return pvs_found
+    
+    def clear_cache(self):
+        """Vide le cache PV"""
+        self._pv_canal_cache.clear()
+    
+    def disable_cache(self):
+        """Désactive le cache"""
+        self._cache_enabled = False
+        self._pv_canal_cache.clear()
+    
+    def enable_cache(self):
+        """Active le cache"""
+        self._cache_enabled = True
     
     def update_after_exclusion(self, canalisations_exclues):
         """

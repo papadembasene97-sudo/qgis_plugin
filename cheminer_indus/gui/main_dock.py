@@ -1461,9 +1461,15 @@ class MainDock:
                 self._last_indus_data = data
         
         if not self.industrial_dock:
-            self.industrial_dock = IndustrialDock(self.iface.mainWindow())
-            self.industrial_dock.on_zoom_request(self._zoom_to_industrial)
-            self.industrial_dock.on_designate_request(self._designate_industrial)
+            from ..gui.industrial_dock_v2 import IndustrialDockV2
+            self.industrial_dock = IndustrialDockV2(self.iface.mainWindow())
+            # Callbacks industriels
+            self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
+            self.industrial_dock.on_designate_indus_request(self._designate_industrial)
+            # Callbacks PV
+            self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
+            self.industrial_dock.on_designate_pv_request(self._designate_pv)
+            # Callback refresh
             self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
 
@@ -2144,10 +2150,15 @@ class MainDock:
 
                 # Créer le dock si absent
                 if not self.industrial_dock:
-                    from ..gui.industrial_dock import IndustrialDock
-                    self.industrial_dock = IndustrialDock(self.iface.mainWindow())
-                    self.industrial_dock.on_zoom_request(self._zoom_to_industrial)
-                    self.industrial_dock.on_designate_request(self._designate_industrial)
+                    from ..gui.industrial_dock_v2 import IndustrialDockV2
+                    self.industrial_dock = IndustrialDockV2(self.iface.mainWindow())
+                    # Callbacks industriels
+                    self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
+                    self.industrial_dock.on_designate_indus_request(self._designate_industrial)
+                    # Callbacks PV
+                    self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
+                    self.industrial_dock.on_designate_pv_request(self._designate_pv)
+                    # Callback refresh
                     self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
                     self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
 
@@ -2230,6 +2241,70 @@ class MainDock:
 
         QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Tables minimales créées (mémoire).")
         self._autosave()
+
+    # ---------------------------------------------------------
+    # RESET
+    # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # GESTION PV (NOUVEAU v1.2.3 Phase 3)
+    # ---------------------------------------------------------
+    def _zoom_to_pv(self, pv_id: str):
+        """
+        Zoom sur un PV sur la carte
+        
+        Args:
+            pv_id: ID du PV
+        """
+        # Chercher la couche PV
+        pv_layer = None
+        for layer in QgsProject.instance().mapLayers().values():
+            if 'PV_CONFORMITE' in layer.name() or 'pv_conformite' in layer.name().lower():
+                pv_layer = layer
+                break
+        
+        if not pv_layer:
+            QMessageBox.warning(
+                self.iface.mainWindow(),
+                "CheminerIndus",
+                "Couche PV_CONFORMITE introuvable."
+            )
+            return
+        
+        # Chercher le PV par ID
+        expr = QgsExpression("\"id\" = '{}'".format(str(pv_id).replace("'", "''")))
+        for feat in pv_layer.getFeatures(QgsFeatureRequest(expr)):
+            geom = feat.geometry()
+            if geom:
+                # Créer un buffer autour du point pour avoir une zone visible
+                buffer_geom = geom.buffer(50.0, 8)
+                self.canvas.setExtent(buffer_geom.boundingBox())
+                self.canvas.refresh()
+                
+                # Sélectionner le PV
+                pv_layer.removeSelection()
+                pv_layer.selectByIds([feat.id()])
+                break
+    
+    def _designate_pv(self, pv_id: str):
+        """
+        Désigne un PV comme pollueur et propose le cheminement aval
+        
+        Args:
+            pv_id: ID du PV à désigner
+        """
+        # Mémoriser le PV pollueur
+        self.polluter_id = f"PV_{pv_id}"
+        self.polluter_note = f"PV non conforme ID: {pv_id}"
+        
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "PV désigné",
+            f"Le PV {pv_id} a été désigné comme pollueur.\n\n"
+            "Vous pouvez maintenant générer un rapport PDF."
+        )
+        
+        # TODO: Implémenter le cheminement depuis le PV
+        # Utiliser trace_from_pv() si nécessaire
 
     # ---------------------------------------------------------
     # RESET
