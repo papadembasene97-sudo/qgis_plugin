@@ -427,8 +427,8 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
-            # Ajout détection PV_CONFORMITE
-            if "pv" in name and "conform" in name:
+            # Ajout détection PV_CONFORMITE (flexible: accepte confomite, conformite, conform, etc.)
+            if "pv" in name and ("conform" in name or "confomit" in name):
                 if self.pv_combo:
                     self.pv_combo.addItem(lyr.name(), lyr)
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
