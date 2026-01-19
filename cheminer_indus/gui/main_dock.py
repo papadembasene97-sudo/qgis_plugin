@@ -499,6 +499,15 @@ class MainDock:
         for txt,val in [("",""),("Transport","01"),("Collecte","02")]:
             self.func_combo.addItem(txt,val)
         g.addWidget(QLabel("Fonction :"), 5, 0); g.addWidget(self.func_combo, 5, 1)
+        
+        # Distance de recherche PV (pour cheminement industriels)
+        from qgis.PyQt.QtWidgets import QSpinBox
+        self.pv_distance_spin = QSpinBox()
+        self.pv_distance_spin.setRange(1, 100)
+        self.pv_distance_spin.setValue(15)
+        self.pv_distance_spin.setSuffix(" m")
+        self.pv_distance_spin.setToolTip("Distance maximale entre le réseau et les PV à détecter")
+        g.addWidget(QLabel("Distance PV :"), 6, 0); g.addWidget(self.pv_distance_spin, 6, 1)
 
         # buttons
         self.trace_btn = QPushButton("Cheminer"); self.trace_btn.setIcon(QIcon(os.path.join(ICONS_DIR,'trace.png')))
@@ -515,7 +524,7 @@ class MainDock:
         self.color_btn.clicked.connect(self._open_flux_colors)
 
         hb2 = QHBoxLayout(); hb2.addWidget(self.trace_btn); hb2.addWidget(self.flux_btn); hb2.addWidget(self.color_btn)
-        g.addLayout(hb2, 6, 0, 1, 2)
+        g.addLayout(hb2, 7, 0, 1, 2)
 
         return w
 
@@ -960,27 +969,47 @@ class MainDock:
         details = self.indus_svc.fetch_many(ind_ids)
         self._last_indus_data = details
         
-        # NOUVEAU : Détection des PV non conformes
+        # Détection des PV non conformes avec distance paramétrable
         pv_list = []
+        pv_distance = self.pv_distance_spin.value() if hasattr(self, 'pv_distance_spin') else 15.0
+        
         try:
             from ..core.pv_analyzer import PVAnalyzer
             
-            # Chercher la couche PV
+            # Récupérer la couche PV depuis le combo PARAMÈTRES
             pv_layer = None
-            for layer in QgsProject.instance().mapLayers().values():
-                if 'PV_CONFORMITE' in layer.name() or 'pv_conformite' in layer.name().lower():
-                    pv_layer = layer
-                    break
+            if hasattr(self, 'pv_combo') and self.pv_combo:
+                pv_layer = self.pv_combo.currentData()
             
-            if pv_layer and canal_ids:
-                # Créer l'analyseur PV (seule la couche PV est nécessaire)
+            # Fallback : chercher par nom si combo vide
+            if not pv_layer or not pv_layer.isValid():
+                for layer in QgsProject.instance().mapLayers().values():
+                    name = layer.name().lower()
+                    if 'pv' in name and ('conform' in name or 'confomit' in name):
+                        pv_layer = layer
+                        break
+            
+            if pv_layer and pv_layer.isValid() and canal_ids:
+                # Créer l'analyseur PV
                 pv_analyzer = PVAnalyzer(pv_layer)
                 
-                # Trouver les PV non conformes sur le cheminement
-                pv_list = pv_analyzer.find_pv_in_path(canal_ids, distance=15.0)
+                # Trouver les PV non conformes sur le cheminement avec distance paramétrable
+                pv_list = pv_analyzer.find_pv_in_path(canal_ids, distance=pv_distance)
+                
+                # Sélectionner les PV dans la couche QGIS
+                if pv_list:
+                    pv_ids = [pv['fid'] for pv in pv_list if 'fid' in pv]
+                    if pv_ids:
+                        pv_layer.removeSelection()
+                        pv_layer.selectByIds(pv_ids)
                 
         except Exception as e:
             print(f"Erreur lors de la détection des PV : {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Sauvegarder les PV détectés
+        self._last_pv_data = pv_list
         
         # Ouvrir le dock avec industriels + PV
         self._open_or_update_industrial_dock(data=details, pv_data=pv_list)

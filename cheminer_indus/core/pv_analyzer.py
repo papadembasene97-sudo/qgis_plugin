@@ -258,8 +258,12 @@ class PVAnalyzer(QObject):
                         seen_pv_ids.add(pv_id_str)
                         
                         # Construire les données PV
+                        # Calculer la distance exacte entre le PV et la canalisation
+                        distance_pv_canal = canal_geom.distance(pv_geom)
+                        
                         pv_data = {
                             'id': pv_id,
+                            'fid': pv_feat.id(),  # Feature ID pour sélection QGIS
                             'num_pv': pv_feat.attribute('num_pv') if pv_feat.fields().indexOf('num_pv') >= 0 else 'N/A',
                             'adresse': pv_feat.attribute('adresse') if pv_feat.fields().indexOf('adresse') >= 0 else 'N/A',
                             'code_postal': pv_feat.attribute('code_posta') if pv_feat.fields().indexOf('code_posta') >= 0 else '',
@@ -273,6 +277,7 @@ class PVAnalyzer(QObject):
                             'lien_osmose': pv_feat.attribute('lien_osmose') if pv_feat.fields().indexOf('lien_osmose') >= 0 else '',
                             'lat': pv_feat.attribute('lat') if pv_feat.fields().indexOf('lat') >= 0 else None,
                             'lon': pv_feat.attribute('lon') if pv_feat.fields().indexOf('lon') >= 0 else None,
+                            'distance': round(distance_pv_canal, 2),  # Distance en mètres
                             'canal_rattache': cid,
                             'geometry': pv_geom,
                             'feature': pv_feat
