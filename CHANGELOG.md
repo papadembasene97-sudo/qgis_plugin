@@ -1,5 +1,94 @@
 # 📋 CHANGELOG - CheminerIndus
 
+## Version 1.3.6 (2026-01-19) - Support CRS différents + Détection PV améliorée 🌍
+
+### 🎯 Problème résolu : CRS mismatch (EPSG:4326 vs EPSG:2154)
+
+**Contexte** : La table `PV_CONFORMITE` est en **EPSG:4326** (WGS84, coordonnées en degrés), alors que le réseau de canaux est en **EPSG:2154** (Lambert 93, coordonnées en mètres). Sans transformation, les calculs de distance retournaient des valeurs incohérentes (0.0001 au lieu de 12m).
+
+### ✨ Nouvelles fonctionnalités
+
+#### Transformation automatique des CRS
+- **🌐 Détection automatique** des CRS différents entre PV et canaux
+- **🔄 Transformation géométrique** via `QgsCoordinateTransform`
+- **📏 Calculs de distance corrects** (en mètres, pas en degrés)
+- **✅ Support EPSG:4326 → EPSG:2154** transparent pour l'utilisateur
+
+#### Détection PV simplifiée
+- **🔍 Détection ultra-flexible** : seul `"pv"` dans le nom de couche suffit
+- **❌ Plus besoin** de `"conform"` ou `"conformité"` dans le nom
+- **🔄 Bouton "Actualiser les couches"** pour rafraîchir la liste sans redémarrer QGIS
+- **✅ Compatible** avec `PV_CONFORMITE`, `PV`, `pv_layer`, `PV_test`, etc.
+
+#### Sélection automatique des PV
+- **🎯 Sélection QGIS** automatique des PV détectés
+- **🗺️ Visualisation instantanée** sur la carte (surlignage orange/jaune)
+- **📊 Synchronisation** entre table et carte
+
+### 🔧 Corrections techniques
+
+#### `cheminer_indus/core/pv_analyzer.py`
+```python
+# Récupérer les CRS
+canal_crs = canal_layer.crs()
+pv_crs = self.pv_layer.crs()
+
+# Créer transformation si nécessaire
+if canal_crs != pv_crs:
+    transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
+
+# Transformer PV dans le CRS du canal
+pv_geom_transformed = QgsGeometry(pv_geom)
+if transform:
+    pv_geom_transformed.transform(transform)
+
+# Calculs corrects (même CRS)
+distance_pv_canal = canal_geom.distance(pv_geom_transformed)  # En mètres
+```
+
+#### `cheminer_indus/gui/main_dock.py`
+- **✅ Initialisation** de `self._last_pv_data: List[Dict[str, Any]] = []`
+- **🔍 Détection simplifiée** : `if "pv" in name: → ajout au combo`
+- **🎯 Sélection automatique** : `pv_layer.selectByIds(pv_ids)`
+
+### 📊 Avant / Après
+
+| Aspect | Avant v1.3.6 | Après v1.3.6 |
+|--------|--------------|--------------|
+| **Distance PV-Canal** | 0.0001 (degrés) | 12.5 m (mètres) ✅ |
+| **Détection couche** | Doit contenir "pv" ET "conform" | Juste "pv" suffit ✅ |
+| **Sélection QGIS** | ❌ Manuelle | ✅ Automatique |
+| **CRS différents** | ❌ Erreur | ✅ Transformation auto |
+| **Bouton refresh** | ❌ Non | ✅ "Actualiser les couches" |
+
+### 🐛 Problèmes résolus
+
+- **[CRS]** Distances calculées en degrés au lieu de mètres → Transformation automatique EPSG:4326→2154
+- **[AttributeError]** `_last_pv_data` non initialisé → Ajout dans `__init__`
+- **[Détection]** Couches PV non détectées (nom trop strict) → Détection simplifiée (juste "pv")
+- **[Sélection]** PV non sélectionnés sur la carte → `selectByIds()` automatique
+
+### 🧪 Tests recommandés
+
+1. **Test CRS** : Vérifier que les distances sont en mètres (8m, 12m, 15m)
+2. **Test détection** : Charger une couche nommée "PV" ou "pv_test" → doit apparaître
+3. **Test sélection** : Lancer cheminement → PV doivent être surlignés en orange
+4. **Test distance** : Modifier la distance de détection (1-100m) → résultats cohérents
+
+### 📦 Fichiers modifiés
+
+- `cheminer_indus/core/pv_analyzer.py` - Ajout transformation CRS
+- `cheminer_indus/gui/main_dock.py` - Init `_last_pv_data` + détection simplifiée
+- `.gitignore` (nouveau) - Exclusion `__pycache__`, `*.pyc`, screenshots
+
+### 🔗 Commit GitHub
+
+- **Tag** : `v1.3.6`
+- **Commit** : `7d8fb6f`
+- **Message** : "feat(pv): Support CRS différents (4326↔2154) + détection PV améliorée"
+
+---
+
 ## Version 1.2.3 (2026-01-16) - Module PV Conformité 🏠
 
 ### ✨ Nouvelles fonctionnalités majeures
