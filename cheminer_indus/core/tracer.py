@@ -78,6 +78,10 @@ class NetworkTracer:
         # Stats
         self.total_length: float = 0.0
         self.flux_types: Set[str] = set()
+        
+        # Résultats du dernier trace (pour accès externe)
+        self.canal_ids: List[int] = []
+        self.fosse_ids: List[int] = []
 
     # ------------------------------------------------------------------ #
     # Utils champs / valeurs
@@ -236,6 +240,10 @@ class NetworkTracer:
                 # Continuer
                 if nxt and nxt not in visited_nodes and nxt != "INCONNU":
                     stack.append(nxt)
+
+        # Stocker les résultats pour accès externe
+        self.canal_ids = canal_ids
+        self.fosse_ids = fosse_ids
 
         return canal_ids, fosse_ids
 

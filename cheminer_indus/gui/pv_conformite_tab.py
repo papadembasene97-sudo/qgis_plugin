@@ -733,16 +733,132 @@ class PVConformiteTab(QWidget):
         if not self.industriels_list:
             return
         
-        # TODO: implémenter la création de la couche des industriels
-        pass
+        # Créer une couche mémoire
+        layer = QgsVectorLayer("Point?crs=EPSG:2154", "Industriels connectés", "memory")
+        provider = layer.dataProvider()
+        
+        # Ajouter les champs
+        from qgis.core import QgsField
+        provider.addAttributes([
+            QgsField("id", QVariant.String),
+            QgsField("nom", QVariant.String),
+            QgsField("adresse", QVariant.String),
+            QgsField("commune", QVariant.String),
+            QgsField("distance", QVariant.Double)
+        ])
+        layer.updateFields()
+        
+        # Ajouter les industriels
+        features = []
+        for indus in self.industriels_list:
+            # Vérifier si la géométrie existe
+            if 'geometry' in indus and indus['geometry']:
+                feat = QgsFeature()
+                feat.setGeometry(indus['geometry'])
+                feat.setAttributes([
+                    str(indus.get('id', '')),
+                    indus.get('nom', ''),
+                    indus.get('adresse', ''),
+                    indus.get('commune', ''),
+                    float(indus.get('distance', 0))
+                ])
+                features.append(feat)
+            elif 'x' in indus and 'y' in indus:
+                # Créer géométrie à partir des coordonnées
+                feat = QgsFeature()
+                point = QgsPointXY(float(indus['x']), float(indus['y']))
+                feat.setGeometry(QgsGeometry.fromPointXY(point))
+                feat.setAttributes([
+                    str(indus.get('id', '')),
+                    indus.get('nom', ''),
+                    indus.get('adresse', ''),
+                    indus.get('commune', ''),
+                    float(indus.get('distance', 0))
+                ])
+                features.append(feat)
+        
+        if features:
+            provider.addFeatures(features)
+            layer.updateExtents()
+            
+            # Symbologie rouge pour les industriels
+            symbol = QgsMarkerSymbol.createSimple({
+                'name': 'diamond',
+                'color': '220,20,60',  # Rouge crimson
+                'size': '5',
+                'outline_color': '0,0,0',
+                'outline_width': '0.5'
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+            
+            # Ajouter la couche au projet
+            QgsProject.instance().addMapLayer(layer)
+            self.temp_indus_layer = layer
         
     def _create_path_layer(self):
         """Crée une couche temporaire pour le cheminement"""
         if not self.current_path_canals:
             return
         
-        # TODO: implémenter la création de la couche du cheminement
-        pass
+        # Récupérer la couche de canalisations
+        canal_layer = None
+        if hasattr(self.main_dock, 'canal_combo'):
+            canal_layer = self.main_dock.canal_combo.currentData()
+        if not canal_layer and hasattr(self.main_dock, 'canal_layer'):
+            canal_layer = self.main_dock.canal_layer
+        
+        if not canal_layer or not canal_layer.isValid():
+            return
+        
+        # Créer une couche mémoire avec le même système de coordonnées
+        crs = canal_layer.crs().authid()
+        layer = QgsVectorLayer(f"LineString?crs={crs}", "Cheminement analysé", "memory")
+        provider = layer.dataProvider()
+        
+        # Ajouter les champs
+        from qgis.core import QgsField
+        provider.addAttributes([
+            QgsField("canal_id", QVariant.Int),
+            QgsField("idnini", QVariant.String),
+            QgsField("idnterm", QVariant.String),
+            QgsField("diametre", QVariant.Double),
+            QgsField("type_reseau", QVariant.String)
+        ])
+        layer.updateFields()
+        
+        # Ajouter les canalisations du cheminement
+        features = []
+        for canal_id in self.current_path_canals:
+            canal_feat = canal_layer.getFeature(canal_id)
+            if canal_feat and canal_feat.isValid():
+                feat = QgsFeature()
+                feat.setGeometry(canal_feat.geometry())
+                feat.setAttributes([
+                    canal_id,
+                    str(canal_feat.attribute('idnini') or ''),
+                    str(canal_feat.attribute('idnterm') or ''),
+                    float(canal_feat.attribute('diametre') or 0),
+                    str(canal_feat.attribute('typreseau') or 
+                        canal_feat.attribute('type_reseau') or '')
+                ])
+                features.append(feat)
+        
+        if features:
+            provider.addFeatures(features)
+            layer.updateExtents()
+            
+            # Symbologie bleu épais pour le cheminement
+            symbol = QgsLineSymbol.createSimple({
+                'color': '30,144,255',  # Bleu dodger
+                'width': '1.5',
+                'capstyle': 'round',
+                'joinstyle': 'round'
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+            
+            # Ajouter la couche au projet
+            QgsProject.instance().addMapLayer(layer)
+            self.temp_path_layer = layer
         
     def _on_clear_visualization(self):
         """Supprime les couches temporaires de visualisation"""
@@ -762,11 +878,110 @@ class PVConformiteTab(QWidget):
         
     def _on_generate_report(self):
         """Génère un rapport PDF de l'analyse"""
-        QMessageBox.information(
+        if not self.industriels_list and not self.pv_list:
+            QMessageBox.information(
+                self,
+                "Aucune donnée",
+                "Aucune donnée à rapporter. Veuillez d'abord lancer une analyse."
+            )
+            return
+        
+        # Demander le chemin de sauvegarde
+        file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Rapport",
-            "Génération de rapport : fonctionnalité à implémenter dans la prochaine version."
+            "Générer un rapport PDF",
+            "",
+            "Fichiers PDF (*.pdf)"
         )
+        
+        if not file_path:
+            return
+        
+        try:
+            # Importer le générateur de rapport
+            from ..report.pv_report_generator import PVReportGenerator
+            
+            # Créer le générateur
+            generator = PVReportGenerator()
+            
+            # Préparer les données pour le rapport
+            # Si un PV ou industriel est sélectionné, créer un rapport détaillé
+            # Sinon, créer un rapport de synthèse
+            
+            # Pour l'instant, créer un rapport simple avec les données disponibles
+            polluter_info = {
+                'type': 'Analyse',
+                'num_pv': f"{len(self.pv_list)} PV non conformes détectés",
+                'adresse': '',
+                'commune': '',
+                'conforme': 'Non',
+                'eu_vers_ep': 'N/A',
+                'ep_vers_eu': 'N/A'
+            }
+            
+            path_data = {
+                'total_length': 0,
+                'nb_canalisations': len(self.current_path_canals),
+                'nb_ouvrages': 0,
+                'industriels': self.industriels_list,
+                'pv_list': self.pv_list,
+                'canal_ids': self.current_path_canals
+            }
+            
+            # Générer le rapport
+            success = generator.generate_pollution_report(
+                polluter_info,
+                path_data,
+                file_path
+            )
+            
+            if success:
+                self.iface.messageBar().pushMessage(
+                    "Rapport généré",
+                    f"✅ Rapport PDF créé : {file_path}",
+                    level=Qgis.Success,
+                    duration=5
+                )
+                
+                # Demander si on veut ouvrir le rapport
+                reply = QMessageBox.question(
+                    self,
+                    "Rapport généré",
+                    "Le rapport a été généré avec succès. Voulez-vous l'ouvrir ?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    import subprocess
+                    import platform
+                    
+                    if platform.system() == 'Windows':
+                        os.startfile(file_path)
+                    elif platform.system() == 'Darwin':  # macOS
+                        subprocess.call(['open', file_path])
+                    else:  # Linux
+                        subprocess.call(['xdg-open', file_path])
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Erreur",
+                    "La génération du rapport a échoué. Vérifiez les logs."
+                )
+                
+        except ImportError as e:
+            QMessageBox.critical(
+                self,
+                "Module manquant",
+                f"Le module de génération de rapports n'est pas disponible.\n"
+                f"Erreur: {str(e)}\n\n"
+                f"Assurez-vous que le module 'report' est installé avec le plugin."
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur de rapport",
+                f"Impossible de générer le rapport :\n{str(e)}"
+            )
         
     # ========================================================================
     # Utilitaires

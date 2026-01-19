@@ -261,13 +261,13 @@ class AITab(QWidget):
             )
             
             # Entraîner (générer des données synthétiques pour l'instant)
-            from ..ai.training_data_generator import TrainingDataGenerator
+            from ..ai.training_data_generator import generate_synthetic_training_data
             
-            generator = TrainingDataGenerator(canal_layer)
-            X_train, y_train = generator.generate_training_data(n_samples=1000)
+            # Générer des données synthétiques pour l'entraînement
+            training_data = generate_synthetic_training_data(nb_samples=1000)
             
-            # Entraîner
-            self.predictor.train(X_train, y_train)
+            # Entraîner avec les données historiques structurées
+            self.predictor.train(training_data)
             
             # Sauvegarder
             self.predictor.save_model(model_path)
@@ -504,7 +504,7 @@ class AITab(QWidget):
                 duration=3
             )
             
-            self.visualizer.visualize_network(
+            self.visualizer.visualize_network_3d(
                 canal_layer,
                 color_by=color_by,
                 interactive=interactive
