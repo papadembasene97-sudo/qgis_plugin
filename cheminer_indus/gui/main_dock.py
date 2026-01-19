@@ -96,6 +96,7 @@ class MainDock:
         self.industrial_dock: Optional[IndustrialDock] = None
         self.diag_dock      : Optional[DiagnosticsDock] = None
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
+        self._last_pv_data: List[Dict[str, Any]] = []  # Données PV détectés
 
         # selection tools
         self.tool_select    = None

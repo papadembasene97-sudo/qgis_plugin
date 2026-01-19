@@ -235,15 +235,32 @@ class PVAnalyzer(QObject):
             if not canal_geom:
                 continue
             
-            # Créer un buffer autour de la canalisation
+            # Récupérer les CRS
+            from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem
+            canal_crs = canal_layer.crs()
+            pv_crs = self.pv_layer.crs()
+            transform = None
+            
+            # Préparer la transformation si CRS différents
+            if canal_crs != pv_crs:
+                transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
+            
+            # Créer un buffer autour de la canalisation (dans le CRS du canal)
             buffer_geom = canal_geom.buffer(distance, 8)
             
             # Chercher les PV dans ce buffer
             for pv_feat in self.pv_layer.getFeatures():
                 pv_geom = pv_feat.geometry()
                 
+                # Transformer le PV dans le CRS du canal si nécessaire
+                if transform:
+                    pv_geom_transformed = QgsGeometry(pv_geom)
+                    pv_geom_transformed.transform(transform)
+                else:
+                    pv_geom_transformed = pv_geom
+                
                 # Vérifier si le PV est dans le buffer
-                if buffer_geom.intersects(pv_geom):
+                if buffer_geom.intersects(pv_geom_transformed):
                     # Vérifier la conformité
                     conforme = pv_feat.attribute('conforme') if pv_feat.fields().indexOf('conforme') >= 0 else 'Non'
                     
@@ -257,10 +274,10 @@ class PVAnalyzer(QObject):
                             continue
                         seen_pv_ids.add(pv_id_str)
                         
-                        # Construire les données PV
-                        # Calculer la distance exacte entre le PV et la canalisation
-                        distance_pv_canal = canal_geom.distance(pv_geom)
+                        # Calculer la distance exacte (géométries déjà dans le même CRS)
+                        distance_pv_canal = canal_geom.distance(pv_geom_transformed)
                         
+                        # Construire les données PV
                         pv_data = {
                             'id': pv_id,
                             'fid': pv_feat.id(),  # Feature ID pour sélection QGIS
