@@ -205,13 +205,22 @@ class AITab(QWidget):
     def _on_train_model(self):
         """Entraîner le modèle IA"""
         try:
-            # Vérifier les couches
-            canal_layer = self.main_dock.canal_layer
-            if not canal_layer:
+            # Récupérer la couche de canalisations depuis le combo box
+            canal_layer = None
+            if hasattr(self.main_dock, 'canal_combo'):
+                canal_layer = self.main_dock.canal_combo.currentData()
+            
+            # Si pas trouvée dans le combo, essayer l'attribut direct
+            if not canal_layer and hasattr(self.main_dock, 'canal_layer'):
+                canal_layer = self.main_dock.canal_layer
+            
+            # Vérifier que la couche est valide
+            if not canal_layer or not canal_layer.isValid():
                 QMessageBox.warning(
                     self,
                     "Couche manquante",
-                    "Veuillez sélectionner une couche de canalisations dans l'onglet COUCHES."
+                    "Veuillez sélectionner une couche de canalisations dans l'onglet COUCHES.\n\n"
+                    "La couche doit contenir les canalisations du réseau d'assainissement."
                 )
                 return
             
@@ -341,13 +350,20 @@ class AITab(QWidget):
                 )
                 return
             
-            # Vérifier la couche
-            canal_layer = self.main_dock.canal_layer
-            if not canal_layer:
+            # Récupérer la couche de canalisations
+            canal_layer = None
+            if hasattr(self.main_dock, 'canal_combo'):
+                canal_layer = self.main_dock.canal_combo.currentData()
+            
+            if not canal_layer and hasattr(self.main_dock, 'canal_layer'):
+                canal_layer = self.main_dock.canal_layer
+            
+            # Vérifier que la couche est valide
+            if not canal_layer or not canal_layer.isValid():
                 QMessageBox.warning(
                     self,
                     "Couche manquante",
-                    "Veuillez sélectionner une couche de canalisations."
+                    "Veuillez sélectionner une couche de canalisations dans l'onglet COUCHES."
                 )
                 return
             
@@ -442,13 +458,20 @@ class AITab(QWidget):
     def _on_visualize_3d(self):
         """Visualiser en 3D"""
         try:
-            # Vérifier la couche
-            canal_layer = self.main_dock.canal_layer
-            if not canal_layer:
+            # Récupérer la couche de canalisations
+            canal_layer = None
+            if hasattr(self.main_dock, 'canal_combo'):
+                canal_layer = self.main_dock.canal_combo.currentData()
+            
+            if not canal_layer and hasattr(self.main_dock, 'canal_layer'):
+                canal_layer = self.main_dock.canal_layer
+            
+            # Vérifier que la couche est valide
+            if not canal_layer or not canal_layer.isValid():
                 QMessageBox.warning(
                     self,
                     "Couche manquante",
-                    "Veuillez sélectionner une couche de canalisations."
+                    "Veuillez sélectionner une couche de canalisations dans l'onglet COUCHES."
                 )
                 return
             
@@ -503,13 +526,20 @@ class AITab(QWidget):
     def _on_detect_complex_zones(self):
         """Détecter les zones complexes"""
         try:
-            # Vérifier la couche
-            canal_layer = self.main_dock.canal_layer
-            if not canal_layer:
+            # Récupérer la couche de canalisations
+            canal_layer = None
+            if hasattr(self.main_dock, 'canal_combo'):
+                canal_layer = self.main_dock.canal_combo.currentData()
+            
+            if not canal_layer and hasattr(self.main_dock, 'canal_layer'):
+                canal_layer = self.main_dock.canal_layer
+            
+            # Vérifier que la couche est valide
+            if not canal_layer or not canal_layer.isValid():
                 QMessageBox.warning(
                     self,
                     "Couche manquante",
-                    "Veuillez sélectionner une couche de canalisations."
+                    "Veuillez sélectionner une couche de canalisations dans l'onglet COUCHES."
                 )
                 return
             
