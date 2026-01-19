@@ -441,8 +441,8 @@ class MainDock:
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
             
-            # Détection PV_CONFORMITE (très flexible maintenant)
-            if "pv" in name and ("conform" in name or "confomit" in name):
+            # Détection PV (ultra flexible : juste "pv" dans le nom)
+            if "pv" in name:
                 print(f"  → PV DÉTECTÉE: {lyr.name()}")
                 if self.pv_combo:
                     self.pv_combo.addItem(lyr.name(), lyr)
@@ -473,9 +473,7 @@ class MainDock:
             if pv_count == 0:
                 msg += f"\n⚠️ Aucune couche PV détectée !\n"
                 msg += f"Assurez-vous que votre couche contient:\n"
-                msg += f"  • 'pv' dans son nom\n"
-                msg += f"  • 'conform' ou 'confomit'\n"
-                msg += f"\nExemple: PV_CONFORMITE"
+                msg += f"  • 'pv' dans son nom (exemple: PV, osmose.PV, PV_CONFORMITE)\n"
             
             QMessageBox.information(self.iface.mainWindow(), "Actualisation des couches", msg)
 
@@ -1010,11 +1008,11 @@ class MainDock:
             if hasattr(self, 'pv_combo') and self.pv_combo:
                 pv_layer = self.pv_combo.currentData()
             
-            # Fallback : chercher par nom si combo vide
+            # Fallback : chercher par nom si combo vide (juste "pv" suffit)
             if not pv_layer or not pv_layer.isValid():
                 for layer in QgsProject.instance().mapLayers().values():
                     name = layer.name().lower()
-                    if 'pv' in name and ('conform' in name or 'confomit' in name):
+                    if 'pv' in name:
                         pv_layer = layer
                         break
             
