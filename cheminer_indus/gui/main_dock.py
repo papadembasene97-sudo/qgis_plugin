@@ -96,7 +96,6 @@ class MainDock:
         self.industrial_dock: Optional[IndustrialDock] = None
         self.diag_dock      : Optional[DiagnosticsDock] = None
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
-        self._last_pv_data: List[Dict[str, Any]] = []  # Données PV détectés
 
         # selection tools
         self.tool_select    = None
@@ -118,7 +117,6 @@ class MainDock:
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
         self.indus_combo = self.liaison_combo = self.astreint_combo = None
-        self.pv_combo = None  # Combo pour PV_CONFORMITE
         self.id_input = self.search_input = None
         self.trace_btn = self.flux_btn = None
         self.direction_combo = self.cat_combo = self.func_combo = None
@@ -408,17 +406,12 @@ class MainDock:
 
     def _populate_layers(self):
         for c in (self.canal_combo, self.ouvr_combo, self.fosse_combo,
-                  self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
+                  self.indus_combo, self.liaison_combo, self.astreint_combo):
             if c:  # Vérifier que le combo existe
                 c.clear()
 
         # trouver/assurer LABEL_CI si présent
         self.label_layer = None
-        
-        # DEBUG: Logger les couches disponibles
-        print("=== DEBUG _populate_layers ===")
-        print(f"pv_combo existe: {self.pv_combo is not None}")
-        print(f"Couches dans QGIS: {len(QgsProject.instance().mapLayers())}")
         
         for lyr in QgsProject.instance().mapLayers().values():
             name = lyr.name().lower()
@@ -442,26 +435,12 @@ class MainDock:
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
             
-            # Détection PV (ultra flexible : juste "pv" dans le nom)
-            if "pv" in name:
-                print(f"  → PV DÉTECTÉE: {lyr.name()}")
-                if self.pv_combo:
-                    self.pv_combo.addItem(lyr.name(), lyr)
-                    print(f"  → Ajoutée au combo (items: {self.pv_combo.count()})")
-                else:
-                    print(f"  → ERREUR: pv_combo est None!")
-            
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                 self.label_layer = lyr
-        
-        print(f"pv_combo final count: {self.pv_combo.count() if self.pv_combo else 'None'}")
-        print("=== FIN DEBUG ===")
-        print("")
         
         # Message de confirmation si appelé manuellement (via bouton Actualiser)
         # On vérifie si on est dans le contexte d'un appel manuel (pas au démarrage)
         if hasattr(self, 'dock') and self.dock and self.dock.isVisible():
-            pv_count = self.pv_combo.count() if self.pv_combo else 0
             total_layers = len(QgsProject.instance().mapLayers())
             
             msg = f"Couches actualisées !\n\n"
@@ -469,12 +448,6 @@ class MainDock:
             msg += f"Canalisations : {self.canal_combo.count()}\n"
             msg += f"Ouvrages : {self.ouvr_combo.count()}\n"
             msg += f"Industriels : {self.indus_combo.count()}\n"
-            msg += f"PV Conformité : {pv_count}\n"
-            
-            if pv_count == 0:
-                msg += f"\n⚠️ Aucune couche PV détectée !\n"
-                msg += f"Assurez-vous que votre couche contient:\n"
-                msg += f"  • 'pv' dans son nom (exemple: PV, osmose.PV, PV_CONFORMITE)\n"
             
             QMessageBox.information(self.iface.mainWindow(), "Actualisation des couches", msg)
 
@@ -521,15 +494,6 @@ class MainDock:
             self.func_combo.addItem(txt,val)
         g.addWidget(QLabel("Fonction :"), 5, 0); g.addWidget(self.func_combo, 5, 1)
         
-        # Distance de recherche PV (pour cheminement industriels)
-        from qgis.PyQt.QtWidgets import QSpinBox
-        self.pv_distance_spin = QSpinBox()
-        self.pv_distance_spin.setRange(1, 100)
-        self.pv_distance_spin.setValue(15)
-        self.pv_distance_spin.setSuffix(" m")
-        self.pv_distance_spin.setToolTip("Distance maximale entre le réseau et les PV à détecter")
-        g.addWidget(QLabel("Distance PV :"), 6, 0); g.addWidget(self.pv_distance_spin, 6, 1)
-
         # buttons
         self.trace_btn = QPushButton("Cheminer"); self.trace_btn.setIcon(QIcon(os.path.join(ICONS_DIR,'trace.png')))
         self.trace_btn.clicked.connect(self._do_trace_with_wait)
@@ -664,7 +628,6 @@ class MainDock:
         self.indus_combo    = QComboBox()
         self.liaison_combo  = QComboBox()
         self.astreint_combo = QComboBox()
-        self.pv_combo       = QComboBox()  # Nouvelle couche PV_CONFORMITE
         
         # Ajouter dans une grille compacte
         grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
@@ -685,21 +648,18 @@ class MainDock:
         grp_layers_lay.addWidget(QLabel("⚠️ Astreinte-Exploit :"), 5, 0)
         grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
         
-        grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
-        grp_layers_lay.addWidget(self.pv_combo, 6, 1)
-        
         # Bouton Actualiser les couches
         btn_refresh_layers = QPushButton("🔄 Actualiser les couches")
         btn_refresh_layers.setToolTip("Recharge la liste des couches disponibles dans QGIS")
         btn_refresh_layers.clicked.connect(self._populate_layers)
         btn_refresh_layers.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px; font-weight: bold; }")
-        grp_layers_lay.addWidget(btn_refresh_layers, 7, 0, 1, 2)
+        grp_layers_lay.addWidget(btn_refresh_layers, 6, 0, 1, 2)
         
         # Info couches
-        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
+        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
+        grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
         
         lay.addWidget(grp_layers)
         
@@ -994,53 +954,10 @@ class MainDock:
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
-        details = self.indus_svc.fetch_many(ind_ids)
-        self._last_indus_data = details
+        details = self._last_indus_data = details
         
-        # Détection des PV non conformes avec distance paramétrable
-        pv_list = []
-        pv_distance = self.pv_distance_spin.value() if hasattr(self, 'pv_distance_spin') else 15.0
-        
-        try:
-            from ..core.pv_analyzer import PVAnalyzer
-            
-            # Récupérer la couche PV depuis le combo PARAMÈTRES
-            pv_layer = None
-            if hasattr(self, 'pv_combo') and self.pv_combo:
-                pv_layer = self.pv_combo.currentData()
-            
-            # Fallback : chercher par nom si combo vide (juste "pv" suffit)
-            if not pv_layer or not pv_layer.isValid():
-                for layer in QgsProject.instance().mapLayers().values():
-                    name = layer.name().lower()
-                    if 'pv' in name:
-                        pv_layer = layer
-                        break
-            
-            if pv_layer and pv_layer.isValid() and canal_ids:
-                # Créer l'analyseur PV
-                pv_analyzer = PVAnalyzer(pv_layer)
-                
-                # Trouver les PV non conformes sur le cheminement avec distance paramétrable
-                pv_list = pv_analyzer.find_pv_in_path(canal_ids, distance=pv_distance)
-                
-                # Sélectionner les PV dans la couche QGIS
-                if pv_list:
-                    pv_ids = [pv['fid'] for pv in pv_list if 'fid' in pv]
-                    if pv_ids:
-                        pv_layer.removeSelection()
-                        pv_layer.selectByIds(pv_ids)
-                
-        except Exception as e:
-            print(f"Erreur lors de la détection des PV : {e}")
-            import traceback
-            traceback.print_exc()
-        
-        # Sauvegarder les PV détectés
-        self._last_pv_data = pv_list
-        
-        # Ouvrir le dock avec industriels + PV
-        self._open_or_update_industrial_dock(data=details, pv_data=pv_list)
+        # Ouvrir le dock avec industriels
+        self._open_or_update_industrial_dock(data=details)
 
         # résumé
         dist = round(self.tracer.total_length, 2)
@@ -1048,9 +965,9 @@ class MainDock:
         labels = sorted({ self._flux_labels.get(c, c) for c in codes }) or ["Aucun"]
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Cheminement (Industriels + PV)",
-            "Industriels : {}\nPV non conformes : {}\nLongueur : {} m\nFlux : {}".format(
-                len(ind_ids), len(pv_list), dist, " / ".join(labels)
+            "Cheminement (Industriels)",
+            "Industriels : {}\nLongueur : {} m\nFlux : {}".format(
+                len(ind_ids), dist, " / ".join(labels)
             )
         )
 
@@ -1273,52 +1190,6 @@ class MainDock:
     # ---------------------------------------------------------
     # Récupération des PV connectés à des nœuds (NOUVEAU v1.2.3)
     # ---------------------------------------------------------
-    def _get_pv_from_nodes(self, nodes: Set[str]) -> Set[str]:
-        """
-        Retourne les IDs des PV connectés aux nœuds donnés.
-        Utilisé pour exclure les PV lors de la désélection de branches.
-        
-        Args:
-            nodes: Set de nœuds (ex: {"N_12345", "N_67890"})
-        
-        Returns:
-            Set[str]: IDs des PV connectés à ces nœuds
-        """
-        pv_ids = set()
-        
-        # Vérifier si le PVAnalyzer est disponible
-        if not hasattr(self, 'pv_analyzer') or not self.pv_analyzer:
-            return pv_ids
-        
-        # Récupérer les canalisations de ces nœuds
-        canal_ids = set()
-        if self.canal_layer and self.canal_layer.isValid():
-            for node in nodes:
-                node_esc = str(node).replace("'", "''")
-                expr = QgsExpression(
-                    "trim(\"idnini\") = '{}' OR trim(\"idnterm\") = '{}'".format(
-                        node_esc, node_esc
-                    )
-                )
-                req = QgsFeatureRequest(expr)
-                for feat in self.canal_layer.getFeatures(req):
-                    canal_ids.add(feat.id())
-        
-        # Trouver les PV proches de ces canalisations
-        if canal_ids:
-            try:
-                pv_list = self.pv_analyzer.find_pv_in_path(list(canal_ids), distance=15.0)
-                # Extraire les IDs des PV (gérer différents formats)
-                for pv in pv_list:
-                    if pv:
-                        pv_id = str(pv.get('id', pv.get('num_pv', '')))
-                        if pv_id:
-                            pv_ids.add(pv_id)
-            except Exception as e:
-                print(f"Erreur lors de la récupération des PV : {e}")
-        
-        return pv_ids
-
     # --- Parcours amont existant ---
     def _iter_incoming_edges_mixed(self, node: str):
         out = []
@@ -1722,7 +1593,7 @@ class MainDock:
         if self.industrial_dock:
             self.industrial_dock.set_data(details)
 
-    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None, pv_data: Optional[List[Dict]] = None):
+    def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None):
         if not self.indus_svc:
             self.indus_layer   = self.indus_combo.currentData()
             self.liaison_layer = self.liaison_combo.currentData()
@@ -1742,20 +1613,11 @@ class MainDock:
             # Callbacks industriels
             self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
             self.industrial_dock.on_designate_indus_request(self._designate_industrial)
-            # Callbacks PV
-            self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
-            self.industrial_dock.on_designate_pv_request(self._designate_pv)
             # Callback refresh
             self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
 
         self.industrial_dock.set_data(data)
-        
-        # Définir les données PV si disponibles
-        if pv_data is not None:
-            self._last_pv_data = pv_data
-            if hasattr(self.industrial_dock, 'set_pv_data'):
-                self.industrial_dock.set_pv_data(pv_data)
         
         self.industrial_dock.show()
         self.industrial_dock.raise_()
@@ -2431,9 +2293,6 @@ class MainDock:
                     # Callbacks industriels
                     self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
                     self.industrial_dock.on_designate_indus_request(self._designate_industrial)
-                    # Callbacks PV
-                    self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
-                    self.industrial_dock.on_designate_pv_request(self._designate_pv)
                     # Callback refresh
                     self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
                     self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
@@ -2524,65 +2383,6 @@ class MainDock:
     # ---------------------------------------------------------
     # GESTION PV (NOUVEAU v1.2.3 Phase 3)
     # ---------------------------------------------------------
-    def _zoom_to_pv(self, pv_id: str):
-        """
-        Zoom sur un PV sur la carte
-        
-        Args:
-            pv_id: ID du PV
-        """
-        # Chercher la couche PV
-        pv_layer = None
-        for layer in QgsProject.instance().mapLayers().values():
-            if 'PV_CONFORMITE' in layer.name() or 'pv_conformite' in layer.name().lower():
-                pv_layer = layer
-                break
-        
-        if not pv_layer:
-            QMessageBox.warning(
-                self.iface.mainWindow(),
-                "CheminerIndus",
-                "Couche PV_CONFORMITE introuvable."
-            )
-            return
-        
-        # Chercher le PV par ID
-        expr = QgsExpression("\"id\" = '{}'".format(str(pv_id).replace("'", "''")))
-        for feat in pv_layer.getFeatures(QgsFeatureRequest(expr)):
-            geom = feat.geometry()
-            if geom:
-                # Créer un buffer autour du point pour avoir une zone visible
-                buffer_geom = geom.buffer(50.0, 8)
-                self.canvas.setExtent(buffer_geom.boundingBox())
-                self.canvas.refresh()
-                
-                # Sélectionner le PV
-                pv_layer.removeSelection()
-                pv_layer.selectByIds([feat.id()])
-                break
-    
-    def _designate_pv(self, pv_id: str):
-        """
-        Désigne un PV comme pollueur et propose le cheminement aval
-        
-        Args:
-            pv_id: ID du PV à désigner
-        """
-        # Mémoriser le PV pollueur
-        self.polluter_id = f"PV_{pv_id}"
-        self.polluter_note = f"PV non conforme ID: {pv_id}"
-        
-        QMessageBox.information(
-            self.iface.mainWindow(),
-            "PV désigné",
-            f"Le PV {pv_id} a été désigné comme pollueur.\n\n"
-            "Vous pouvez maintenant générer un rapport PDF."
-        )
-        
-        # TODO: Implémenter le cheminement depuis le PV
-        # Utiliser trace_from_pv() si nécessaire
-
-    # ---------------------------------------------------------
     # RESET
     # ---------------------------------------------------------
     def _reset(self):
@@ -2618,7 +2418,6 @@ class MainDock:
         self._last_trace_nodes.clear()
         self._mask_on = False
         self._last_indus_data = {}
-        self._last_pv_data = []
 
         if self.industrial_dock:
             self.iface.removeDockWidget(self.industrial_dock); self.industrial_dock = None
