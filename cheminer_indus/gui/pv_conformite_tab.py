@@ -304,8 +304,14 @@ class PVConformiteTab(QWidget):
         try:
             from ..core.pv_analyzer import PVAnalyzer
             
-            # Récupérer la couche PV
-            pv_layer = self._find_layer_by_name("PV_CONFORMITE") or self._find_layer_by_name("osmose.PV_CONFORMITE")
+            # Récupérer la couche PV depuis le combo PARAMÈTRES
+            pv_layer = None
+            if hasattr(self.main_dock, 'pv_combo') and self.main_dock.pv_combo:
+                pv_layer = self.main_dock.pv_combo.currentData()
+            
+            # Si pas trouvé, chercher dans les couches chargées (fallback)
+            if not pv_layer or not pv_layer.isValid():
+                pv_layer = self._find_layer_by_name("PV_CONFORMITE") or self._find_layer_by_name("osmose.PV_CONFORMITE")
             
             # Récupérer la couche de canalisations
             canal_layer = None
@@ -316,10 +322,10 @@ class PVConformiteTab(QWidget):
                 canal_layer = self.main_dock.canal_layer
             
             # Vérifier les couches
-            if not pv_layer:
-                raise Exception("Couche PV_CONFORMITE non trouvée. Veuillez charger la couche osmose.PV_CONFORMITE dans QGIS.")
+            if not pv_layer or not pv_layer.isValid():
+                raise Exception("Couche PV_CONFORMITE non trouvée. Veuillez la sélectionner dans l'onglet PARAMÈTRES.")
             if not canal_layer or not canal_layer.isValid():
-                raise Exception("Couche de canalisations non chargée. Veuillez sélectionner une couche dans l'onglet COUCHES.")
+                raise Exception("Couche de canalisations non chargée. Veuillez la sélectionner dans l'onglet PARAMÈTRES.")
             
             # Créer l'analyseur avec seulement la couche PV
             self.pv_analyzer = PVAnalyzer(pv_layer)

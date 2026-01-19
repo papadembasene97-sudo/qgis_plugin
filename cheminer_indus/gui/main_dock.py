@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
 )
 
 from qgis.core import (
@@ -237,7 +237,7 @@ class MainDock:
         head = QHBoxLayout()
 
         logo_container = QWidget()
-        logo_container.setFixedHeight(70)
+        logo_container.setFixedHeight(50)  # Réduit de 70 à 50
         logo_layout = QHBoxLayout(logo_container)
         logo_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -245,7 +245,7 @@ class MainDock:
         # Utiliser le logo personnalisé s'il existe
         logo_path = self.get_logo_path() if hasattr(self, 'get_logo_path') else os.path.join(ICONS_DIR, 'logo.png')
         pix = QPixmap(logo_path)
-        scaled = pix.scaledToHeight(70, Qt.SmoothTransformation)
+        scaled = pix.scaledToHeight(50, Qt.SmoothTransformation)  # Réduit de 70 à 50
         logo.setPixmap(scaled)
         logo.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -590,8 +590,15 @@ class MainDock:
 
     def _tab_settings(self) -> QWidget:
         """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""
+        # Widget principal avec scroll
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        
+        # Widget de contenu
         w = QWidget()
         lay = QVBoxLayout(w)
+        lay.setContentsMargins(5, 5, 5, 5)  # Marges réduites
         
         # === SECTION COUCHES SIG ===
         grp_layers = QGroupBox("🗺️ Sélection des couches SIG")
@@ -642,7 +649,7 @@ class MainDock:
         
         # Aperçu du logo actuel
         self.logo_preview_label = QLabel()
-        self.logo_preview_label.setFixedSize(200, 80)
+        self.logo_preview_label.setFixedSize(150, 60)  # Réduit de 200x80 à 150x60
         self.logo_preview_label.setScaledContents(True)
         self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
         self._update_logo_preview()
@@ -681,7 +688,7 @@ class MainDock:
         
         # Aperçu de l'icône actuelle
         self.icon_preview_label = QLabel()
-        self.icon_preview_label.setFixedSize(64, 64)
+        self.icon_preview_label.setFixedSize(48, 48)  # Réduit de 64x64 à 48x48
         self.icon_preview_label.setScaledContents(True)
         self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
         self._update_icon_preview()
@@ -752,7 +759,10 @@ class MainDock:
         )
         lay.addWidget(info_final)
         
-        return w
+        # Assigner le widget de contenu au scroll area
+        scroll.setWidget(w)
+        
+        return scroll
 
     # ---------------------------------------------------------
     # Sélection / Recherche
