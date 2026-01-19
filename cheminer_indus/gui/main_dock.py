@@ -117,6 +117,7 @@ class MainDock:
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
         self.indus_combo = self.liaison_combo = self.astreint_combo = None
+        self.pv_combo = None  # Combo pour PV_CONFORMITE
         self.id_input = self.search_input = None
         self.trace_btn = self.flux_btn = None
         self.direction_combo = self.cat_combo = self.func_combo = None
@@ -406,8 +407,9 @@ class MainDock:
 
     def _populate_layers(self):
         for c in (self.canal_combo, self.ouvr_combo, self.fosse_combo,
-                  self.indus_combo, self.liaison_combo, self.astreint_combo):
-            c.clear()
+                  self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
+            if c:  # Vérifier que le combo existe
+                c.clear()
 
         # trouver/assurer LABEL_CI si présent
         self.label_layer = None
@@ -425,6 +427,10 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
+            # Ajout détection PV_CONFORMITE
+            if "pv" in name and "conform" in name:
+                if self.pv_combo:
+                    self.pv_combo.addItem(lyr.name(), lyr)
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                 self.label_layer = lyr
 
@@ -598,6 +604,7 @@ class MainDock:
         self.indus_combo    = QComboBox()
         self.liaison_combo  = QComboBox()
         self.astreint_combo = QComboBox()
+        self.pv_combo       = QComboBox()  # Nouvelle couche PV_CONFORMITE
         
         # Ajouter dans une grille compacte
         grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
@@ -618,11 +625,14 @@ class MainDock:
         grp_layers_lay.addWidget(QLabel("⚠️ Astreinte-Exploit :"), 5, 0)
         grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
         
+        grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
+        grp_layers_lay.addWidget(self.pv_combo, 6, 1)
+        
         # Info couches
-        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels.")
+        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 6, 0, 1, 2)
+        grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
         
         lay.addWidget(grp_layers)
         
