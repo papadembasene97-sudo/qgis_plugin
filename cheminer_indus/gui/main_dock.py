@@ -33,6 +33,7 @@ from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
 from ..gui.ai_tab               import AITab
+from ..gui.pv_conformite_tab    import PVConformiteTab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
 from ..gui.main_dock_optimized  import OptimizedNodeOps
@@ -432,7 +433,7 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
-            if "pv" in name or "conformite" in name or "conformité" in name:
+            if self._is_pv_layer(lyr):
                 self.pv_combo.addItem(lyr.name(), lyr)
             
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
@@ -456,6 +457,25 @@ class MainDock:
             vdef = "Point?crs=EPSG:2154&field=categorie:string&field=label:string"
             self.label_layer = QgsVectorLayer(vdef, "LABEL_CI", "memory")
             QgsProject.instance().addMapLayer(self.label_layer)
+
+    def _is_pv_layer(self, layer: QgsVectorLayer) -> bool:
+        """Détecte une couche PV par son nom ou sa source."""
+        if not layer or not isinstance(layer, QgsVectorLayer):
+            return False
+
+        name = layer.name().lower()
+        if "pv" in name or "conformite" in name or "conformité" in name or "conforme" in name:
+            return True
+
+        try:
+            source = layer.dataProvider().dataSourceUri().lower()
+        except Exception:
+            source = ""
+
+        return any(
+            token in source
+            for token in ("pv_conforme", "pv_conformite", "pv conform", "pv_conform")
+        )
 
     # ---------------------------------------------------------
     # Onglet CHEMINEMENT
@@ -908,7 +928,7 @@ class MainDock:
 
         self._autosave()
 
-    def _trace_for_industrials(self, start_id: str, filters: Dict[str,str]):
+    def _trace_for_industrials(self, start_id: str, filters: Dict[str,str], pv_distance: float = 15.0):
         """
         Cheminement spécifique pour les industriels :
         - trace en aval→amont,
@@ -917,6 +937,17 @@ class MainDock:
         - détecte les PV non conformes,
         - remplit le dock industriels + PV.
         """
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self.canal_layer = self.canal_combo.currentData() if self.canal_combo else None
+        if not self.fosse_layer or not self.fosse_layer.isValid():
+            self.fosse_layer = self.fosse_combo.currentData() if self.fosse_combo else None
+        if not self.indus_layer or not self.indus_layer.isValid():
+            self.indus_layer = self.indus_combo.currentData() if self.indus_combo else None
+        if not self.liaison_layer or not self.liaison_layer.isValid():
+            self.liaison_layer = self.liaison_combo.currentData() if self.liaison_combo else None
+        if not self.pv_layer or not self.pv_layer.isValid():
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+
         self.tracer = NetworkTracer(
             canal_layer=self.canal_layer,
             fosse_layer=self.fosse_layer,
@@ -969,7 +1000,7 @@ class MainDock:
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
         
         if self.pv_svc and self.pv_layer:
-            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=15.0)
+            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
             
             # Sélection explicite des PV sur la carte
             if pv_ids:
@@ -1668,6 +1699,8 @@ class MainDock:
             # Callbacks industriels
             self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
             self.industrial_dock.on_designate_indus_request(self._designate_industrial)
+            self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
+            self.industrial_dock.on_designate_pv_request(self._designate_pv)
             # Callback refresh
             self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
@@ -1676,7 +1709,10 @@ class MainDock:
         
         # Définir les données PV si le dock supporte cette méthode
         if pv_data and hasattr(self.industrial_dock, 'set_pv_data'):
-            self.industrial_dock.set_pv_data(pv_data)
+            if isinstance(pv_data, dict):
+                self.industrial_dock.set_pv_data(list(pv_data.values()))
+            else:
+                self.industrial_dock.set_pv_data(pv_data)
         
         self.industrial_dock.show()
         self.industrial_dock.raise_()
@@ -1690,6 +1726,33 @@ class MainDock:
             if g:
                 self.canvas.setExtent(g.boundingBox()); self.canvas.refresh()
                 break
+
+    def _zoom_to_pv(self, pv_id: str):
+        if not self.pv_layer or not self.pv_layer.isValid():
+            return
+
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name,
+                    str(pv_id).replace("'", "''")
+                ))
+                for feat in self.pv_layer.getFeatures(QgsFeatureRequest(expr)):
+                    geom = feat.geometry()
+                    if geom:
+                        self.canvas.setExtent(geom.boundingBox())
+                        self.canvas.refresh()
+                        return
+
+    def _designate_pv(self, pv_id: str):
+        """Désigne un PV comme pollueur."""
+        self.polluter_id = str(pv_id)
+        self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "PV désigné",
+            f"Le PV {pv_id} a été désigné comme origine de pollution."
+        )
 
     # -------- Cheminement depuis l'industriel désigné --------
     def _ask_indus_trace_network(self) -> Optional[str]:
