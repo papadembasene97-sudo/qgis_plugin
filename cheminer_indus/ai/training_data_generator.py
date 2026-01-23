@@ -67,7 +67,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
-            z_amont = canal_feat.attribute('zmont')
+            z_amont = canal_feat.attribute('zamont')
             if z_amont is None or z_amont == "":
                 z_amont = canal_feat.attribute('zamont')
             z_aval = canal_feat.attribute('zaval')
@@ -79,7 +79,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
                 z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             upstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                'pente': canal_feat.attribute('pente') or 0.005,
+                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('_pente') or 0.005,
                 'z_amont': z_amont or 0,
                 'z_aval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
@@ -93,7 +93,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
-            z_amont = canal_feat.attribute('zmont')
+            z_amont = canal_feat.attribute('zamont')
             if z_amont is None or z_amont == "":
                 z_amont = canal_feat.attribute('zamont')
             z_aval = canal_feat.attribute('zaval')
@@ -105,7 +105,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
                 z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             downstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                'pente': canal_feat.attribute('pente') or 0.005,
+                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('_pente') or 0.005,
                 'z_amont': z_amont or 0,
                 'z_aval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
@@ -167,7 +167,7 @@ def generate_synthetic_training_data(nb_samples: int = 100) -> List[Dict]:
         for j in range(nb_upstream):
             upstream_data.append({
                 'diametre': random.choice([200, 300, 400, 500, 600]),
-                'pente': random.uniform(0.002, 0.02),
+                '_pente': random.uniform(0.002, 0.02),
                 'z_amont': node_data['elevation'] + random.uniform(0.5, 3),
                 'z_aval': node_data['elevation'],
                 'longueur': random.uniform(10, 100),
@@ -182,7 +182,7 @@ def generate_synthetic_training_data(nb_samples: int = 100) -> List[Dict]:
         for j in range(nb_downstream):
             downstream_data.append({
                 'diametre': random.choice([300, 400, 500, 600, 800]),
-                'pente': random.uniform(0.002, 0.02),
+                '_pente': random.uniform(0.002, 0.02),
                 'z_amont': node_data['elevation'],
                 'z_aval': node_data['elevation'] - random.uniform(0.5, 3),
                 'longueur': random.uniform(10, 100),
