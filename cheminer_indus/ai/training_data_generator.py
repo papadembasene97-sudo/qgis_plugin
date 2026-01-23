@@ -5,6 +5,8 @@ Utilitaire pour générer des données d'entraînement depuis l'historique de vi
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict
+
+from qgis.core import QgsExpression, QgsFeatureRequest
 import random
 
 
@@ -23,6 +25,20 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         Liste de données formatées pour l'entraînement
     """
     training_data = []
+
+    def _ouvrage_z(node_id: str):
+        if not node_id or not ouvr_layer:
+            return 0
+        try:
+            expr = QgsExpression(f"trim(\"idouvrage\") = '{str(node_id).replace(\"'\", \"''\")}'")
+            req = QgsFeatureRequest(expr)
+            for feat in ouvr_layer.getFeatures(req):
+                if feat.fields().indexOf('z') >= 0:
+                    val = feat.attribute('z')
+                    return val if val is not None else 0
+        except Exception:
+            return 0
+        return 0
     
     for visit in visits_history:
         node_id = visit.get('node_id')
@@ -51,11 +67,21 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
+            z_amont = canal_feat.attribute('zmont')
+            if z_amont is None or z_amont == "":
+                z_amont = canal_feat.attribute('zamont')
+            z_aval = canal_feat.attribute('zaval')
+            if z_aval is None or z_aval == "":
+                z_aval = canal_feat.attribute('zaval')
+            if z_amont in (None, ""):
+                z_amont = _ouvrage_z(canal_feat.attribute('idnini'))
+            if z_aval in (None, ""):
+                z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             upstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                'pente': canal_feat.attribute('pente') or 0.005,
-                'z_amont': canal_feat.attribute('z_amont') or 0,
-                'z_aval': canal_feat.attribute('z_aval') or 0,
+                'pente': canal_feat.attribute('_pente') or canal_feat.attribute('pente') or 0.005,
+                'z_amont': z_amont or 0,
+                'z_aval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
                 'type_reseau': canal_feat.attribute('type_reseau') or 'EU',
                 'materiau': canal_feat.attribute('materiau') or 'PVC'
@@ -67,11 +93,21 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
+            z_amont = canal_feat.attribute('zmont')
+            if z_amont is None or z_amont == "":
+                z_amont = canal_feat.attribute('zamont')
+            z_aval = canal_feat.attribute('zaval')
+            if z_aval is None or z_aval == "":
+                z_aval = canal_feat.attribute('zaval')
+            if z_amont in (None, ""):
+                z_amont = _ouvrage_z(canal_feat.attribute('idnini'))
+            if z_aval in (None, ""):
+                z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             downstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                'pente': canal_feat.attribute('pente') or 0.005,
-                'z_amont': canal_feat.attribute('z_amont') or 0,
-                'z_aval': canal_feat.attribute('z_aval') or 0,
+                'pente': canal_feat.attribute('_pente') or canal_feat.attribute('pente') or 0.005,
+                'z_amont': z_amont or 0,
+                'z_aval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
                 'type_reseau': canal_feat.attribute('type_reseau') or 'EU',
                 'materiau': canal_feat.attribute('materiau') or 'PVC'

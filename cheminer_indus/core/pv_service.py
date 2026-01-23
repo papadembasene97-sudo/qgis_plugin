@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import List, Dict, Set, Optional
 
 from qgis.core import (
-    QgsVectorLayer, QgsExpression, QgsFeatureRequest, 
-    QgsGeometry, QgsCoordinateTransform, QgsProject
+    QgsVectorLayer, QgsExpression, QgsFeatureRequest, QgsFeature,
+    QgsGeometry, QgsCoordinateTransform, QgsProject, QgsSpatialIndex
 )
 
 
@@ -116,6 +116,23 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
+        # Construire un index spatial PV pour accélérer les recherches
+        pv_index = QgsSpatialIndex()
+        pv_geom_cache = {}
+        for pv_feat in self.pv_layer.getFeatures():
+            if not self._is_non_conforme(pv_feat):
+                continue
+            pv_geom = pv_feat.geometry()
+            if not pv_geom:
+                continue
+            if transform:
+                pv_geom = QgsGeometry(pv_geom)
+                pv_geom.transform(transform)
+            pv_geom_cache[pv_feat.id()] = pv_geom
+            feat_for_index = QgsFeature(pv_feat)
+            feat_for_index.setGeometry(pv_geom)
+            pv_index.addFeature(feat_for_index)
+
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
         
@@ -127,21 +144,12 @@ class PVService:
             # Créer un buffer autour de la canalisation (dans le CRS du canal)
             buffer_geom = canal_geom.buffer(distance, 8)
 
-            # Chercher les PV dans ce buffer
-            for pv_feat in self.pv_layer.getFeatures():
-                pv_geom = pv_feat.geometry()
-                
-                # Transformer le PV dans le CRS du canal si nécessaire
-                if transform:
-                    pv_geom_transformed = QgsGeometry(pv_geom)
-                    pv_geom_transformed.transform(transform)
-                else:
-                    pv_geom_transformed = pv_geom
-                
-                # Vérifier si le PV est dans le buffer
-                if buffer_geom.intersects(pv_geom_transformed):
-                    if pv_feat.id() not in pv_fids:
-                        pv_fids.append(pv_feat.id())
+            candidate_ids = pv_index.intersects(buffer_geom.boundingBox())
+            for fid in candidate_ids:
+                pv_geom = pv_geom_cache.get(fid)
+                if pv_geom and buffer_geom.intersects(pv_geom):
+                    if fid not in pv_fids:
+                        pv_fids.append(fid)
 
         return pv_fids
 
@@ -166,6 +174,8 @@ class PVService:
         req = QgsFeatureRequest().setFilterFids(fids)
         
         for feat in self.pv_layer.getFeatures(req):
+            if not self._is_non_conforme(feat):
+                continue
             # Essayer plusieurs noms de colonnes possibles
             pv_id = None
             for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
@@ -205,6 +215,8 @@ class PVService:
                 req = QgsFeatureRequest(expr)
 
                 for f in self.pv_layer.getFeatures(req):
+                    if not self._is_non_conforme(f):
+                        return {}
                     out: Dict[str, str] = {}
                     for name in f.fields().names():
                         out[name] = "" if f[name] is None else str(f[name])
@@ -285,3 +297,14 @@ class PVService:
                     min_distance = dist
 
         return round(min_distance, 2) if min_distance != float('inf') else None
+
+    def _is_non_conforme(self, feat) -> bool:
+        """Retourne True si le PV est non conforme ou si l'info est absente."""
+        for field_name in ["conforme", "conformite", "conformité", "conform"]:
+            if feat.fields().indexOf(field_name) >= 0:
+                val = feat.attribute(field_name)
+                sval = str(val or "").strip().lower()
+                if sval in ("oui", "yes", "true", "1"):
+                    return False
+                return True
+        return True
