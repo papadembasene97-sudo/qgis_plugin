@@ -443,7 +443,7 @@ class AIModuleDock(QWidget):
                 'id': feature.id(),
                 'geometry': {'coordinates': coords},
                 'diametre': feature.attribute('diametre') or 300,
-                'pente': feature.attribute('_pente') or feature.attribute('pente') or 0.005,
+                '_pente': feature.attribute('_pente') or feature.attribute('_pente') or 0.005,
                 'z_amont': feature.attribute('zmont') or feature.attribute('zamont') or 0,
                 'z_aval': feature.attribute('zaval') or feature.attribute('zaval') or 0,
                 'type_reseau': feature.attribute('type_reseau') or 'EU',
