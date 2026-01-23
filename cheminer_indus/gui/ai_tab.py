@@ -31,7 +31,20 @@ class AITab(QWidget):
         
     def _init_ui(self):
         """Initialise l'interface utilisateur"""
-        layout = QVBoxLayout(self)
+        from qgis.PyQt.QtWidgets import QScrollArea, QSizePolicy
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        outer.addWidget(scroll)
+
+        content = QWidget()
+        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        scroll.setWidget(content)
+
+        layout = QVBoxLayout(content)
         
         # Titre
         title = QLabel("🤖 Intelligence Artificielle")
@@ -670,7 +683,7 @@ class AITab(QWidget):
                 "id": feat.id(),
                 "geometry": {"coordinates": coords},
                 "diametre": feat.attribute("diametre") or feat.attribute("diam") or 0,
-                "pente": feat.attribute("pente") or 0,
+                "pente": feat.attribute("pente") or feat.attribute("_pente") or 0,
                 "z_amont": feat.attribute("z_amont") or 0,
                 "z_aval": feat.attribute("z_aval") or 0,
                 "type_reseau": feat.attribute("typreseau") or feat.attribute("type_reseau") or ""

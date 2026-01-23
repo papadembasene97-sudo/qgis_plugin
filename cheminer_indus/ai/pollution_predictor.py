@@ -162,7 +162,7 @@ class PollutionPredictor:
             last_visits = [v for v in historical_visits 
                           if v.get('node_id') == node_data.get('id')]
             if last_visits:
-                last_visit_date = max([v.get('date', datetime.min) for v in last_visits])
+                last_visit_date = max([self._to_datetime(v.get('date')) for v in last_visits])
                 days_since_visit = (datetime.now() - last_visit_date).days
             else:
                 days_since_visit = 9999  # Jamais visité
@@ -198,6 +198,17 @@ class PollutionPredictor:
         ])
         
         return np.array(features)
+
+    def _to_datetime(self, value):
+        """Convertit une valeur en datetime, accepte str ISO."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return datetime.min
+        return datetime.min
     
     def _is_nearby(self, node1: Dict, node2: Dict, radius: float = 100) -> bool:
         """Vérifie si deux nœuds sont proches"""
@@ -401,6 +412,7 @@ class PollutionPredictor:
         for feat in canal_layer.getFeatures():
             fid = feat.id()
             diameter = feat.attribute("diametre") or feat.attribute("diam") or 0
+            slope = feat.attribute("pente") or feat.attribute("_pente") or 0
             slope = feat.attribute("pente") or 0
             typ = feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
 

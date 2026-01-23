@@ -17,7 +17,8 @@ from qgis.PyQt.QtWidgets import (
 
 from qgis.core import (
     QgsProject, QgsExpression, QgsFeatureRequest, QgsVectorLayer,
-    QgsFeature, QgsGeometry, QgsPointXY, Qgis
+    QgsFeature, QgsGeometry, QgsPointXY, Qgis, QgsCoordinateTransform,
+    QgsSpatialIndex
 )
 
 from ..utils.config             import ICONS_DIR
@@ -683,7 +684,7 @@ class MainDock:
         info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
+        grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
         
         lay.addWidget(grp_layers)
         
@@ -1740,6 +1741,17 @@ class MainDock:
                 for feat in self.pv_layer.getFeatures(QgsFeatureRequest(expr)):
                     geom = feat.geometry()
                     if geom:
+                        try:
+                            layer_crs = self.pv_layer.crs()
+                            canvas_crs = self.canvas.mapSettings().destinationCrs()
+                            if layer_crs != canvas_crs:
+                                transform = QgsCoordinateTransform(
+                                    layer_crs, canvas_crs, QgsProject.instance()
+                                )
+                                geom = QgsGeometry(geom)
+                                geom.transform(transform)
+                        except Exception:
+                            pass
                         self.canvas.setExtent(geom.boundingBox())
                         self.canvas.refresh()
                         return
@@ -1748,10 +1760,199 @@ class MainDock:
         """Désigne un PV comme pollueur."""
         self.polluter_id = str(pv_id)
         self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
+        choice = self._ask_pv_trace_network()
+        if not choice:
+            return
+
+        if choice == "SELECT":
+            if not self.ouvr_layer or not self.ouvr_layer.isValid():
+                self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
+            if not self.ouvr_layer or not self.ouvr_layer.isValid():
+                QMessageBox.warning(
+                    self.iface.mainWindow(),
+                    "Ouvrages manquants",
+                    "Veuillez sélectionner une couche d'ouvrages valide."
+                )
+                return
+            sel = self.ouvr_layer.selectedFeatures()
+            if not sel:
+                QMessageBox.information(
+                    self.iface.mainWindow(),
+                    "Sélection nécessaire",
+                    "Sélectionnez un ou plusieurs ouvrages sur la carte."
+                )
+                return
+            start_nodes = []
+            for f in sel:
+                try:
+                    start_nodes.append(str(f["idouvrage"]))
+                except Exception:
+                    continue
+            self._trace_downstream_from_nodes(start_nodes, network_choice="BOTH")
+            return
+
+        self._trace_from_pv(pv_id, choice)
+
         QMessageBox.information(
             self.iface.mainWindow(),
             "PV désigné",
             f"Le PV {pv_id} a été désigné comme origine de pollution."
+        )
+
+    def _ask_pv_trace_network(self) -> Optional[str]:
+        """Demande le réseau à tracer pour un PV désigné."""
+        dlg = QDialog(self.iface.mainWindow())
+        dlg.setWindowTitle("Cheminement depuis le PV")
+
+        v = QVBoxLayout(dlg)
+        lab = QLabel(
+            "Quel(s) réseau(x) cheminer en Amont → Aval depuis le PV ?"
+        )
+        lab.setWordWrap(True)
+        v.addWidget(lab)
+
+        rb_ep = QRadioButton("Réseau EP (01) uniquement")
+        rb_eu = QRadioButton("Réseau EU (02) uniquement")
+        rb_both = QRadioButton("Réseaux EP + EU")
+        rb_select = QRadioButton("Sélectionner des ouvrages")
+        rb_both.setChecked(True)
+
+        v.addWidget(rb_ep)
+        v.addWidget(rb_eu)
+        v.addWidget(rb_both)
+        v.addWidget(rb_select)
+
+        hb = QHBoxLayout()
+        btn_ok = QPushButton("Valider")
+        btn_cancel = QPushButton("Annuler")
+        hb.addWidget(btn_ok)
+        hb.addWidget(btn_cancel)
+        v.addLayout(hb)
+
+        btn_ok.clicked.connect(dlg.accept)
+        btn_cancel.clicked.connect(dlg.reject)
+
+        if dlg.exec_() != QDialog.Accepted:
+            return None
+
+        if rb_select.isChecked():
+            return "SELECT"
+        if rb_ep.isChecked():
+            return "EP"
+        if rb_eu.isChecked():
+            return "EU"
+        return "BOTH"
+
+    def _trace_from_pv(self, pv_id: str, network_choice: str):
+        """Trace le réseau aval à partir du PV."""
+        if not self.pv_layer or not self.pv_layer.isValid():
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self.canal_layer = self.canal_combo.currentData() if self.canal_combo else None
+
+        if not self.pv_layer or not self.canal_layer:
+            return
+
+        pv_geom = None
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name,
+                    str(pv_id).replace("'", "''")
+                ))
+                for feat in self.pv_layer.getFeatures(QgsFeatureRequest(expr)):
+                    pv_geom = feat.geometry()
+                    break
+            if pv_geom:
+                break
+
+        if not pv_geom:
+            return
+
+        try:
+            layer_crs = self.pv_layer.crs()
+            canal_crs = self.canal_layer.crs()
+            if layer_crs != canal_crs:
+                transform = QgsCoordinateTransform(layer_crs, canal_crs, QgsProject.instance())
+                pv_geom = QgsGeometry(pv_geom)
+                pv_geom.transform(transform)
+        except Exception:
+            pass
+
+        index = QgsSpatialIndex(self.canal_layer.getFeatures())
+        try:
+            pv_point = pv_geom.asPoint()
+        except Exception:
+            pv_point = pv_geom.centroid().asPoint() if pv_geom else None
+        if not pv_point:
+            return
+        nearest = index.nearestNeighbor(pv_point, 5)
+        start_nodes = []
+        for fid in nearest:
+            for feat in self.canal_layer.getFeatures(QgsFeatureRequest().setFilterFids([fid])):
+                typ = str(feat["typreseau"] or "").strip()
+                if network_choice == "EP" and typ not in ("01", "EP"):
+                    continue
+                if network_choice == "EU" and typ not in ("02", "EU"):
+                    continue
+                for field_name in ("idnini", "idnterm"):
+                    node = str(feat[field_name]) if field_name in feat.fields().names() else ""
+                    if node and node != "INCONNU":
+                        start_nodes.append(node)
+                if start_nodes:
+                    break
+            if start_nodes:
+                break
+
+        self._trace_downstream_from_nodes(start_nodes, network_choice=network_choice)
+
+    def _trace_downstream_from_nodes(self, start_nodes: List[str], network_choice: str):
+        """Trace aval à partir d'une liste de nœuds."""
+        if not start_nodes:
+            return
+
+        filters = {"category": "", "function": ""}
+        if network_choice == "EU":
+            filters["category"] = "02"
+        elif network_choice == "EP":
+            filters["category"] = "01"
+        elif network_choice == "Unitaire":
+            filters["category"] = "03"
+
+        self.tracer = NetworkTracer(
+            canal_layer=self.canal_layer,
+            fosse_layer=self.fosse_layer,
+            field_alias=self.field_alias,
+            filters=filters
+        )
+
+        canal_ids_all = set()
+        fosse_ids_all = set()
+        for node_id in start_nodes:
+            canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True)
+            canal_ids_all.update(canal_ids)
+            fosse_ids_all.update(fosse_ids)
+
+        if self.canal_layer:
+            self.canal_layer.removeSelection()
+            if canal_ids_all:
+                self.canal_layer.selectByIds(list(canal_ids_all))
+        if self.fosse_layer and self.fosse_layer.isValid():
+            self.fosse_layer.removeSelection()
+            if fosse_ids_all:
+                self.fosse_layer.selectByIds(list(fosse_ids_all))
+
+        self._last_trace_nodes = self._collect_nodes_from_ids(
+            list(canal_ids_all), list(fosse_ids_all), downstream=True
+        )
+
+        dist = round(self.tracer.total_length, 2)
+        codes = [c for c in self.tracer.flux_types if c]
+        labels = sorted({self._flux_labels.get(c, c) for c in codes}) or ["Aucun"]
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "Cheminement depuis PV",
+            "Longueur : {} m\nFlux : {}".format(dist, " / ".join(labels))
         )
 
     # -------- Cheminement depuis l'industriel désigné --------

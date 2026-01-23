@@ -9,7 +9,8 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGroupBox,
-    QSpinBox, QComboBox, QTableWidget, QTableWidgetItem, QMessageBox
+    QSpinBox, QComboBox, QTableWidget, QTableWidgetItem, QMessageBox,
+    QLineEdit, QScrollArea, QSizePolicy
 )
 from qgis.PyQt.QtCore import QUrl
 
@@ -23,11 +24,25 @@ class PVConformiteTab(QWidget):
 
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
         self._last_pv_data: Dict[str, Dict[str, str]] = {}
+        self._visible_indus_data: Dict[str, Dict[str, str]] = {}
+        self._visible_pv_data: Dict[str, Dict[str, str]] = {}
 
         self._init_ui()
 
     def _init_ui(self):
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        outer.addWidget(scroll)
+
+        content = QWidget()
+        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        scroll.setWidget(content)
+
+        layout = QVBoxLayout(content)
 
         title = QLabel("🏠 Analyse Industrielle + Conformité PV")
         title.setAlignment(Qt.AlignCenter)
@@ -111,10 +126,19 @@ class PVConformiteTab(QWidget):
         actions_layout.addWidget(btn_clear)
 
         layout.addWidget(actions_group)
+        layout.addStretch()
 
     def _create_table_group(self, title: str) -> Dict[str, object]:
         group = QGroupBox(title)
         group_layout = QVBoxLayout(group)
+
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("Recherche :"))
+        search_input = QLineEdit()
+        search_input.setPlaceholderText("Filtrer sur toutes les colonnes...")
+        search_input.textChanged.connect(self._apply_search)
+        search_layout.addWidget(search_input, 1)
+        group_layout.addLayout(search_layout)
 
         table = QTableWidget()
         table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -136,7 +160,7 @@ class PVConformiteTab(QWidget):
             btn_layout.addWidget(btn_osmose)
 
         group_layout.addLayout(btn_layout)
-        return {"group": group, "table": table}
+        return {"group": group, "table": table, "search": search_input}
 
     def _on_analyze(self):
         start_id = (self.main_dock.id_input.text() or "").strip() if self.main_dock.id_input else ""
@@ -182,8 +206,9 @@ class PVConformiteTab(QWidget):
 
         self._last_indus_data = self.main_dock._last_indus_data or {}
         self._last_pv_data = self.main_dock._last_pv_data or {}
-
-        self._refresh_tables()
+        self._visible_indus_data = dict(self._last_indus_data)
+        self._visible_pv_data = dict(self._last_pv_data)
+        self._apply_search()
 
         self.status_label.setText(
             f"Industriels : {len(self._last_indus_data)} | "
@@ -194,16 +219,36 @@ class PVConformiteTab(QWidget):
         self._refresh_indus_table()
         self._refresh_pv_table()
 
+    def _apply_search(self):
+        indus_query = self.indus_table["search"].text().strip().lower()
+        if not indus_query:
+            self._visible_indus_data = dict(self._last_indus_data)
+        else:
+            self._visible_indus_data = {
+                k: v for k, v in self._last_indus_data.items()
+                if any(indus_query in str(val).lower() for val in v.values())
+            }
+
+        pv_query = self.pv_table["search"].text().strip().lower()
+        if not pv_query:
+            self._visible_pv_data = dict(self._last_pv_data)
+        else:
+            self._visible_pv_data = {
+                k: v for k, v in self._last_pv_data.items()
+                if any(pv_query in str(val).lower() for val in v.values())
+            }
+        self._refresh_tables()
+
     def _refresh_indus_table(self):
         table = self.indus_table["table"]
         table.setRowCount(0)
         table.setColumnCount(0)
 
-        if not self._last_indus_data:
+        if not self._visible_indus_data:
             return
 
         all_fields = set()
-        for row in self._last_indus_data.values():
+        for row in self._visible_indus_data.values():
             all_fields.update(row.keys())
 
         preferred = ["id", "Nom", "Activite", "Adresse", "Commune", "distance"]
@@ -214,7 +259,7 @@ class PVConformiteTab(QWidget):
         table.setColumnCount(len(ordered_fields))
         table.setHorizontalHeaderLabels(ordered_fields)
 
-        for row_idx, (ind_id, row) in enumerate(self._last_indus_data.items()):
+        for row_idx, (ind_id, row) in enumerate(self._visible_indus_data.items()):
             table.insertRow(row_idx)
             for col_idx, field in enumerate(ordered_fields):
                 val = str(row.get(field, "") or "")
@@ -230,25 +275,21 @@ class PVConformiteTab(QWidget):
         table.setRowCount(0)
         table.setColumnCount(0)
 
-        if not self._last_pv_data:
+        if not self._visible_pv_data:
             return
+        all_fields = set()
+        for row in self._visible_pv_data.values():
+            all_fields.update(row.keys())
+        preferred = ["num_pv", "adresse", "commune", "eu_vers_ep", "ep_vers_eu", "distance"]
+        ordered_fields = [f for f in preferred if f in all_fields]
+        ordered_fields += sorted(f for f in all_fields if f not in ordered_fields)
 
-        columns = [
-            ("num_pv", "N° PV"),
-            ("adresse", "Adresse"),
-            ("commune", "Commune"),
-            ("eu_vers_ep", "EU→EP"),
-            ("ep_vers_eu", "EP→EU"),
-            ("canal", "Canal"),
-            ("distance", "Distance (m)")
-        ]
+        table.setColumnCount(len(ordered_fields))
+        table.setHorizontalHeaderLabels(ordered_fields)
 
-        table.setColumnCount(len(columns))
-        table.setHorizontalHeaderLabels([label for _, label in columns])
-
-        for row_idx, (pv_id, pv) in enumerate(self._last_pv_data.items()):
+        for row_idx, (pv_id, pv) in enumerate(self._visible_pv_data.items()):
             table.insertRow(row_idx)
-            for col_idx, (key, _) in enumerate(columns):
+            for col_idx, key in enumerate(ordered_fields):
                 val = str(pv.get(key, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
