@@ -413,6 +413,7 @@ class PollutionPredictor:
             fid = feat.id()
             diameter = feat.attribute("diametre") or feat.attribute("diam") or 0
             slope = feat.attribute("pente") or feat.attribute("_pente") or 0
+            slope = feat.attribute("pente") or 0
             typ = feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
 
             score = 20
