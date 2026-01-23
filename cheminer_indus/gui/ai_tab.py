@@ -681,10 +681,10 @@ class AITab(QWidget):
 
             idnini = feat.attribute("idnini") or ""
             idnterm = feat.attribute("idnterm") or ""
-            z_amont = feat.attribute("z_amont")
+            z_amont = feat.attribute("zmont")
             if z_amont is None or z_amont == "":
                 z_amont = feat.attribute("zamont")
-            z_aval = feat.attribute("z_aval")
+            z_aval = feat.attribute("zaval")
             if z_aval is None or z_aval == "":
                 z_aval = feat.attribute("zaval")
 
