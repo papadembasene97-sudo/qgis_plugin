@@ -144,6 +144,7 @@ class MainDock:
         }
 
         self._last_trace_nodes: Set[str] = set()
+        self._ouvrage_z_cache: Dict[str, float] = {}
         
         # Chemins personnalisés pour logo et icône
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
@@ -1272,6 +1273,38 @@ class MainDock:
     # ---------------------------------------------------------
     # Récupération des PV connectés à des nœuds (NOUVEAU v1.2.3)
     # ---------------------------------------------------------
+    def _get_pv_from_nodes(self, nodes: Set[str]) -> List[str]:
+        """Retourne les IDs des PV non conformes proches des nœuds fournis."""
+        if not nodes:
+            return []
+        if not self.pv_svc or not self.pv_layer:
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+            if self.pv_layer and self.pv_layer.isValid():
+                self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+        if not self.pv_svc:
+            return []
+        return self.pv_svc.connected_ids_from_nodes(set(nodes), distance=15.0)
+
+    def _get_ouvrage_z_by_id(self, node_id: str) -> Optional[float]:
+        """Retourne Z (fil d'eau/radier) depuis la couche Ouvrages."""
+        if not node_id:
+            return None
+        if node_id in self._ouvrage_z_cache:
+            return self._ouvrage_z_cache[node_id]
+        if not self.ouvr_layer or not self.ouvr_layer.isValid():
+            self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
+        if not self.ouvr_layer or not self.ouvr_layer.isValid():
+            return None
+        expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(str(node_id).replace("'", "''")))
+        for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
+            if f.fields().indexOf("z") >= 0:
+                try:
+                    val = float(f["z"])
+                    self._ouvrage_z_cache[node_id] = val
+                    return val
+                except Exception:
+                    return None
+        return None
     # --- Parcours amont existant ---
     def _iter_incoming_edges_mixed(self, node: str):
         out = []

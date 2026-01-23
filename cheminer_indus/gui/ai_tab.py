@@ -679,13 +679,27 @@ class AITab(QWidget):
             if len(coords) < 2:
                 continue
 
+            idnini = feat.attribute("idnini") or ""
+            idnterm = feat.attribute("idnterm") or ""
+            z_amont = feat.attribute("zmont")
+            if z_amont is None or z_amont == "":
+                z_amont = feat.attribute("zamont")
+            z_aval = feat.attribute("zaval")
+            if z_aval is None or z_aval == "":
+                z_aval = feat.attribute("zaval")
+
+            if z_amont in (None, "") and hasattr(self.main_dock, "_get_ouvrage_z_by_id"):
+                z_amont = self.main_dock._get_ouvrage_z_by_id(str(idnini))
+            if z_aval in (None, "") and hasattr(self.main_dock, "_get_ouvrage_z_by_id"):
+                z_aval = self.main_dock._get_ouvrage_z_by_id(str(idnterm))
+
             feature = {
                 "id": feat.id(),
                 "geometry": {"coordinates": coords},
                 "diametre": feat.attribute("diametre") or feat.attribute("diam") or 0,
                 "pente": feat.attribute("pente") or feat.attribute("_pente") or 0,
-                "z_amont": feat.attribute("z_amont") or 0,
-                "z_aval": feat.attribute("z_aval") or 0,
+                "z_amont": z_amont if z_amont not in (None, "") else 0,
+                "z_aval": z_aval if z_aval not in (None, "") else 0,
                 "type_reseau": feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
             }
             features.append(feature)
