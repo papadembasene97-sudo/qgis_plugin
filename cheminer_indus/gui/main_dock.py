@@ -33,7 +33,6 @@ from ..report.pdf_generator     import PDFGenerator
 from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
-from ..gui.ai_tab               import AITab
 from ..gui.pv_conformite_tab    import PVConformiteTab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
@@ -267,12 +266,11 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, IA, PARAMÈTRES
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, PARAMÈTRES
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
         tabs.addTab(self._tab_pv(),          "🏠 PV")
-        tabs.addTab(self._tab_ai(),          "🤖 IA")
         tabs.addTab(self._tab_settings(),    "⚙️ PARAMÈTRES")
 
         self.dock.setWidget(main)
@@ -619,13 +617,6 @@ class MainDock:
     def _tab_pv(self) -> QWidget:
         """Crée l'onglet PV Conformité pour l'analyse industrielle"""
         return PVConformiteTab(self)
-
-    # ---------------------------------------------------------
-    # Onglet IA
-    # ---------------------------------------------------------
-    def _tab_ai(self) -> QWidget:
-        """Crée l'onglet IA pour prédiction et visualisation 3D"""
-        return AITab(self)
 
     def _tab_settings(self) -> QWidget:
         """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""

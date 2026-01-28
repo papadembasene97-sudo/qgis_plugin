@@ -681,7 +681,7 @@ class AITab(QWidget):
 
             idnini = feat.attribute("idnini") or ""
             idnterm = feat.attribute("idnterm") or ""
-            z_amont = feat.attribute("zamont")
+            z_amont = feat.attribute("zmont")
             if z_amont is None or z_amont == "":
                 z_amont = feat.attribute("zamont")
             z_aval = feat.attribute("zaval")
@@ -696,10 +696,10 @@ class AITab(QWidget):
             feature = {
                 "id": feat.id(),
                 "geometry": {"coordinates": coords},
-                "diametre": feat.attribute("diametre") or feat.attribute("diametre") or 0,
-                "_pente": feat.attribute("_pente") or feat.attribute("_pente") or 0,
-                "z_amont": z_amont if z_amont not in (None, "") else 0,
-                "z_aval": z_aval if z_aval not in (None, "") else 0,
+                "diametre": feat.attribute("diametre") or feat.attribute("diam") or 0,
+                "_pente": feat.attribute("_pente") or feat.attribute("pente") or 0,
+                "zmont": z_amont if z_amont not in (None, "") else 0,
+                "zaval": z_aval if z_aval not in (None, "") else 0,
                 "type_reseau": feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
             }
             features.append(feature)

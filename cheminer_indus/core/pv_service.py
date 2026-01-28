@@ -29,7 +29,12 @@ class PVService:
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
     # ------------------------------------------------------------------
-    def select_pv_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[int]:
+    def select_pv_from_nodes(
+        self,
+        nodes: Set[str],
+        distance: float = 15.0,
+        include_conformes: bool = False
+    ) -> List[int]:
         """
         À partir d'un ensemble de nœuds, sélectionne les PV dans un rayon donné
         et renvoie la liste de leurs FIDs.
@@ -54,7 +59,7 @@ class PVService:
             return []
 
         # Trouver les PV proches de ces canalisations
-        pv_fids = self._find_pv_near_canals(canal_ids, distance)
+        pv_fids = self._find_pv_near_canals(canal_ids, distance, include_conformes)
         
         # Sélectionner les PV dans la couche
         self.pv_layer.removeSelection()
@@ -91,7 +96,12 @@ class PVService:
 
         return canal_ids
 
-    def _find_pv_near_canals(self, canal_ids: Set[int], distance: float) -> List[int]:
+    def _find_pv_near_canals(
+        self,
+        canal_ids: Set[int],
+        distance: float,
+        include_conformes: bool
+    ) -> List[int]:
         """
         Trouve les PV dans un rayon autour des canalisations données.
         Gère automatiquement les différences de CRS (4326 vs 2154).
@@ -120,7 +130,7 @@ class PVService:
         pv_index = QgsSpatialIndex()
         pv_geom_cache = {}
         for pv_feat in self.pv_layer.getFeatures():
-            if not self._is_non_conforme(pv_feat):
+            if not include_conformes and not self._is_non_conforme(pv_feat):
                 continue
             pv_geom = pv_feat.geometry()
             if not pv_geom:
@@ -153,7 +163,12 @@ class PVService:
 
         return pv_fids
 
-    def connected_ids_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[str]:
+    def connected_ids_from_nodes(
+        self,
+        nodes: Set[str],
+        distance: float = 15.0,
+        include_conformes: bool = False
+    ) -> List[str]:
         """
         Raccourci : à partir des nœuds → sélectionner PV → renvoyer IDs texte.
         
@@ -164,7 +179,7 @@ class PVService:
         Returns:
             Liste des IDs texte des PV (colonne 'id' ou 'num_pv')
         """
-        fids = self.select_pv_from_nodes(nodes, distance)
+        fids = self.select_pv_from_nodes(nodes, distance, include_conformes)
         
         if not fids or not self.pv_layer:
             return []
@@ -174,7 +189,7 @@ class PVService:
         req = QgsFeatureRequest().setFilterFids(fids)
         
         for feat in self.pv_layer.getFeatures(req):
-            if not self._is_non_conforme(feat):
+            if not include_conformes and not self._is_non_conforme(feat):
                 continue
             # Essayer plusieurs noms de colonnes possibles
             pv_id = None
@@ -192,7 +207,7 @@ class PVService:
     # ------------------------------------------------------------------
     # Récupération d'infos
     # ------------------------------------------------------------------
-    def fetch(self, pv_id: str) -> Dict[str, str]:
+    def fetch(self, pv_id: str, include_conformes: bool = False) -> Dict[str, str]:
         """
         Renvoie un dictionnaire {champ: valeur} pour un PV donné.
         
@@ -215,7 +230,7 @@ class PVService:
                 req = QgsFeatureRequest(expr)
 
                 for f in self.pv_layer.getFeatures(req):
-                    if not self._is_non_conforme(f):
+                    if not include_conformes and not self._is_non_conforme(f):
                         return {}
                     out: Dict[str, str] = {}
                     for name in f.fields().names():
@@ -229,7 +244,11 @@ class PVService:
 
         return {}
 
-    def fetch_many(self, ids: List[str]) -> Dict[str, Dict[str, str]]:
+    def fetch_many(
+        self,
+        ids: List[str],
+        include_conformes: bool = False
+    ) -> Dict[str, Dict[str, str]]:
         """
         Renvoie {pv_id: {champ: valeur, ...}, ...}
         
@@ -241,7 +260,7 @@ class PVService:
         """
         out: Dict[str, Dict[str, str]] = {}
         for pv_id in ids:
-            out[pv_id] = self.fetch(pv_id)
+            out[pv_id] = self.fetch(pv_id, include_conformes=include_conformes)
         return out
 
     def get_distance_to_network(self, pv_id: str) -> Optional[float]:

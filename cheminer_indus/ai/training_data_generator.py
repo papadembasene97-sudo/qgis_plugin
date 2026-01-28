@@ -67,7 +67,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
-            z_amont = canal_feat.attribute('zamont')
+            z_amont = canal_feat.attribute('zmont')
             if z_amont is None or z_amont == "":
                 z_amont = canal_feat.attribute('zamont')
             z_aval = canal_feat.attribute('zaval')
@@ -79,9 +79,9 @@ def convert_visits_to_training_data(visits_history: List[Dict],
                 z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             upstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('_pente') or 0.005,
-                'z_amont': z_amont or 0,
-                'z_aval': z_aval or 0,
+                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('pente') or 0.005,
+                'zmont': z_amont or 0,
+                'zaval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
                 'type_reseau': canal_feat.attribute('type_reseau') or 'EU',
                 'materiau': canal_feat.attribute('materiau') or 'PVC'
@@ -93,7 +93,7 @@ def convert_visits_to_training_data(visits_history: List[Dict],
         canal_layer.selectByExpression(expr)
         
         for canal_feat in canal_layer.selectedFeatures():
-            z_amont = canal_feat.attribute('zamont')
+            z_amont = canal_feat.attribute('zmont')
             if z_amont is None or z_amont == "":
                 z_amont = canal_feat.attribute('zamont')
             z_aval = canal_feat.attribute('zaval')
@@ -105,9 +105,9 @@ def convert_visits_to_training_data(visits_history: List[Dict],
                 z_aval = _ouvrage_z(canal_feat.attribute('idnterm'))
             downstream_data.append({
                 'diametre': canal_feat.attribute('diametre') or 300,
-                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('_pente') or 0.005,
-                'z_amont': z_amont or 0,
-                'z_aval': z_aval or 0,
+                '_pente': canal_feat.attribute('_pente') or canal_feat.attribute('pente') or 0.005,
+                'zmont': z_amont or 0,
+                'zaval': z_aval or 0,
                 'longueur': canal_feat.geometry().length(),
                 'type_reseau': canal_feat.attribute('type_reseau') or 'EU',
                 'materiau': canal_feat.attribute('materiau') or 'PVC'
@@ -168,8 +168,8 @@ def generate_synthetic_training_data(nb_samples: int = 100) -> List[Dict]:
             upstream_data.append({
                 'diametre': random.choice([200, 300, 400, 500, 600]),
                 '_pente': random.uniform(0.002, 0.02),
-                'z_amont': node_data['elevation'] + random.uniform(0.5, 3),
-                'z_aval': node_data['elevation'],
+                'zmont': node_data['elevation'] + random.uniform(0.5, 3),
+                'zaval': node_data['elevation'],
                 'longueur': random.uniform(10, 100),
                 'type_reseau': random.choice(['EU', 'EP', 'Mixte']),
                 'materiau': random.choice(['PVC', 'Fonte', 'Béton'])
@@ -183,8 +183,8 @@ def generate_synthetic_training_data(nb_samples: int = 100) -> List[Dict]:
             downstream_data.append({
                 'diametre': random.choice([300, 400, 500, 600, 800]),
                 '_pente': random.uniform(0.002, 0.02),
-                'z_amont': node_data['elevation'],
-                'z_aval': node_data['elevation'] - random.uniform(0.5, 3),
+                'zmont': node_data['elevation'],
+                'zaval': node_data['elevation'] - random.uniform(0.5, 3),
                 'longueur': random.uniform(10, 100),
                 'type_reseau': random.choice(['EU', 'EP', 'Mixte']),
                 'materiau': random.choice(['PVC', 'Fonte', 'Béton'])
@@ -213,7 +213,7 @@ def generate_synthetic_training_data(nb_samples: int = 100) -> List[Dict]:
         avg_diameter_down = np.mean([d['diametre'] for d in downstream_data])
         diameter_reduction = avg_diameter_up > avg_diameter_down * 1.2
         
-        low_slope = np.mean([u['pente'] for u in upstream_data]) < 0.005
+        low_slope = np.mean([u.get('_pente', u.get('pente', 0)) for u in upstream_data]) < 0.005
         
         nearby_polluted = len([h for h in historical_context if h['polluted']])
         

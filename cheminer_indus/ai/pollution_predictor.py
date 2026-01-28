@@ -79,9 +79,9 @@ class PollutionPredictor:
         # === FEATURES AMONT (moyennes) ===
         if upstream_data:
             avg_diameter_up = np.mean([b.get('diametre', 300) for b in upstream_data])
-            avg_slope_up = np.mean([b.get('pente', 0.005) for b in upstream_data])
-            avg_z_amont = np.mean([b.get('z_amont', 0) for b in upstream_data])
-            avg_z_aval = np.mean([b.get('z_aval', 0) for b in upstream_data])
+            avg_slope_up = np.mean([b.get('_pente', b.get('pente', 0.005)) for b in upstream_data])
+            avg_z_amont = np.mean([b.get('zmont', 0) for b in upstream_data])
+            avg_z_aval = np.mean([b.get('zaval', 0) for b in upstream_data])
             total_length_up = sum([b.get('longueur', 0) for b in upstream_data])
             nb_branches_up = len(upstream_data)
             
@@ -118,7 +118,7 @@ class PollutionPredictor:
         # === FEATURES AVAL (moyennes) ===
         if downstream_data:
             avg_diameter_down = np.mean([b.get('diametre', 300) for b in downstream_data])
-            avg_slope_down = np.mean([b.get('pente', 0.005) for b in downstream_data])
+            avg_slope_down = np.mean([b.get('_pente', b.get('pente', 0.005)) for b in downstream_data])
             nb_branches_down = len(downstream_data)
         else:
             avg_diameter_down = 0
@@ -412,7 +412,7 @@ class PollutionPredictor:
         for feat in canal_layer.getFeatures():
             fid = feat.id()
             diameter = feat.attribute("diametre") or feat.attribute("diam") or 0
-            slope = feat.attribute("pente") or feat.attribute("_pente") or 0
+            slope = feat.attribute("_pente") or feat.attribute("pente") or 0
             typ = feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
 
             score = 20
