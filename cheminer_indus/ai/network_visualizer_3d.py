@@ -88,8 +88,8 @@ class NetworkVisualizer3D:
                     'feature': feature,
                     'x': centroid_x,
                     'y': centroid_y,
-                    'z_amont': feature.get('z_amont', 0),
-                    'z_aval': feature.get('z_aval', 0)
+                    'zmont': feature.get('zmont', 0),
+                    'zaval': feature.get('zaval', 0)
                 })
         
         # Clustering spatial simple
@@ -141,9 +141,9 @@ class NetworkVisualizer3D:
     def _analyze_zone(self, features: List[Dict]) -> Dict:
         """Analyse une zone complexe"""
         diameters = [f.get('diametre', 300) for f in features]
-        z_amont_list = [f.get('z_amont', 0) for f in features]
-        z_aval_list = [f.get('z_aval', 0) for f in features]
-        slopes = [f.get('pente', 0) for f in features]
+        z_amont_list = [f.get('zmont', 0) for f in features]
+        z_aval_list = [f.get('zaval', 0) for f in features]
+        slopes = [f.get('_pente', f.get('pente', 0)) for f in features]
         
         # Différence d'élévation max (vertical extent)
         all_z = z_amont_list + z_aval_list
@@ -219,8 +219,8 @@ class NetworkVisualizer3D:
             # Points de départ et arrivée
             x1, y1 = coords[0][0], coords[0][1]
             x2, y2 = coords[-1][0], coords[-1][1]
-            z1 = feature.get('z_amont', 0)
-            z2 = feature.get('z_aval', 0)
+            z1 = feature.get('zmont', 0)
+            z2 = feature.get('zaval', 0)
             
             # Création du tube 3D
             points = np.array([
@@ -306,8 +306,8 @@ class NetworkVisualizer3D:
             
             x1, y1 = coords[0][0], coords[0][1]
             x2, y2 = coords[-1][0], coords[-1][1]
-            z1 = feature.get('z_amont', 0)
-            z2 = feature.get('z_aval', 0)
+            z1 = feature.get('zmont', 0)
+            z2 = feature.get('zaval', 0)
             
             # Ligne 3D
             diameter = feature.get('diametre', 300)
@@ -356,9 +356,9 @@ class NetworkVisualizer3D:
         if color_by == 'diameter':
             return [f.get('diametre', 300) for f in canal_features]
         elif color_by == 'slope':
-            return [f.get('pente', 0) * 100 for f in canal_features]  # En %
+            return [f.get('_pente', f.get('pente', 0)) * 100 for f in canal_features]  # En %
         elif color_by == 'elevation':
-            return [f.get('z_amont', 0) for f in canal_features]
+            return [f.get('zmont', 0) for f in canal_features]
         elif color_by == 'type':
             type_map = {'EU': 1, 'EP': 2, 'Mixte': 3, 'UNITAIRE': 3}
             return [type_map.get(f.get('type_reseau', 'EU'), 1) for f in canal_features]
@@ -454,8 +454,8 @@ class NetworkVisualizer3D:
                     x2, y2 = coords[-1][0], coords[-1][1]
                     length = np.sqrt((x2-x1)**2 + (y2-y1)**2)
                 
-                z_amont = feature.get('z_amont', 0)
-                z_aval = feature.get('z_aval', 0)
+                z_amont = feature.get('zmont', 0)
+                z_aval = feature.get('zaval', 0)
                 diameter = feature.get('diametre', 300) / 1000  # m
                 
                 distances.extend([cumulative_distance, cumulative_distance + length])

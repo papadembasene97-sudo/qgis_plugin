@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Dict, Callable, Optional, List
 
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QPushButton, QLabel,
@@ -280,14 +281,32 @@ class IndustrialDockV2(QDockWidget):
         # Remplir les lignes
         for row_idx, (ind_id, row) in enumerate(self._visible_indus_data.items()):
             self.indus_table.insertRow(row_idx)
+            risk_color = self._risk_color_for_row(row)
             for col_idx, field in enumerate(ordered_fields):
                 val = str(row.get(field, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
                     item.setData(Qt.UserRole, ind_id)
+                if risk_color:
+                    item.setBackground(risk_color)
                 self.indus_table.setItem(row_idx, col_idx, item)
 
         self.indus_table.resizeColumnsToContents()
+
+    def _risk_color_for_row(self, row: Dict[str, str]) -> Optional[QColor]:
+        risques = str(row.get("Risques", row.get("risques", "")) or "").lower()
+        if not risques.strip():
+            return None
+
+        if any(token in risques for token in ("pollution", "déversement", "deversement", "rejet")):
+            return QColor("#f5b7b1")
+        if any(token in risques for token in ("hydrocarbure", "huile")):
+            return QColor("#f9e79f")
+        if "graisse" in risques:
+            return QColor("#fcf3cf")
+        if any(token in risques for token in ("chimique", "solvant")):
+            return QColor("#d7bde2")
+        return QColor("#fadbd8")
 
     def _filter_indus(self):
         """Filtre les industriels selon la recherche"""
