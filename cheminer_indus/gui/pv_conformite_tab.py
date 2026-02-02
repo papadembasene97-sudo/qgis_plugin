@@ -147,7 +147,11 @@ class PVConformiteTab(QWidget):
         return {"group": group, "table": table, "search": search_input}
 
     def _on_analyze(self):
-        self.main_dock._run_with_wait_cursor(self._do_analyze)
+        self.main_dock._run_with_wait_cursor(
+            self._do_analyze,
+            process_key="pv_analyze",
+            label="Analyse PV en cours..."
+        )
 
     def _do_analyze(self):
         nodes = getattr(self.main_dock, "_last_trace_nodes", None) or set()

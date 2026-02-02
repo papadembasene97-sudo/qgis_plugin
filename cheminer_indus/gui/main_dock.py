@@ -6,7 +6,7 @@ from __future__ import annotations
 import os, json, datetime, tempfile
 from typing import Optional, List, Tuple, Set, Dict, Any
 
-from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer
+from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer, QElapsedTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QColor, QMovie
 from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
@@ -117,6 +117,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -282,20 +283,26 @@ class MainDock:
     # ---------------------------------------------------------
     # Utilitaires génériques (sablier, autosave, inversion)
     # ---------------------------------------------------------
-    def _run_with_wait_cursor(self, func, *args, **kwargs):
+    def _run_with_wait_cursor(self, func, *args, process_key: Optional[str] = None,
+                              label: str = "Traitement en cours...", **kwargs):
         """
         Exécute une fonction en affichant un sablier, une barre de progression
-        indéterminée et un message 'Traitement en cours...' dans QGIS.
+        avec temps restant estimé et un message dans QGIS.
         """
         msg_bar = None
         progress = None
+        timer = None
+        elapsed = QElapsedTimer()
+        process_key = process_key or "generic"
+        estimate_ms = self._process_durations.get(process_key, 30000.0)
+        estimate_ms = max(5000.0, float(estimate_ms))
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             progress = QProgressDialog(
-                "Traitement en cours...",
+                "",
                 "",
                 0,
-                0,
+                int(estimate_ms),
                 self.iface.mainWindow()
             )
             progress.setWindowTitle("CheminerIndus")
@@ -303,16 +310,33 @@ class MainDock:
             progress.setCancelButton(None)
             progress.setMinimumDuration(0)
             progress.show()
+            elapsed.start()
+            timer = QTimer()
+            timer.setInterval(250)
+
+            def _tick():
+                nonlocal estimate_ms
+                elapsed_ms = max(0, elapsed.elapsed())
+                if elapsed_ms > estimate_ms:
+                    estimate_ms += 10000.0
+                    progress.setMaximum(int(estimate_ms))
+                remaining_s = max(0, int((estimate_ms - elapsed_ms) / 1000))
+                progress.setValue(min(int(elapsed_ms), int(estimate_ms)))
+                progress.setLabelText(f"{label}\nTemps restant estimé : {remaining_s}s")
+                QApplication.processEvents()
+
+            timer.timeout.connect(_tick)
+            timer.start()
             QApplication.processEvents()
             try:
-                msg_bar = self.iface.messageBar().createMessage(
-                    "CheminerIndus", "Traitement en cours..."
-                )
+                msg_bar = self.iface.messageBar().createMessage("CheminerIndus", label)
                 self.iface.messageBar().pushWidget(msg_bar, Qgis.Info)
             except Exception:
                 msg_bar = None
             return func(*args, **kwargs)
         finally:
+            if timer is not None:
+                timer.stop()
             try:
                 if msg_bar:
                     self.iface.messageBar().clearWidgets()
@@ -324,6 +348,8 @@ class MainDock:
                 QApplication.restoreOverrideCursor()
             except Exception:
                 pass
+            if elapsed.isValid():
+                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
 
     def _confirm_reset(self):
         """
@@ -389,19 +415,38 @@ class MainDock:
 
     # Wrappers avec sablier
     def _do_trace_with_wait(self):
-        res = self._run_with_wait_cursor(self._do_trace)
+        res = self._run_with_wait_cursor(
+            self._do_trace,
+            process_key="trace",
+            label="Cheminement en cours..."
+        )
         self._autosave()
         return res
 
     def _open_diagnostic_with_wait(self):
-        res = self._run_with_wait_cursor(self._open_diagnostic)
+        res = self._run_with_wait_cursor(
+            self._open_diagnostic,
+            process_key="diagnostic",
+            label="Diagnostic en cours..."
+        )
         self._autosave()
         return res
 
     def _make_report_with_wait(self):
-        res = self._run_with_wait_cursor(self._make_report)
+        res = self._run_with_wait_cursor(
+            self._make_report,
+            process_key="report",
+            label="Génération du rapport..."
+        )
         # rapport ne modifie pas l'état, autosave non indispensable
         return res
+
+    def _visit_with_wait(self):
+        return self._run_with_wait_cursor(
+            self._visit,
+            process_key="visit",
+            label="Mise à jour des visites..."
+        )
 
     # ---------------------------------------------------------
     # Onglet COUCHES
@@ -517,7 +562,7 @@ class MainDock:
 
         # mode + filtres
         self.direction_combo = QComboBox()
-        self.direction_combo.addItems(["Amont vers Aval", "Aval vers Amont", "Cheminement pour Industriels"])
+        self.direction_combo.addItems(["Amont vers Aval", "Aval vers Amont", "Cheminement Pollution"])
         g.addWidget(QLabel("Type :"), 3, 0); g.addWidget(self.direction_combo, 3, 1)
 
         self.cat_combo = QComboBox()
@@ -565,7 +610,7 @@ class MainDock:
         lv.addLayout(hb)
 
         btn_visit = QPushButton("Visiter (Pollué O/N)"); btn_visit.setIcon(QIcon(os.path.join(ICONS_DIR,'pollueur.png')))
-        btn_visit.clicked.connect(self._visit)
+        btn_visit.clicked.connect(self._visit_with_wait)
         lv.addWidget(btn_visit)
         l.addWidget(box_v)
 
@@ -895,7 +940,7 @@ class MainDock:
         filters = {'category': self.cat_combo.currentData() or '',
                    'function': self.func_combo.currentData() or ''}
 
-        if mode == "Cheminement pour Industriels":
+        if mode == "Cheminement Pollution":
             self._trace_for_industrials(start_id, filters)
             self._autosave()
             return
@@ -990,13 +1035,15 @@ class MainDock:
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
             if ind_ids:
-                esc = lambda s: (s or "").replace("'", "''")
-                values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
-                expr = QgsExpression("trim(\"id\") IN ({})".format(values))
-                req = QgsFeatureRequest(expr)
-                fids = [f.id() for f in self.indus_layer.getFeatures(req)]
-                if fids:
-                    self.indus_layer.selectByIds(fids)
+                id_field = self.indus_svc._get_indus_id_field() if self.indus_svc else None
+                if id_field:
+                    esc = lambda s: (s or "").replace("'", "''")
+                    values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
+                    expr = QgsExpression("trim(\"{}\") IN ({})".format(id_field, values))
+                    req = QgsFeatureRequest(expr)
+                    fids = [f.id() for f in self.indus_layer.getFeatures(req)]
+                    if fids:
+                        self.indus_layer.selectByIds(fids)
 
         details = self.indus_svc.fetch_many(ind_ids)
         self._last_indus_data = details
@@ -1013,23 +1060,19 @@ class MainDock:
             
             # Sélection explicite des PV sur la carte
             if pv_ids:
-                # Trouver les FIDs correspondants
                 pv_fids = []
-                for pv_id in pv_ids:
-                    # Chercher le feature avec cet ID
-                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
-                        if self.pv_layer.fields().indexOf(field_name) >= 0:
-                            expr = QgsExpression("\"{}\" = '{}'".format(
-                                field_name, 
-                                str(pv_id).replace("'", "''")
-                            ))
-                            req = QgsFeatureRequest(expr)
-                            for feat in self.pv_layer.getFeatures(req):
-                                pv_fids.append(feat.id())
-                                break
-                            if pv_fids and len(pv_fids) == len([x for x in pv_ids if str(x) == str(pv_id)]):
-                                break
-                
+                id_field = None
+                for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                    if self.pv_layer.fields().indexOf(field_name) >= 0:
+                        id_field = field_name
+                        break
+                if id_field:
+                    esc = lambda s: (s or "").replace("'", "''")
+                    values = ",".join("'{}'".format(esc(str(pid))) for pid in pv_ids if pid)
+                    if values:
+                        expr = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+                        req = QgsFeatureRequest(expr)
+                        pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
                 if pv_fids:
                     self.pv_layer.removeSelection()
                     self.pv_layer.selectByIds(pv_fids)
@@ -1055,7 +1098,7 @@ class MainDock:
         labels = sorted({ self._flux_labels.get(c, c) for c in codes }) or ["Aucun"]
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Cheminement (Industriels + PV)",
+            "Cheminement Pollution",
             "Industriels : {}\nPV non conformes : {}\nLongueur : {} m\nFlux : {}".format(
                 len(ind_ids), len(pv_ids), dist, " / ".join(labels)
             )
