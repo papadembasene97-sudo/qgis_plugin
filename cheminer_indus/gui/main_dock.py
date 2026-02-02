@@ -343,6 +343,11 @@ class MainDock:
             except Exception:
                 pass
             if progress is not None:
+                try:
+                    progress.setValue(progress.maximum())
+                    QApplication.processEvents()
+                except Exception:
+                    pass
                 progress.close()
             try:
                 QApplication.restoreOverrideCursor()

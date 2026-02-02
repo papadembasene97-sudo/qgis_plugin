@@ -23,10 +23,20 @@ class IndustrialsService:
             return self._id_field_cache
         if not self.indus_layer:
             return None
-        for field_name in ("id", "ID", "id_indus", "id_industriel", "ID_INDUS", "ID_INDUSTRIEL"):
-            if self.indus_layer.fields().indexOf(field_name) >= 0:
-                self._id_field_cache = field_name
-                return field_name
+        fields = {name.lower(): name for name in self.indus_layer.fields().names()}
+        for field_name in ("id", "id_indus", "id_industriel", "idindus", "idindustriel"):
+            mapped = fields.get(field_name)
+            if mapped:
+                self._id_field_cache = mapped
+                return mapped
+        for lname, original in fields.items():
+            if "id" in lname and "indus" in lname:
+                self._id_field_cache = original
+                return original
+        for lname, original in fields.items():
+            if lname == "id":
+                self._id_field_cache = original
+                return original
         return None
 
     # ------------------------------------------------------------------
