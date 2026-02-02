@@ -6,18 +6,19 @@ from __future__ import annotations
 import os, json, datetime, tempfile
 from typing import Optional, List, Tuple, Set, Dict, Any
 
-from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer
+from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer, QElapsedTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QColor, QMovie
 from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
     QgsProject, QgsExpression, QgsFeatureRequest, QgsVectorLayer,
-    QgsFeature, QgsGeometry, QgsPointXY, Qgis
+    QgsFeature, QgsGeometry, QgsPointXY, Qgis, QgsCoordinateTransform,
+    QgsSpatialIndex
 )
 
 from ..utils.config             import ICONS_DIR
@@ -32,7 +33,7 @@ from ..report.pdf_generator     import PDFGenerator
 from ..report.photos            import PhotoManager
 from ..gui.industrial_dock      import IndustrialDock
 from ..gui.diagnostics_dock     import DiagnosticsDock
-from ..gui.ai_tab               import AITab
+from ..gui.pv_conformite_tab    import PVConformiteTab
 from ..utils.geom_utils         import concave_envelope_from_selected
 from ..core.autosave_manager    import AutoSaveManager
 from ..gui.main_dock_optimized  import OptimizedNodeOps
@@ -116,6 +117,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -142,6 +144,7 @@ class MainDock:
         }
 
         self._last_trace_nodes: Set[str] = set()
+        self._ouvrage_z_cache: Dict[str, float] = {}
         
         # Chemins personnalisés pour logo et icône
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
@@ -264,12 +267,11 @@ class MainDock:
         tabs = QTabWidget()
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, IA, PARAMÈTRES
+        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, PARAMÈTRES
         tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
         tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
         tabs.addTab(self._tab_actions(),     "ACTIONS")
         tabs.addTab(self._tab_pv(),          "🏠 PV")
-        tabs.addTab(self._tab_ai(),          "🤖 IA")
         tabs.addTab(self._tab_settings(),    "⚙️ PARAMÈTRES")
 
         self.dock.setWidget(main)
@@ -281,32 +283,73 @@ class MainDock:
     # ---------------------------------------------------------
     # Utilitaires génériques (sablier, autosave, inversion)
     # ---------------------------------------------------------
-    def _run_with_wait_cursor(self, func, *args, **kwargs):
+    def _run_with_wait_cursor(self, func, *args, process_key: Optional[str] = None,
+                              label: str = "Traitement en cours...", **kwargs):
         """
-        Exécute une fonction en affichant un sablier et un message
-        'Traitement en cours...' dans la barre de messages de QGIS.
+        Exécute une fonction en affichant un sablier, une barre de progression
+        avec temps restant estimé et un message dans QGIS.
         """
         msg_bar = None
+        progress = None
+        timer = None
+        elapsed = QElapsedTimer()
+        process_key = process_key or "generic"
+        estimate_ms = self._process_durations.get(process_key, 30000.0)
+        estimate_ms = max(5000.0, float(estimate_ms))
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
+            progress = QProgressDialog(
+                "",
+                "",
+                0,
+                int(estimate_ms),
+                self.iface.mainWindow()
+            )
+            progress.setWindowTitle("CheminerIndus")
+            progress.setWindowModality(Qt.ApplicationModal)
+            progress.setCancelButton(None)
+            progress.setMinimumDuration(0)
+            progress.show()
+            elapsed.start()
+            timer = QTimer()
+            timer.setInterval(250)
+
+            def _tick():
+                nonlocal estimate_ms
+                elapsed_ms = max(0, elapsed.elapsed())
+                if elapsed_ms > estimate_ms:
+                    estimate_ms += 10000.0
+                    progress.setMaximum(int(estimate_ms))
+                remaining_s = max(0, int((estimate_ms - elapsed_ms) / 1000))
+                progress.setValue(min(int(elapsed_ms), int(estimate_ms)))
+                progress.setLabelText(f"{label}\nTemps restant estimé : {remaining_s}s")
+                QApplication.processEvents()
+
+            timer.timeout.connect(_tick)
+            timer.start()
+            QApplication.processEvents()
             try:
-                msg_bar = self.iface.messageBar().createMessage(
-                    "CheminerIndus", "Traitement en cours..."
-                )
+                msg_bar = self.iface.messageBar().createMessage("CheminerIndus", label)
                 self.iface.messageBar().pushWidget(msg_bar, Qgis.Info)
             except Exception:
                 msg_bar = None
             return func(*args, **kwargs)
         finally:
+            if timer is not None:
+                timer.stop()
             try:
                 if msg_bar:
                     self.iface.messageBar().clearWidgets()
             except Exception:
                 pass
+            if progress is not None:
+                progress.close()
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
                 pass
+            if elapsed.isValid():
+                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
 
     def _confirm_reset(self):
         """
@@ -372,19 +415,38 @@ class MainDock:
 
     # Wrappers avec sablier
     def _do_trace_with_wait(self):
-        res = self._run_with_wait_cursor(self._do_trace)
+        res = self._run_with_wait_cursor(
+            self._do_trace,
+            process_key="trace",
+            label="Cheminement en cours..."
+        )
         self._autosave()
         return res
 
     def _open_diagnostic_with_wait(self):
-        res = self._run_with_wait_cursor(self._open_diagnostic)
+        res = self._run_with_wait_cursor(
+            self._open_diagnostic,
+            process_key="diagnostic",
+            label="Diagnostic en cours..."
+        )
         self._autosave()
         return res
 
     def _make_report_with_wait(self):
-        res = self._run_with_wait_cursor(self._make_report)
+        res = self._run_with_wait_cursor(
+            self._make_report,
+            process_key="report",
+            label="Génération du rapport..."
+        )
         # rapport ne modifie pas l'état, autosave non indispensable
         return res
+
+    def _visit_with_wait(self):
+        return self._run_with_wait_cursor(
+            self._visit,
+            process_key="visit",
+            label="Mise à jour des visites..."
+        )
 
     # ---------------------------------------------------------
     # Onglet COUCHES
@@ -432,7 +494,7 @@ class MainDock:
                 self.liaison_combo.addItem(lyr.name(), lyr)
             if "astreint" in name or "astreinte" in name:
                 self.astreint_combo.addItem(lyr.name(), lyr)
-            if "pv" in name or "conformite" in name or "conformité" in name:
+            if self._is_pv_layer(lyr):
                 self.pv_combo.addItem(lyr.name(), lyr)
             
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
@@ -456,6 +518,25 @@ class MainDock:
             vdef = "Point?crs=EPSG:2154&field=categorie:string&field=label:string"
             self.label_layer = QgsVectorLayer(vdef, "LABEL_CI", "memory")
             QgsProject.instance().addMapLayer(self.label_layer)
+
+    def _is_pv_layer(self, layer: QgsVectorLayer) -> bool:
+        """Détecte une couche PV par son nom ou sa source."""
+        if not layer or not isinstance(layer, QgsVectorLayer):
+            return False
+
+        name = layer.name().lower()
+        if "pv" in name or "conformite" in name or "conformité" in name or "conforme" in name:
+            return True
+
+        try:
+            source = layer.dataProvider().dataSourceUri().lower()
+        except Exception:
+            source = ""
+
+        return any(
+            token in source
+            for token in ("pv_conforme", "pv_conformite", "pv conform", "pv_conform")
+        )
 
     # ---------------------------------------------------------
     # Onglet CHEMINEMENT
@@ -481,7 +562,7 @@ class MainDock:
 
         # mode + filtres
         self.direction_combo = QComboBox()
-        self.direction_combo.addItems(["Amont vers Aval", "Aval vers Amont", "Cheminement pour Industriels"])
+        self.direction_combo.addItems(["Amont vers Aval", "Aval vers Amont", "Cheminement Pollution"])
         g.addWidget(QLabel("Type :"), 3, 0); g.addWidget(self.direction_combo, 3, 1)
 
         self.cat_combo = QComboBox()
@@ -529,7 +610,7 @@ class MainDock:
         lv.addLayout(hb)
 
         btn_visit = QPushButton("Visiter (Pollué O/N)"); btn_visit.setIcon(QIcon(os.path.join(ICONS_DIR,'pollueur.png')))
-        btn_visit.clicked.connect(self._visit)
+        btn_visit.clicked.connect(self._visit_with_wait)
         lv.addWidget(btn_visit)
         l.addWidget(box_v)
 
@@ -598,13 +679,6 @@ class MainDock:
         """Crée l'onglet PV Conformité pour l'analyse industrielle"""
         return PVConformiteTab(self)
 
-    # ---------------------------------------------------------
-    # Onglet IA
-    # ---------------------------------------------------------
-    def _tab_ai(self) -> QWidget:
-        """Crée l'onglet IA pour prédiction et visualisation 3D"""
-        return AITab(self)
-
     def _tab_settings(self) -> QWidget:
         """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""
         # Widget principal avec scroll
@@ -663,7 +737,7 @@ class MainDock:
         info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
         info_layers.setWordWrap(True)
         info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 7, 0, 1, 2)
+        grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
         
         lay.addWidget(grp_layers)
         
@@ -866,7 +940,7 @@ class MainDock:
         filters = {'category': self.cat_combo.currentData() or '',
                    'function': self.func_combo.currentData() or ''}
 
-        if mode == "Cheminement pour Industriels":
+        if mode == "Cheminement Pollution":
             self._trace_for_industrials(start_id, filters)
             self._autosave()
             return
@@ -908,7 +982,7 @@ class MainDock:
 
         self._autosave()
 
-    def _trace_for_industrials(self, start_id: str, filters: Dict[str,str]):
+    def _trace_for_industrials(self, start_id: str, filters: Dict[str,str], pv_distance: float = 15.0):
         """
         Cheminement spécifique pour les industriels :
         - trace en aval→amont,
@@ -917,6 +991,17 @@ class MainDock:
         - détecte les PV non conformes,
         - remplit le dock industriels + PV.
         """
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self.canal_layer = self.canal_combo.currentData() if self.canal_combo else None
+        if not self.fosse_layer or not self.fosse_layer.isValid():
+            self.fosse_layer = self.fosse_combo.currentData() if self.fosse_combo else None
+        if not self.indus_layer or not self.indus_layer.isValid():
+            self.indus_layer = self.indus_combo.currentData() if self.indus_combo else None
+        if not self.liaison_layer or not self.liaison_layer.isValid():
+            self.liaison_layer = self.liaison_combo.currentData() if self.liaison_combo else None
+        if not self.pv_layer or not self.pv_layer.isValid():
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+
         self.tracer = NetworkTracer(
             canal_layer=self.canal_layer,
             fosse_layer=self.fosse_layer,
@@ -950,13 +1035,15 @@ class MainDock:
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
             if ind_ids:
-                esc = lambda s: (s or "").replace("'", "''")
-                values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
-                expr = QgsExpression("trim(\"id\") IN ({})".format(values))
-                req = QgsFeatureRequest(expr)
-                fids = [f.id() for f in self.indus_layer.getFeatures(req)]
-                if fids:
-                    self.indus_layer.selectByIds(fids)
+                id_field = self.indus_svc._get_indus_id_field() if self.indus_svc else None
+                if id_field:
+                    esc = lambda s: (s or "").replace("'", "''")
+                    values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
+                    expr = QgsExpression("trim(\"{}\") IN ({})".format(id_field, values))
+                    req = QgsFeatureRequest(expr)
+                    fids = [f.id() for f in self.indus_layer.getFeatures(req)]
+                    if fids:
+                        self.indus_layer.selectByIds(fids)
 
         details = self.indus_svc.fetch_many(ind_ids)
         self._last_indus_data = details
@@ -969,27 +1056,23 @@ class MainDock:
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
         
         if self.pv_svc and self.pv_layer:
-            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=15.0)
+            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
             
             # Sélection explicite des PV sur la carte
             if pv_ids:
-                # Trouver les FIDs correspondants
                 pv_fids = []
-                for pv_id in pv_ids:
-                    # Chercher le feature avec cet ID
-                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
-                        if self.pv_layer.fields().indexOf(field_name) >= 0:
-                            expr = QgsExpression("\"{}\" = '{}'".format(
-                                field_name, 
-                                str(pv_id).replace("'", "''")
-                            ))
-                            req = QgsFeatureRequest(expr)
-                            for feat in self.pv_layer.getFeatures(req):
-                                pv_fids.append(feat.id())
-                                break
-                            if pv_fids and len(pv_fids) == len([x for x in pv_ids if str(x) == str(pv_id)]):
-                                break
-                
+                id_field = None
+                for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                    if self.pv_layer.fields().indexOf(field_name) >= 0:
+                        id_field = field_name
+                        break
+                if id_field:
+                    esc = lambda s: (s or "").replace("'", "''")
+                    values = ",".join("'{}'".format(esc(str(pid))) for pid in pv_ids if pid)
+                    if values:
+                        expr = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+                        req = QgsFeatureRequest(expr)
+                        pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
                 if pv_fids:
                     self.pv_layer.removeSelection()
                     self.pv_layer.selectByIds(pv_fids)
@@ -1015,7 +1098,7 @@ class MainDock:
         labels = sorted({ self._flux_labels.get(c, c) for c in codes }) or ["Aucun"]
         QMessageBox.information(
             self.iface.mainWindow(),
-            "Cheminement (Industriels + PV)",
+            "Cheminement Pollution",
             "Industriels : {}\nPV non conformes : {}\nLongueur : {} m\nFlux : {}".format(
                 len(ind_ids), len(pv_ids), dist, " / ".join(labels)
             )
@@ -1240,6 +1323,38 @@ class MainDock:
     # ---------------------------------------------------------
     # Récupération des PV connectés à des nœuds (NOUVEAU v1.2.3)
     # ---------------------------------------------------------
+    def _get_pv_from_nodes(self, nodes: Set[str]) -> List[str]:
+        """Retourne les IDs des PV non conformes proches des nœuds fournis."""
+        if not nodes:
+            return []
+        if not self.pv_svc or not self.pv_layer:
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+            if self.pv_layer and self.pv_layer.isValid():
+                self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+        if not self.pv_svc:
+            return []
+        return self.pv_svc.connected_ids_from_nodes(set(nodes), distance=15.0)
+
+    def _get_ouvrage_z_by_id(self, node_id: str) -> Optional[float]:
+        """Retourne Z (fil d'eau/radier) depuis la couche Ouvrages."""
+        if not node_id:
+            return None
+        if node_id in self._ouvrage_z_cache:
+            return self._ouvrage_z_cache[node_id]
+        if not self.ouvr_layer or not self.ouvr_layer.isValid():
+            self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
+        if not self.ouvr_layer or not self.ouvr_layer.isValid():
+            return None
+        expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(str(node_id).replace("'", "''")))
+        for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
+            if f.fields().indexOf("z") >= 0:
+                try:
+                    val = float(f["z"])
+                    self._ouvrage_z_cache[node_id] = val
+                    return val
+                except Exception:
+                    return None
+        return None
     # --- Parcours amont existant ---
     def _iter_incoming_edges_mixed(self, node: str):
         out = []
@@ -1668,6 +1783,8 @@ class MainDock:
             # Callbacks industriels
             self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
             self.industrial_dock.on_designate_indus_request(self._designate_industrial)
+            self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
+            self.industrial_dock.on_designate_pv_request(self._designate_pv)
             # Callback refresh
             self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
@@ -1676,7 +1793,10 @@ class MainDock:
         
         # Définir les données PV si le dock supporte cette méthode
         if pv_data and hasattr(self.industrial_dock, 'set_pv_data'):
-            self.industrial_dock.set_pv_data(pv_data)
+            if isinstance(pv_data, dict):
+                self.industrial_dock.set_pv_data(list(pv_data.values()))
+            else:
+                self.industrial_dock.set_pv_data(pv_data)
         
         self.industrial_dock.show()
         self.industrial_dock.raise_()
@@ -1690,6 +1810,233 @@ class MainDock:
             if g:
                 self.canvas.setExtent(g.boundingBox()); self.canvas.refresh()
                 break
+
+    def _zoom_to_pv(self, pv_id: str):
+        if not self.pv_layer or not self.pv_layer.isValid():
+            return
+
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name,
+                    str(pv_id).replace("'", "''")
+                ))
+                for feat in self.pv_layer.getFeatures(QgsFeatureRequest(expr)):
+                    geom = feat.geometry()
+                    if geom:
+                        try:
+                            layer_crs = self.pv_layer.crs()
+                            canvas_crs = self.canvas.mapSettings().destinationCrs()
+                            if layer_crs != canvas_crs:
+                                transform = QgsCoordinateTransform(
+                                    layer_crs, canvas_crs, QgsProject.instance()
+                                )
+                                geom = QgsGeometry(geom)
+                                geom.transform(transform)
+                        except Exception:
+                            pass
+                        self.canvas.setExtent(geom.boundingBox())
+                        self.canvas.refresh()
+                        return
+
+    def _designate_pv(self, pv_id: str):
+        """Désigne un PV comme pollueur."""
+        self.polluter_id = str(pv_id)
+        self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
+        choice = self._ask_pv_trace_network()
+        if not choice:
+            return
+
+        if choice == "SELECT":
+            if not self.ouvr_layer or not self.ouvr_layer.isValid():
+                self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
+            if not self.ouvr_layer or not self.ouvr_layer.isValid():
+                QMessageBox.warning(
+                    self.iface.mainWindow(),
+                    "Ouvrages manquants",
+                    "Veuillez sélectionner une couche d'ouvrages valide."
+                )
+                return
+            sel = self.ouvr_layer.selectedFeatures()
+            if not sel:
+                QMessageBox.information(
+                    self.iface.mainWindow(),
+                    "Sélection nécessaire",
+                    "Sélectionnez un ou plusieurs ouvrages sur la carte."
+                )
+                return
+            start_nodes = []
+            for f in sel:
+                try:
+                    start_nodes.append(str(f["idouvrage"]))
+                except Exception:
+                    continue
+            self._trace_downstream_from_nodes(start_nodes, network_choice="BOTH")
+            return
+
+        self._trace_from_pv(pv_id, choice)
+
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "PV désigné",
+            f"Le PV {pv_id} a été désigné comme origine de pollution."
+        )
+
+    def _ask_pv_trace_network(self) -> Optional[str]:
+        """Demande le réseau à tracer pour un PV désigné."""
+        dlg = QDialog(self.iface.mainWindow())
+        dlg.setWindowTitle("Cheminement depuis le PV")
+
+        v = QVBoxLayout(dlg)
+        lab = QLabel(
+            "Quel(s) réseau(x) cheminer en Amont → Aval depuis le PV ?"
+        )
+        lab.setWordWrap(True)
+        v.addWidget(lab)
+
+        rb_ep = QRadioButton("Réseau EP (01) uniquement")
+        rb_eu = QRadioButton("Réseau EU (02) uniquement")
+        rb_both = QRadioButton("Réseaux EP + EU")
+        rb_select = QRadioButton("Sélectionner des ouvrages")
+        rb_both.setChecked(True)
+
+        v.addWidget(rb_ep)
+        v.addWidget(rb_eu)
+        v.addWidget(rb_both)
+        v.addWidget(rb_select)
+
+        hb = QHBoxLayout()
+        btn_ok = QPushButton("Valider")
+        btn_cancel = QPushButton("Annuler")
+        hb.addWidget(btn_ok)
+        hb.addWidget(btn_cancel)
+        v.addLayout(hb)
+
+        btn_ok.clicked.connect(dlg.accept)
+        btn_cancel.clicked.connect(dlg.reject)
+
+        if dlg.exec_() != QDialog.Accepted:
+            return None
+
+        if rb_select.isChecked():
+            return "SELECT"
+        if rb_ep.isChecked():
+            return "EP"
+        if rb_eu.isChecked():
+            return "EU"
+        return "BOTH"
+
+    def _trace_from_pv(self, pv_id: str, network_choice: str):
+        """Trace le réseau aval à partir du PV."""
+        if not self.pv_layer or not self.pv_layer.isValid():
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self.canal_layer = self.canal_combo.currentData() if self.canal_combo else None
+
+        if not self.pv_layer or not self.canal_layer:
+            return
+
+        pv_geom = None
+        for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+            if self.pv_layer.fields().indexOf(field_name) >= 0:
+                expr = QgsExpression("\"{}\" = '{}'".format(
+                    field_name,
+                    str(pv_id).replace("'", "''")
+                ))
+                for feat in self.pv_layer.getFeatures(QgsFeatureRequest(expr)):
+                    pv_geom = feat.geometry()
+                    break
+            if pv_geom:
+                break
+
+        if not pv_geom:
+            return
+
+        try:
+            layer_crs = self.pv_layer.crs()
+            canal_crs = self.canal_layer.crs()
+            if layer_crs != canal_crs:
+                transform = QgsCoordinateTransform(layer_crs, canal_crs, QgsProject.instance())
+                pv_geom = QgsGeometry(pv_geom)
+                pv_geom.transform(transform)
+        except Exception:
+            pass
+
+        index = QgsSpatialIndex(self.canal_layer.getFeatures())
+        try:
+            pv_point = pv_geom.asPoint()
+        except Exception:
+            pv_point = pv_geom.centroid().asPoint() if pv_geom else None
+        if not pv_point:
+            return
+        nearest = index.nearestNeighbor(pv_point, 5)
+        start_nodes = []
+        for fid in nearest:
+            for feat in self.canal_layer.getFeatures(QgsFeatureRequest().setFilterFids([fid])):
+                typ = str(feat["typreseau"] or "").strip()
+                if network_choice == "EP" and typ not in ("01", "EP"):
+                    continue
+                if network_choice == "EU" and typ not in ("02", "EU"):
+                    continue
+                for field_name in ("idnini", "idnterm"):
+                    node = str(feat[field_name]) if field_name in feat.fields().names() else ""
+                    if node and node != "INCONNU":
+                        start_nodes.append(node)
+                if start_nodes:
+                    break
+            if start_nodes:
+                break
+
+        self._trace_downstream_from_nodes(start_nodes, network_choice=network_choice)
+
+    def _trace_downstream_from_nodes(self, start_nodes: List[str], network_choice: str):
+        """Trace aval à partir d'une liste de nœuds."""
+        if not start_nodes:
+            return
+
+        filters = {"category": "", "function": ""}
+        if network_choice == "EU":
+            filters["category"] = "02"
+        elif network_choice == "EP":
+            filters["category"] = "01"
+        elif network_choice == "Unitaire":
+            filters["category"] = "03"
+
+        self.tracer = NetworkTracer(
+            canal_layer=self.canal_layer,
+            fosse_layer=self.fosse_layer,
+            field_alias=self.field_alias,
+            filters=filters
+        )
+
+        canal_ids_all = set()
+        fosse_ids_all = set()
+        for node_id in start_nodes:
+            canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True)
+            canal_ids_all.update(canal_ids)
+            fosse_ids_all.update(fosse_ids)
+
+        if self.canal_layer:
+            self.canal_layer.removeSelection()
+            if canal_ids_all:
+                self.canal_layer.selectByIds(list(canal_ids_all))
+        if self.fosse_layer and self.fosse_layer.isValid():
+            self.fosse_layer.removeSelection()
+            if fosse_ids_all:
+                self.fosse_layer.selectByIds(list(fosse_ids_all))
+
+        self._last_trace_nodes = self._collect_nodes_from_ids(
+            list(canal_ids_all), list(fosse_ids_all), downstream=True
+        )
+
+        dist = round(self.tracer.total_length, 2)
+        codes = [c for c in self.tracer.flux_types if c]
+        labels = sorted({self._flux_labels.get(c, c) for c in codes}) or ["Aucun"]
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "Cheminement depuis PV",
+            "Longueur : {} m\nFlux : {}".format(dist, " / ".join(labels))
+        )
 
     # -------- Cheminement depuis l'industriel désigné --------
     def _ask_indus_trace_network(self) -> Optional[str]:
