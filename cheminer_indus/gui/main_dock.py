@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
@@ -284,12 +284,26 @@ class MainDock:
     # ---------------------------------------------------------
     def _run_with_wait_cursor(self, func, *args, **kwargs):
         """
-        Exécute une fonction en affichant un sablier et un message
-        'Traitement en cours...' dans la barre de messages de QGIS.
+        Exécute une fonction en affichant un sablier, une barre de progression
+        indéterminée et un message 'Traitement en cours...' dans QGIS.
         """
         msg_bar = None
+        progress = None
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
+            progress = QProgressDialog(
+                "Traitement en cours...",
+                "",
+                0,
+                0,
+                self.iface.mainWindow()
+            )
+            progress.setWindowTitle("CheminerIndus")
+            progress.setWindowModality(Qt.ApplicationModal)
+            progress.setCancelButton(None)
+            progress.setMinimumDuration(0)
+            progress.show()
+            QApplication.processEvents()
             try:
                 msg_bar = self.iface.messageBar().createMessage(
                     "CheminerIndus", "Traitement en cours..."
@@ -304,6 +318,8 @@ class MainDock:
                     self.iface.messageBar().clearWidgets()
             except Exception:
                 pass
+            if progress is not None:
+                progress.close()
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
