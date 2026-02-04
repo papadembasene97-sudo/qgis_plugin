@@ -239,28 +239,107 @@ class MainDock:
         lay  = QVBoxLayout(main)
 
         # -------------------------------------------------
-        # En-tête avec logo à hauteur FIXE
+        # En-tête (logo + titre) centré et plus grand
         # -------------------------------------------------
         head = QHBoxLayout()
 
-        logo_container = QWidget()
-        logo_container.setFixedHeight(50)  # Réduit de 70 à 50
-        logo_layout = QHBoxLayout(logo_container)
-        logo_layout.setContentsMargins(0, 0, 0, 0)
+        header_container = QWidget()
+        header_container.setFixedHeight(110)
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        header_block = QWidget()
+        header_block_layout = QVBoxLayout(header_block)
+        header_block_layout.setContentsMargins(0, 0, 0, 0)
+        header_block_layout.setSpacing(4)
 
         logo = QLabel()
-        # Utiliser le logo personnalisé s'il existe
         logo_path = self.get_logo_path() if hasattr(self, 'get_logo_path') else os.path.join(ICONS_DIR, 'logo.png')
         pix = QPixmap(logo_path)
-        scaled = pix.scaledToHeight(50, Qt.SmoothTransformation)  # Réduit de 70 à 50
+        scaled = pix.scaledToHeight(80, Qt.SmoothTransformation)
         logo.setPixmap(scaled)
-        logo.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        logo.setAlignment(Qt.AlignCenter)
 
-        logo_layout.addWidget(logo, alignment=Qt.AlignRight | Qt.AlignVCenter)
+        title = QLabel("TRACK-EAU POLL")
+        title.setAlignment(Qt.AlignCenter)
+        title.setObjectName("trackHeaderTitle")
 
-        head.addStretch()
-        head.addWidget(logo_container)
+        header_block_layout.addWidget(logo)
+        header_block_layout.addWidget(title)
+
+        header_layout.addStretch()
+        header_layout.addWidget(header_block)
+        header_layout.addStretch()
+
+        head.addWidget(header_container)
         lay.addLayout(head)
+
+        main.setStyleSheet(
+            """
+            QWidget {
+                background-color: #0f172a;
+                color: #e2e8f0;
+            }
+            QTabWidget::pane {
+                border: 1px solid #334155;
+                border-radius: 10px;
+                padding: 6px;
+                background: #111827;
+            }
+            QTabBar::tab {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1e3a8a, stop:1 #4338ca);
+                color: #e2e8f0;
+                padding: 8px 14px;
+                margin-right: 6px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }
+            QTabBar::tab:selected {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
+                color: #0f172a;
+                font-weight: bold;
+            }
+            QGroupBox {
+                border: 1px solid #1f2937;
+                border-radius: 10px;
+                margin-top: 12px;
+                background: #111827;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+                color: #22d3ee;
+                font-weight: bold;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0ea5e9, stop:1 #6366f1);
+                color: #ffffff;
+                padding: 7px 12px;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
+            }
+            QTableWidget {
+                background: #0b1220;
+                alternate-background-color: #111827;
+                gridline-color: #1f2937;
+            }
+            QHeaderView::section {
+                background-color: #1f2937;
+                color: #e2e8f0;
+                padding: 4px;
+                border: 1px solid #334155;
+            }
+            QLabel#trackHeaderTitle {
+                font-size: 22px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                color: #e2e8f0;
+            }
+            """
+        )
 
         # -------------------------------------------------
         # Onglets
@@ -294,8 +373,6 @@ class MainDock:
             QApplication.processEvents()
             return func(*args, **kwargs)
         finally:
-            if timer is not None:
-                timer.stop()
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
@@ -2373,7 +2450,7 @@ class MainDock:
                             feats.append(ff)
 
             # INDUSTRIEL DÉSIGNÉ
-            if self.indus_layer and self.indus_layer.isValid() and self.polluter_id:
+            if self.indus_layer and self.indus_layer.isValid() and self.polluter_id and self.polluter_type.upper() == "INDUS":
                 expr = QgsExpression("trim(\"id\") = '{}'".format(self.polluter_id.replace("'","''")))
                 for f in self.indus_layer.getFeatures(QgsFeatureRequest(expr)):
                     g = f.geometry()
@@ -2396,6 +2473,36 @@ class MainDock:
                         ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                         ff.setAttribute("categorie", CAT_INDUS_DES)
                         ff.setAttribute("label", nom)
+                        feats.append(ff)
+
+            # PV DÉSIGNÉ
+            if self.pv_layer and self.pv_layer.isValid() and self.polluter_id and self.polluter_type.upper() == "PV":
+                pv_expr = QgsExpression("trim(\"id\") = '{}'".format(self.polluter_id.replace("'","''")))
+                for f in self.pv_layer.getFeatures(QgsFeatureRequest(pv_expr)):
+                    g = f.geometry()
+                    pt = None
+                    if g:
+                        try:
+                            pt = g.asPoint()
+                        except Exception:
+                            try:
+                                pt = g.centroid().asPoint()
+                            except Exception:
+                                pt = None
+                    if pt:
+                        pv_label = ""
+                        for k in ("num_pv", "NUM_PV", "id", "ID"):
+                            try:
+                                pv_label = f[k]
+                                if pv_label:
+                                    break
+                            except Exception:
+                                pass
+                        pv_label = str(pv_label or self.polluter_id)
+                        ff = QgsFeature(self.label_layer.fields())
+                        ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                        ff.setAttribute("categorie", CAT_INDUS_DES)
+                        ff.setAttribute("label", pv_label)
                         feats.append(ff)
 
             if feats:
@@ -2427,7 +2534,8 @@ class MainDock:
             # Construire le PDF avec logo personnalisé
             pdf = PDFGenerator(
                 logo_path=self.get_logo_path(),
-                legend_path=os.path.join(ICONS_DIR, 'icon.png')
+                legend_path=os.path.join(ICONS_DIR, 'legende.png'),
+                icon_path=os.path.join(ICONS_DIR, 'icon.png')
             )
             pdf.alias_nb_pages()
             if pdf.page_no() == 0:

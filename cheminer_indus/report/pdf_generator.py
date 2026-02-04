@@ -41,11 +41,12 @@ class PDFGenerator(FPDF):
     LEG_GAP           = 8
     LEG_SCALE         = 0.90
 
-    def __init__(self, logo_path: str = "", legend_path: str = ""):
+    def __init__(self, logo_path: str = "", legend_path: str = "", icon_path: str = ""):
         super().__init__(orientation='P', unit='mm', format='A4')
 
         self.logo_path   = logo_path or ""
         self.legend_path = legend_path or ""
+        self.icon_path   = icon_path or ""
 
         base_dir  = os.path.dirname(os.path.dirname(__file__))
         fonts_dir = os.path.join(base_dir, "fonts")
@@ -123,8 +124,8 @@ class PDFGenerator(FPDF):
         if self.logo_path and os.path.exists(self.logo_path):
             self.image(self.logo_path, x=x, y=self.LOGO_Y, w=self.LOGO_W)
             x += self.LOGO_W + 3
-        if self.legend_path and os.path.exists(self.legend_path):
-            self.image(self.legend_path, x=x, y=self.LOGO_Y + 2, w=self.ICON_W)
+        if self.icon_path and os.path.exists(self.icon_path):
+            self.image(self.icon_path, x=x, y=self.LOGO_Y + 2, w=self.ICON_W)
         self.set_xy(0, self.TITLE_Y + 5)
         self._set_font_bold(self.FONT_TITLE)
         self.cell(0, 8, title, align='C', ln=1)
