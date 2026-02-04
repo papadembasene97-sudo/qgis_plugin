@@ -84,6 +84,7 @@ class PVReportGenerator:
             pdf._set_font_base()
             
             rows = [
+                ("Type d'origine", "PV"),
                 ("N° PV", polluter_info.get('num_pv', 'N/A')),
                 ("Adresse", polluter_info.get('adresse', 'N/A')),
                 ("Commune", polluter_info.get('commune', 'N/A')),
@@ -127,6 +128,7 @@ class PVReportGenerator:
             pdf._set_font_base()
             
             rows = [
+                ("Type d'origine", "Industriel"),
                 ("Nom", polluter_info.get('nom', 'N/A')),
                 ("Type", polluter_info.get('type', 'N/A')),
                 ("Adresse", polluter_info.get('adresse', 'N/A')),
