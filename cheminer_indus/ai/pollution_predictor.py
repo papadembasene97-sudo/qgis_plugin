@@ -79,9 +79,9 @@ class PollutionPredictor:
         # === FEATURES AMONT (moyennes) ===
         if upstream_data:
             avg_diameter_up = np.mean([b.get('diametre', 300) for b in upstream_data])
-            avg_slope_up = np.mean([b.get('pente', 0.005) for b in upstream_data])
-            avg_z_amont = np.mean([b.get('z_amont', 0) for b in upstream_data])
-            avg_z_aval = np.mean([b.get('z_aval', 0) for b in upstream_data])
+            avg_slope_up = np.mean([b.get('_pente', b.get('pente', 0.005)) for b in upstream_data])
+            avg_z_amont = np.mean([b.get('zmont', 0) for b in upstream_data])
+            avg_z_aval = np.mean([b.get('zaval', 0) for b in upstream_data])
             total_length_up = sum([b.get('longueur', 0) for b in upstream_data])
             nb_branches_up = len(upstream_data)
             
@@ -118,7 +118,7 @@ class PollutionPredictor:
         # === FEATURES AVAL (moyennes) ===
         if downstream_data:
             avg_diameter_down = np.mean([b.get('diametre', 300) for b in downstream_data])
-            avg_slope_down = np.mean([b.get('pente', 0.005) for b in downstream_data])
+            avg_slope_down = np.mean([b.get('_pente', b.get('pente', 0.005)) for b in downstream_data])
             nb_branches_down = len(downstream_data)
         else:
             avg_diameter_down = 0
@@ -162,7 +162,7 @@ class PollutionPredictor:
             last_visits = [v for v in historical_visits 
                           if v.get('node_id') == node_data.get('id')]
             if last_visits:
-                last_visit_date = max([v.get('date', datetime.min) for v in last_visits])
+                last_visit_date = max([self._to_datetime(v.get('date')) for v in last_visits])
                 days_since_visit = (datetime.now() - last_visit_date).days
             else:
                 days_since_visit = 9999  # Jamais visité
@@ -198,6 +198,17 @@ class PollutionPredictor:
         ])
         
         return np.array(features)
+
+    def _to_datetime(self, value):
+        """Convertit une valeur en datetime, accepte str ISO."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return datetime.min
+        return datetime.min
     
     def _is_nearby(self, node1: Dict, node2: Dict, radius: float = 100) -> bool:
         """Vérifie si deux nœuds sont proches"""
@@ -384,6 +395,77 @@ class PollutionPredictor:
         
         print(f"📂 Modèle chargé : {path}")
         print(f"   Entraîné le : {model_data.get('saved_at', 'unknown')}")
+
+    # ------------------------------------------------------------------
+    # Compatibilité avec l'onglet IA (GUI)
+    # ------------------------------------------------------------------
+    def predict_pollution(self, canal_layer):
+        """
+        Prédiction simplifiée sur une couche de canalisations.
+        Retourne une liste [(id, proba, niveau_risque), ...]
+        """
+        if not canal_layer or not canal_layer.isValid():
+            return []
+
+        predictions = []
+
+        for feat in canal_layer.getFeatures():
+            fid = feat.id()
+            diameter = feat.attribute("diametre") or feat.attribute("diam") or 0
+            slope = feat.attribute("_pente") or feat.attribute("pente") or 0
+            typ = feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
+
+            score = 20
+            try:
+                slope_val = float(slope)
+                if slope_val <= 0.003:
+                    score += 30
+                elif slope_val <= 0.006:
+                    score += 15
+            except Exception:
+                pass
+
+            try:
+                diam_val = float(diameter)
+                if diam_val <= 200:
+                    score += 10
+                elif diam_val <= 300:
+                    score += 5
+            except Exception:
+                pass
+
+            if str(typ).strip() in ("02", "EU"):
+                score += 10
+
+            score = min(100, max(0, score))
+            risk = self._get_risk_level(score / 100.0)
+            predictions.append((str(fid), score, risk))
+
+        return predictions
+
+    def get_hotspots(self, predictions: List[Tuple[str, float, str]], threshold: float = 70.0):
+        """Filtre les points chauds à partir de la liste prédite."""
+        if not predictions:
+            return []
+        filtered = [p for p in predictions if p[1] >= threshold]
+        return sorted(filtered, key=lambda x: x[1], reverse=True)
+
+    def optimize_visit_tour(self, hotspots: List[Tuple[str, float, str]],
+                            start_point=None, max_visits_per_day: int = 20):
+        """
+        Optimisation simple par ordre décroissant de risque.
+        Retourne un dict {jour: [(id, score), ...]}
+        """
+        if not hotspots:
+            return {}
+
+        ordered = [(h[0], h[1]) for h in hotspots]
+        tour = {}
+        day = 1
+        for i in range(0, len(ordered), max_visits_per_day):
+            tour[day] = ordered[i:i + max_visits_per_day]
+            day += 1
+        return tour
 
 
 class VisitOptimizer:

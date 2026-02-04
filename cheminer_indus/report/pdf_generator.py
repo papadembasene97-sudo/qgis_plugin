@@ -26,6 +26,7 @@ class PDFGenerator(FPDF):
     LOGO_X       = 15
     LOGO_Y       = 8
     LOGO_W       = 25
+    ICON_W       = 18
 
     FONT_BASE    = 10
     FONT_SMALL   = 9
@@ -118,8 +119,12 @@ class PDFGenerator(FPDF):
 
     def set_title_top(self, title: str):
         self._ensure_page()
+        x = self.LOGO_X
         if self.logo_path and os.path.exists(self.logo_path):
-            self.image(self.logo_path, x=self.LOGO_X, y=self.LOGO_Y, w=self.LOGO_W)
+            self.image(self.logo_path, x=x, y=self.LOGO_Y, w=self.LOGO_W)
+            x += self.LOGO_W + 3
+        if self.legend_path and os.path.exists(self.legend_path):
+            self.image(self.legend_path, x=x, y=self.LOGO_Y + 2, w=self.ICON_W)
         self.set_xy(0, self.TITLE_Y + 5)
         self._set_font_bold(self.FONT_TITLE)
         self.cell(0, 8, title, align='C', ln=1)
