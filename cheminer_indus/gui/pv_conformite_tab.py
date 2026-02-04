@@ -43,32 +43,33 @@ class PVConformiteTab(QWidget):
 
         layout = QVBoxLayout(content)
 
-        title = QLabel("🏠 Analyse Conformité PV")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-weight: bold; font-size: 13px;")
-        layout.addWidget(title)
+        self.title_label = QLabel("🏠 Analyse Conformité PV")
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        layout.addWidget(self.title_label)
 
-        desc = QLabel(
+        self.desc_label = QLabel(
             "Analysez les PV conformes et non conformes\n"
             "sur un cheminement de réseau EU/EP."
         )
-        desc.setAlignment(Qt.AlignCenter)
-        desc.setWordWrap(True)
-        layout.addWidget(desc)
+        self.desc_label.setAlignment(Qt.AlignCenter)
+        self.desc_label.setWordWrap(True)
+        layout.addWidget(self.desc_label)
 
-        config_group = QGroupBox("⚙️ Configuration de l'analyse")
-        config_layout = QVBoxLayout(config_group)
+        self.config_group = QGroupBox("⚙️ Configuration de l'analyse")
+        config_layout = QVBoxLayout(self.config_group)
         config_layout.setSpacing(6)
 
-        steps = QLabel(
+        self.steps_label = QLabel(
             "1. Réalisez un cheminement depuis l'onglet Cheminement\n"
             "2. Cliquez sur \"Analyser\" pour détecter les PV"
         )
-        steps.setWordWrap(True)
-        config_layout.addWidget(steps)
+        self.steps_label.setWordWrap(True)
+        config_layout.addWidget(self.steps_label)
 
         distance_layout = QHBoxLayout()
-        distance_layout.addWidget(QLabel("Distance de recherche PV :"))
+        self.distance_label = QLabel("Distance de recherche PV :")
+        distance_layout.addWidget(self.distance_label)
         self.distance_spin = QSpinBox()
         self.distance_spin.setRange(1, 500)
         self.distance_spin.setValue(15)
@@ -85,27 +86,27 @@ class PVConformiteTab(QWidget):
         self.status_label.setStyleSheet("color: #666;")
         config_layout.addWidget(self.status_label)
 
-        layout.addWidget(config_group)
+        layout.addWidget(self.config_group)
 
         self.pv_table = self._create_table_group("🏠 PV détectés")
         layout.addWidget(self.pv_table["group"])
 
-        actions_group = QGroupBox("🧹 Actions")
-        actions_layout = QHBoxLayout(actions_group)
+        self.actions_group = QGroupBox("🧹 Actions")
+        actions_layout = QHBoxLayout(self.actions_group)
 
-        btn_export = QPushButton("📊 Exporter en CSV")
-        btn_export.clicked.connect(self._on_export_csv)
-        actions_layout.addWidget(btn_export)
+        self.btn_export = QPushButton("📊 Exporter en CSV")
+        self.btn_export.clicked.connect(self._on_export_csv)
+        actions_layout.addWidget(self.btn_export)
 
-        btn_report = QPushButton("🧾 Générer un rapport")
-        btn_report.clicked.connect(self._on_generate_report)
-        actions_layout.addWidget(btn_report)
+        self.btn_report = QPushButton("🧾 Générer un rapport")
+        self.btn_report.clicked.connect(self._on_generate_report)
+        actions_layout.addWidget(self.btn_report)
 
-        btn_clear = QPushButton("🧼 Nettoyer la carte")
-        btn_clear.clicked.connect(self._on_clear_map)
-        actions_layout.addWidget(btn_clear)
+        self.btn_clear = QPushButton("🧼 Nettoyer la carte")
+        self.btn_clear.clicked.connect(self._on_clear_map)
+        actions_layout.addWidget(self.btn_clear)
 
-        layout.addWidget(actions_group)
+        layout.addWidget(self.actions_group)
         layout.addStretch()
 
     def _create_table_group(self, title: str) -> Dict[str, object]:
@@ -113,11 +114,12 @@ class PVConformiteTab(QWidget):
         group_layout = QVBoxLayout(group)
 
         search_layout = QHBoxLayout()
-        search_layout.addWidget(QLabel("Recherche :"))
-        search_input = QLineEdit()
-        search_input.setPlaceholderText("Filtrer sur toutes les colonnes...")
-        search_input.textChanged.connect(self._apply_search)
-        search_layout.addWidget(search_input, 1)
+        self.search_label = QLabel("Recherche :")
+        search_layout.addWidget(self.search_label)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Filtrer sur toutes les colonnes...")
+        self.search_input.textChanged.connect(self._apply_search)
+        search_layout.addWidget(self.search_input, 1)
         group_layout.addLayout(search_layout)
 
         table = QTableWidget()
@@ -126,18 +128,18 @@ class PVConformiteTab(QWidget):
         group_layout.addWidget(table)
 
         btn_layout = QHBoxLayout()
-        btn_zoom = QPushButton("🔍 Zoomer")
-        btn_zoom.clicked.connect(lambda: self._on_zoom(table))
-        btn_layout.addWidget(btn_zoom)
+        self.btn_zoom = QPushButton("🔍 Zoomer")
+        self.btn_zoom.clicked.connect(lambda: self._on_zoom(table))
+        btn_layout.addWidget(self.btn_zoom)
 
-        btn_designate = QPushButton("🎯 Désigner comme pollueur")
-        btn_designate.clicked.connect(lambda: self._on_designate(table))
-        btn_layout.addWidget(btn_designate)
+        self.btn_designate = QPushButton("🎯 Désigner comme pollueur")
+        self.btn_designate.clicked.connect(lambda: self._on_designate(table))
+        btn_layout.addWidget(self.btn_designate)
 
         if "PV" in title:
-            btn_osmose = QPushButton("🔗 Voir dans OSMOSE")
-            btn_osmose.clicked.connect(lambda: self._on_open_osmose(table))
-            btn_layout.addWidget(btn_osmose)
+            self.btn_osmose = QPushButton("🔗 Voir dans OSMOSE")
+            self.btn_osmose.clicked.connect(lambda: self._on_open_osmose(table))
+            btn_layout.addWidget(self.btn_osmose)
 
         group_layout.addLayout(btn_layout)
         return {"group": group, "table": table, "search": search_input}
@@ -456,3 +458,80 @@ class PVConformiteTab(QWidget):
 
     def _on_clear_map(self):
         self.main_dock._reset()
+
+    def set_language(self, lang: str):
+        translations = {
+            "fr": {
+                "title": "🏠 Analyse Conformité PV",
+                "desc": "Analysez les PV conformes et non conformes\nsur un cheminement de réseau EU/EP.",
+                "config": "⚙️ Configuration de l'analyse",
+                "steps": "1. Réalisez un cheminement depuis l'onglet Cheminement\n2. Cliquez sur \"Analyser\" pour détecter les PV",
+                "distance": "Distance de recherche PV :",
+                "analyze": "🔍 Analyser le cheminement",
+                "status": "Aucune analyse effectuée",
+                "pv_group": "🏠 PV détectés",
+                "actions": "🧹 Actions",
+                "export": "📊 Exporter en CSV",
+                "report": "🧾 Générer un rapport",
+                "clear": "🧼 Nettoyer la carte",
+                "search": "Recherche :",
+                "search_placeholder": "Filtrer sur toutes les colonnes...",
+                "zoom": "🔍 Zoomer",
+                "designate": "🎯 Désigner comme pollueur",
+                "osmose": "🔗 Voir dans OSMOSE",
+            },
+            "en": {
+                "title": "🏠 PV Compliance Analysis",
+                "desc": "Analyze compliant and non-compliant PVs\non a EU/EP network trace.",
+                "config": "⚙️ Analysis settings",
+                "steps": "1. Run a trace from the Trace tab\n2. Click \"Analyze\" to detect PVs",
+                "distance": "PV search distance:",
+                "analyze": "🔍 Analyze trace",
+                "status": "No analysis performed",
+                "pv_group": "🏠 PV detected",
+                "actions": "🧹 Actions",
+                "export": "📊 Export CSV",
+                "report": "🧾 Generate report",
+                "clear": "🧼 Clear map",
+                "search": "Search:",
+                "search_placeholder": "Filter across all columns...",
+                "zoom": "🔍 Zoom",
+                "designate": "🎯 Designate polluter",
+                "osmose": "🔗 Open in OSMOSE",
+            },
+        }
+        tr = translations.get(lang, translations["fr"])
+        if self.title_label:
+            self.title_label.setText(tr["title"])
+        if self.desc_label:
+            self.desc_label.setText(tr["desc"])
+        if self.config_group:
+            self.config_group.setTitle(tr["config"])
+        if self.steps_label:
+            self.steps_label.setText(tr["steps"])
+        if self.distance_label:
+            self.distance_label.setText(tr["distance"])
+        if self.analyze_btn:
+            self.analyze_btn.setText(tr["analyze"])
+        if self.status_label and not self._last_pv_data:
+            self.status_label.setText(tr["status"])
+        if self.pv_table:
+            self.pv_table["group"].setTitle(tr["pv_group"])
+        if self.actions_group:
+            self.actions_group.setTitle(tr["actions"])
+        if self.btn_export:
+            self.btn_export.setText(tr["export"])
+        if self.btn_report:
+            self.btn_report.setText(tr["report"])
+        if self.btn_clear:
+            self.btn_clear.setText(tr["clear"])
+        if self.search_label:
+            self.search_label.setText(tr["search"])
+        if self.search_input:
+            self.search_input.setPlaceholderText(tr["search_placeholder"])
+        if self.btn_zoom:
+            self.btn_zoom.setText(tr["zoom"])
+        if self.btn_designate:
+            self.btn_designate.setText(tr["designate"])
+        if hasattr(self, "btn_osmose") and self.btn_osmose:
+            self.btn_osmose.setText(tr["osmose"])

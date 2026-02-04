@@ -100,6 +100,14 @@ class MainDock:
         self.diag_dock      : Optional[DiagnosticsDock] = None
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
         self._last_pv_data: Dict[str, Dict[str, str]] = {}  # Données PV détectés
+        self.theme_name: str = "Futuriste"
+        self.language: str = "fr"
+        self._tabs: Optional[QTabWidget] = None
+        self._main_widget: Optional[QWidget] = None
+        self._header_title: Optional[QLabel] = None
+        self._header_logo: Optional[QLabel] = None
+        self._header_icon: Optional[QLabel] = None
+        self.pv_tab: Optional[PVConformiteTab] = None
 
         # selection tools
         self.tool_select    = None
@@ -239,7 +247,7 @@ class MainDock:
         lay  = QVBoxLayout(main)
 
         # -------------------------------------------------
-        # En-tête (logo + titre) centré et plus grand
+        # En-tête (logo + icône + titre) centré et plus grand
         # -------------------------------------------------
         head = QHBoxLayout()
 
@@ -253,6 +261,17 @@ class MainDock:
         header_block_layout.setContentsMargins(0, 0, 0, 0)
         header_block_layout.setSpacing(4)
 
+        logo_row = QHBoxLayout()
+        logo_row.setContentsMargins(0, 0, 0, 0)
+        logo_row.setSpacing(8)
+
+        icon = QLabel()
+        icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
+        icon_pix = QPixmap(icon_path)
+        icon_scaled = icon_pix.scaledToHeight(40, Qt.SmoothTransformation)
+        icon.setPixmap(icon_scaled)
+        icon.setAlignment(Qt.AlignCenter)
+
         logo = QLabel()
         logo_path = self.get_logo_path() if hasattr(self, 'get_logo_path') else os.path.join(ICONS_DIR, 'logo.png')
         pix = QPixmap(logo_path)
@@ -264,7 +283,9 @@ class MainDock:
         title.setAlignment(Qt.AlignCenter)
         title.setObjectName("trackHeaderTitle")
 
-        header_block_layout.addWidget(logo)
+        logo_row.addWidget(icon)
+        logo_row.addWidget(logo)
+        header_block_layout.addLayout(logo_row)
         header_block_layout.addWidget(title)
 
         header_layout.addStretch()
@@ -274,95 +295,143 @@ class MainDock:
         head.addWidget(header_container)
         lay.addLayout(head)
 
-        main.setStyleSheet(
-            """
-            QWidget {
-                background-color: #0f172a;
-                color: #e2e8f0;
-            }
-            QTabWidget::pane {
-                border: 1px solid #334155;
-                border-radius: 10px;
-                padding: 6px;
-                background: #111827;
-            }
-            QTabBar::tab {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1e3a8a, stop:1 #4338ca);
-                color: #e2e8f0;
-                padding: 8px 14px;
-                margin-right: 6px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-            QTabBar::tab:selected {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
-                color: #0f172a;
-                font-weight: bold;
-            }
-            QGroupBox {
-                border: 1px solid #1f2937;
-                border-radius: 10px;
-                margin-top: 12px;
-                background: #111827;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 6px;
-                color: #22d3ee;
-                font-weight: bold;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0ea5e9, stop:1 #6366f1);
-                color: #ffffff;
-                padding: 7px 12px;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
-            }
-            QTableWidget {
-                background: #0b1220;
-                alternate-background-color: #111827;
-                gridline-color: #1f2937;
-            }
-            QHeaderView::section {
-                background-color: #1f2937;
-                color: #e2e8f0;
-                padding: 4px;
-                border: 1px solid #334155;
-            }
-            QLabel#trackHeaderTitle {
-                font-size: 22px;
-                font-weight: bold;
-                letter-spacing: 1px;
-                color: #e2e8f0;
-            }
-            """
-        )
+        self._main_widget = main
+        self._header_title = title
+        self._header_logo = logo
+        self._header_icon = icon
+        self._apply_theme(self.theme_name)
 
         # -------------------------------------------------
         # Onglets
         # -------------------------------------------------
         tabs = QTabWidget()
+        self._tabs = tabs
         lay.addWidget(tabs)
 
         # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, PARAMÈTRES
-        tabs.addTab(self._tab_trace(),       "CHEMINEMENT")
-        tabs.addTab(self._tab_visit_indus(), "VISITE-INDUS")
-        tabs.addTab(self._tab_actions(),     "ACTIONS")
-        tabs.addTab(self._tab_pv(),          "🏠 PV")
-        tabs.addTab(self._tab_settings(),    "⚙️ PARAMÈTRES")
+        tabs.addTab(self._tab_trace(),       self._t("tab_trace"))
+        tabs.addTab(self._tab_visit_indus(), self._t("tab_visit"))
+        tabs.addTab(self._tab_actions(),     self._t("tab_actions"))
+        tabs.addTab(self._tab_pv(),          self._t("tab_pv"))
+        tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
 
         self.dock.setWidget(main)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
 
         self._populate_layers()
         self._init_autosave()
+        self._apply_language(self.language)
 
     # ---------------------------------------------------------
     # Utilitaires génériques (sablier, autosave, inversion)
     # ---------------------------------------------------------
+    def _t(self, key: str) -> str:
+        translations = {
+            "fr": {
+                "tab_trace": "CHEMINEMENT",
+                "tab_visit": "VISITE-INDUS",
+                "tab_actions": "ACTIONS",
+                "tab_pv": "🏠 PV",
+                "tab_settings": "⚙️ PARAMÈTRES",
+            },
+            "en": {
+                "tab_trace": "TRACE",
+                "tab_visit": "VISIT-INDUS",
+                "tab_actions": "ACTIONS",
+                "tab_pv": "🏠 PV",
+                "tab_settings": "⚙️ SETTINGS",
+            },
+        }
+        return translations.get(self.language, translations["fr"]).get(key, key)
+
+    def _apply_language(self, lang: str):
+        if not lang:
+            return
+        self.language = lang
+        if self._tabs:
+            self._tabs.setTabText(0, self._t("tab_trace"))
+            self._tabs.setTabText(1, self._t("tab_visit"))
+            self._tabs.setTabText(2, self._t("tab_actions"))
+            self._tabs.setTabText(3, self._t("tab_pv"))
+            self._tabs.setTabText(4, self._t("tab_settings"))
+        if self.pv_tab and hasattr(self.pv_tab, "set_language"):
+            self.pv_tab.set_language(lang)
+
+    def _theme_styles(self) -> Dict[str, str]:
+        return {
+            "Futuriste": """
+                QWidget { background-color: #0f172a; color: #e2e8f0; }
+                QTabWidget::pane {
+                    border: 1px solid #334155; border-radius: 10px; padding: 6px; background: #111827;
+                }
+                QTabBar::tab {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1e3a8a, stop:1 #4338ca);
+                    color: #e2e8f0; padding: 10px 16px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                }
+                QTabBar::tab:selected {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
+                    color: #0f172a; font-weight: bold;
+                }
+                QGroupBox {
+                    border: 1px solid #1f2937; border-radius: 10px; margin-top: 12px; background: #111827;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #22d3ee; font-weight: bold;
+                }
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0ea5e9, stop:1 #6366f1);
+                    color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
+                }
+                QTableWidget { background: #0b1220; alternate-background-color: #111827; gridline-color: #1f2937; }
+                QHeaderView::section { background-color: #1f2937; color: #e2e8f0; padding: 4px; border: 1px solid #334155; }
+                QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; letter-spacing: 1px; color: #e2e8f0; }
+            """,
+            "Clair": """
+                QWidget { background-color: #f8fafc; color: #0f172a; }
+                QTabWidget::pane { border: 1px solid #cbd5f5; border-radius: 8px; padding: 6px; background: #ffffff; }
+                QTabBar::tab {
+                    background: #e2e8f0; color: #0f172a; padding: 10px 16px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                }
+                QTabBar::tab:selected { background: #38bdf8; color: #0f172a; font-weight: bold; }
+                QGroupBox { border: 1px solid #cbd5f5; border-radius: 8px; margin-top: 10px; background: #ffffff; }
+                QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 6px; color: #2563eb; font-weight: bold; }
+                QPushButton { background: #2563eb; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
+                QPushButton:hover { background: #1d4ed8; }
+                QTableWidget { background: #ffffff; alternate-background-color: #f1f5f9; gridline-color: #e2e8f0; }
+                QHeaderView::section { background-color: #e2e8f0; color: #0f172a; padding: 4px; border: 1px solid #cbd5f5; }
+                QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; color: #0f172a; }
+            """,
+            "Sombre": """
+                QWidget { background-color: #0b1120; color: #e5e7eb; }
+                QTabWidget::pane { border: 1px solid #374151; border-radius: 8px; padding: 6px; background: #0f172a; }
+                QTabBar::tab {
+                    background: #1f2937; color: #e5e7eb; padding: 10px 16px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                }
+                QTabBar::tab:selected { background: #4f46e5; color: #ffffff; font-weight: bold; }
+                QGroupBox { border: 1px solid #374151; border-radius: 8px; margin-top: 10px; background: #0f172a; }
+                QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 6px; color: #a5b4fc; font-weight: bold; }
+                QPushButton { background: #4f46e5; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
+                QPushButton:hover { background: #6366f1; }
+                QTableWidget { background: #0b1120; alternate-background-color: #111827; gridline-color: #374151; }
+                QHeaderView::section { background-color: #1f2937; color: #e5e7eb; padding: 4px; border: 1px solid #374151; }
+                QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; color: #e5e7eb; }
+            """,
+        }
+
+    def _apply_theme(self, theme_name: str):
+        if not theme_name or not self._main_widget:
+            return
+        self.theme_name = theme_name
+        stylesheet = self._theme_styles().get(theme_name)
+        if stylesheet:
+            self._main_widget.setStyleSheet(stylesheet)
+
     def _run_with_wait_cursor(self, func, *args, process_key: Optional[str] = None,
                               label: str = "Traitement en cours...", **kwargs):
         """
@@ -706,7 +775,8 @@ class MainDock:
     # ---------------------------------------------------------
     def _tab_pv(self) -> QWidget:
         """Crée l'onglet PV Conformité pour l'analyse industrielle"""
-        return PVConformiteTab(self)
+        self.pv_tab = PVConformiteTab(self)
+        return self.pv_tab
 
     def _tab_settings(self) -> QWidget:
         """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""
@@ -769,7 +839,40 @@ class MainDock:
         grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
         
         lay.addWidget(grp_layers)
-        
+
+        # === SECTION THEME & LANGUE ===
+        grp_ui = QGroupBox("🎨 Thème & Langue")
+        grp_ui_lay = QGridLayout(grp_ui)
+
+        grp_ui_lay.addWidget(QLabel("Thème :"), 0, 0)
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Futuriste", "Clair", "Sombre"])
+        if self.theme_name:
+            idx_theme = self.theme_combo.findText(self.theme_name)
+            if idx_theme >= 0:
+                self.theme_combo.setCurrentIndex(idx_theme)
+        self.theme_combo.currentTextChanged.connect(self._apply_theme)
+        grp_ui_lay.addWidget(self.theme_combo, 0, 1)
+
+        grp_ui_lay.addWidget(QLabel("Langue :"), 1, 0)
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItem("Français", "fr")
+        self.lang_combo.addItem("English", "en")
+        idx_lang = self.lang_combo.findData(self.language)
+        if idx_lang >= 0:
+            self.lang_combo.setCurrentIndex(idx_lang)
+        self.lang_combo.currentIndexChanged.connect(
+            lambda _: self._apply_language(self.lang_combo.currentData())
+        )
+        grp_ui_lay.addWidget(self.lang_combo, 1, 1)
+
+        info_ui = QLabel("💡 Choisissez un thème de couleur et la langue de l'interface.")
+        info_ui.setWordWrap(True)
+        info_ui.setStyleSheet("color: #666; font-size: 10px;")
+        grp_ui_lay.addWidget(info_ui, 2, 0, 1, 2)
+
+        lay.addWidget(grp_ui)
+
         # === SECTION LOGO ===
         grp_logo = QGroupBox("🖼️ Logo du plugin")
         grp_logo_lay = QVBoxLayout(grp_logo)
@@ -3038,7 +3141,9 @@ class MainDock:
             
             settings = {
                 'custom_logo_path': self.custom_logo_path,
-                'custom_icon_path': self.custom_icon_path
+                'custom_icon_path': self.custom_icon_path,
+                'theme_name': self.theme_name,
+                'language': self.language,
             }
             
             # Chemin du fichier de configuration
@@ -3079,6 +3184,8 @@ class MainDock:
                 settings = {
                     'custom_logo_path': self.custom_logo_path,
                     'custom_icon_path': self.custom_icon_path,
+                    'theme_name': self.theme_name,
+                    'language': self.language,
                     'exported_date': str(datetime.now())
                 }
                 
@@ -3123,6 +3230,22 @@ class MainDock:
                     self.custom_icon_path = settings['custom_icon_path']
                     self.icon_path_input.setText(self.custom_icon_path)
                     self._update_icon_preview()
+
+                if 'theme_name' in settings:
+                    self.theme_name = settings['theme_name']
+                    if hasattr(self, "theme_combo") and self.theme_combo:
+                        idx = self.theme_combo.findText(self.theme_name)
+                        if idx >= 0:
+                            self.theme_combo.setCurrentIndex(idx)
+                    self._apply_theme(self.theme_name)
+
+                if 'language' in settings:
+                    self.language = settings['language']
+                    if hasattr(self, "lang_combo") and self.lang_combo:
+                        idx = self.lang_combo.findData(self.language)
+                        if idx >= 0:
+                            self.lang_combo.setCurrentIndex(idx)
+                    self._apply_language(self.language)
                 
                 QMessageBox.information(
                     self.iface.mainWindow(),
@@ -3151,6 +3274,8 @@ class MainDock:
                 
                 self.custom_logo_path = settings.get('custom_logo_path', '')
                 self.custom_icon_path = settings.get('custom_icon_path', '')
+                self.theme_name = settings.get('theme_name', self.theme_name)
+                self.language = settings.get('language', self.language)
         except Exception as e:
             print(f"Impossible de charger les paramètres : {e}")
 
