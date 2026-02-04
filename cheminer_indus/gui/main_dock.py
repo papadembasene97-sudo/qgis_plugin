@@ -93,7 +93,7 @@ class MainDock:
         self.highlight_mgr   = HighlightManager(self.canvas)
         self.flow_anim       = FlowAnimator(self.canvas)
         self.ph_mgr          = PhotoManager()
-        self.auto_mgr        = AutoSaveManager(self.iface, plugin_name="CheminerIndus")
+        self.auto_mgr        = AutoSaveManager(self.iface, plugin_name="TRACK-EAU POLL")
 
         # UI state
         self.industrial_dock: Optional[IndustrialDock] = None
@@ -160,17 +160,17 @@ class MainDock:
         # Utiliser l'icône personnalisée s'il existe
         icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
         icon = QIcon(icon_path)
-        act = QAction(icon, "CheminerIndus", self.iface.mainWindow())
+        act = QAction(icon, "TRACK-EAU POLL", self.iface.mainWindow())
         act.triggered.connect(self._show_with_splash)
         self.iface.addToolBarIcon(act)
-        self.iface.addPluginToMenu("&CheminerIndus", act)
+        self.iface.addPluginToMenu("&TRACK-EAU POLL", act)
         self._action = act
 
     def unload(self):
         if self._action:
             try:
                 self.iface.removeToolBarIcon(self._action)
-                self.iface.removePluginMenu("&CheminerIndus", self._action)
+                self.iface.removePluginMenu("&TRACK-EAU POLL", self._action)
             except Exception:
                 pass
         if self.dock:
@@ -228,7 +228,7 @@ class MainDock:
         if self.dock:
             self.iface.removeDockWidget(self.dock)
 
-        self.dock = QDockWidget("CHEMINEMENT RESEAUX", self.iface.mainWindow())
+        self.dock = QDockWidget("TRACK-EAU POLL", self.iface.mainWindow())
         self.dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         
         # Charger les paramètres personnalisés au démarrage
@@ -287,49 +287,27 @@ class MainDock:
                               label: str = "Traitement en cours...", **kwargs):
         """
         Exécute une fonction en affichant un sablier, une barre de progression
-        avec temps restant estimé et un message dans QGIS.
+        simple et un message dans QGIS.
         """
         msg_bar = None
         progress = None
-        timer = None
-        elapsed = QElapsedTimer()
-        process_key = process_key or "generic"
-        estimate_ms = self._process_durations.get(process_key, 30000.0)
-        estimate_ms = max(5000.0, float(estimate_ms))
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             progress = QProgressDialog(
-                "",
+                label,
                 "",
                 0,
-                int(estimate_ms),
+                0,
                 self.iface.mainWindow()
             )
-            progress.setWindowTitle("CheminerIndus")
+            progress.setWindowTitle("TRACK-EAU POLL")
             progress.setWindowModality(Qt.ApplicationModal)
             progress.setCancelButton(None)
             progress.setMinimumDuration(0)
             progress.show()
-            elapsed.start()
-            timer = QTimer()
-            timer.setInterval(250)
-
-            def _tick():
-                nonlocal estimate_ms
-                elapsed_ms = max(0, elapsed.elapsed())
-                if elapsed_ms > estimate_ms:
-                    estimate_ms += 10000.0
-                    progress.setMaximum(int(estimate_ms))
-                remaining_s = max(0, int((estimate_ms - elapsed_ms) / 1000))
-                progress.setValue(min(int(elapsed_ms), int(estimate_ms)))
-                progress.setLabelText(f"{label}\nTemps restant estimé : {remaining_s}s")
-                QApplication.processEvents()
-
-            timer.timeout.connect(_tick)
-            timer.start()
             QApplication.processEvents()
             try:
-                msg_bar = self.iface.messageBar().createMessage("CheminerIndus", label)
+                msg_bar = self.iface.messageBar().createMessage("TRACK-EAU POLL", label)
                 self.iface.messageBar().pushWidget(msg_bar, Qgis.Info)
             except Exception:
                 msg_bar = None
@@ -343,11 +321,6 @@ class MainDock:
             except Exception:
                 pass
             if progress is not None:
-                try:
-                    progress.setValue(progress.maximum())
-                    QApplication.processEvents()
-                except Exception:
-                    pass
                 progress.close()
             try:
                 QApplication.restoreOverrideCursor()
@@ -874,7 +847,7 @@ class MainDock:
         if checked:
             self.ouvr_layer = self.ouvr_combo.currentData()
             if not self.ouvr_layer or not self.ouvr_layer.isValid():
-                QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Couche OUVRAGE invalide.")
+                QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
                 return
             self.tool_select = MapSelectionTool(self.canvas, self.ouvr_layer, id_field='idouvrage')
             self.tool_select.featureIdentified.connect(self._on_select)
@@ -890,7 +863,7 @@ class MainDock:
         if checked:
             self.ouvr_layer = self.ouvr_combo.currentData()
             if not self.ouvr_layer or not self.ouvr_layer.isValid():
-                QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Couche OUVRAGE invalide.")
+                QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
                 return
             self.tool_visit = MapSelectionTool(self.canvas, self.ouvr_layer, id_field='idouvrage')
             self.tool_visit.featureIdentified.connect(self._on_visit_select)
@@ -909,7 +882,7 @@ class MainDock:
             return
         self.ouvr_layer = self.ouvr_combo.currentData()
         if not self.ouvr_layer or not self.ouvr_layer.isValid():
-            QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Couche OUVRAGE invalide.")
+            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
             return
         expr = QgsExpression("\"idouvrage\" = '{}'".format(oid.replace("'", "''")))
         req  = QgsFeatureRequest(expr)
@@ -927,7 +900,7 @@ class MainDock:
     def _do_trace(self):
         start_id = (self.id_input.text() or "").strip()
         if not start_id:
-            QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Veuillez saisir un ID départ.")
+            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Veuillez saisir un ID départ.")
             return
 
         # couches
@@ -938,7 +911,7 @@ class MainDock:
         self.ouvr_layer    = self.ouvr_combo.currentData()
 
         if not self.canal_layer or not self.ouvr_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Sélectionnez au minimum CANALISATION et OUVRAGE.")
+            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Sélectionnez au minimum CANALISATION et OUVRAGE.")
             return
 
         mode = self.direction_combo.currentText()
@@ -2160,7 +2133,7 @@ class MainDock:
         if not self.canal_layer or not self.canal_layer.isValid():
             QMessageBox.warning(
                 self.iface.mainWindow(),
-                "CheminerIndus",
+                "TRACK-EAU POLL",
                 "Couche CANALISATION invalide pour le cheminement depuis l'industriel."
             )
             self.canvas.refresh()
@@ -2195,7 +2168,7 @@ class MainDock:
         if not ouvrages_all:
             QMessageBox.information(
                 self.iface.mainWindow(),
-                "CheminerIndus",
+                "TRACK-EAU POLL",
                 "Aucun ouvrage relié trouvé pour cet industriel via les liaisons."
             )
             if self.industrial_dock and self.indus_svc:
@@ -2236,7 +2209,7 @@ class MainDock:
                 )
                 QMessageBox.information(
                     self.iface.mainWindow(),
-                    "CheminerIndus",
+                    "TRACK-EAU POLL",
                     msg
                 )
                 if self.industrial_dock and self.indus_svc:
@@ -2298,7 +2271,7 @@ class MainDock:
     def _attach_astreint(self):
         layer = self.astreint_combo.currentData()
         if not layer or not layer.isValid():
-            QMessageBox.warning(self.iface.mainWindow(), "CheminerIndus", "Couche ASTREINTE invalide.")
+            QMessageBox.warning(self.iface.mainWindow(), "TRACK-EAU POLL", "Couche ASTREINTE invalide.")
             return
         self.astreint_layer = layer
         self.tool_astreint = AstreintSelectionTool(self.canvas, layer, id_field='id')
@@ -2320,7 +2293,7 @@ class MainDock:
     # ---------------------------------------------------------
     def _open_diagnostic(self):
         if not self.canal_layer or not self.ouvr_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","Il faut CANALISATION et OUVRAGE.")
+            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Il faut CANALISATION et OUVRAGE.")
             return
 
         diag = Diagnostics(self.canal_layer, self.ouvr_layer)
@@ -2351,7 +2324,7 @@ class MainDock:
     # ---------------------------------------------------------
     def _toggle_mask_labels(self, checked: bool):
         if not self.label_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"CheminerIndus","La couche LABEL_CI est introuvable.")
+            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","La couche LABEL_CI est introuvable.")
             return
 
         prov = self.label_layer.dataProvider()
@@ -2549,7 +2522,7 @@ class MainDock:
             pdf.output(save_path)
             QMessageBox.information(self.iface.mainWindow(),"Rapport généré", save_path)
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"CheminerIndus","Erreur génération PDF : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur génération PDF : {}".format(e))
 
     # ---------------------------------------------------------
     # SESSION
@@ -2725,16 +2698,16 @@ class MainDock:
                     self.industrial_dock.hide()
 
             if show_message:
-                QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Session chargée.")
+                QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session chargée.")
             self.canvas.refresh()
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"CheminerIndus","Erreur restauration session : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur restauration session : {}".format(e))
 
             if show_message:
-                QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Session chargée.")
+                QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session chargée.")
             self.canvas.refresh()
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"CheminerIndus","Erreur restauration session : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur restauration session : {}".format(e))
 
     def _save_session(self):
         path, _ = QFileDialog.getSaveFileName(self.iface.mainWindow(),"Sauvegarder session",".","Texte (*.txt)")
@@ -2743,9 +2716,9 @@ class MainDock:
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self._session_state(), f, ensure_ascii=False, indent=2)
-            QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Session sauvegardée.")
+            QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session sauvegardée.")
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"CheminerIndus","Erreur sauvegarde : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur sauvegarde : {}".format(e))
 
     def _load_session(self):
         path, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(),"Charger session",".","Texte (*.txt)")
@@ -2756,7 +2729,7 @@ class MainDock:
                 st = json.load(f)
             self._apply_session_state(st, show_message=True)
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"CheminerIndus","Erreur chargement : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur chargement : {}".format(e))
 
     # ---------------------------------------------------------
     # TABLES MINIMALES (couches mémoire si absentes)
@@ -2785,7 +2758,7 @@ class MainDock:
             v = QgsVectorLayer("Point?crs=EPSG:2154&field=categorie:string&field=label:string", "LABEL_CI", "memory")
             prj.addMapLayer(v)
 
-        QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Tables minimales créées (mémoire).")
+        QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Tables minimales créées (mémoire).")
         self._autosave()
 
     # ---------------------------------------------------------
@@ -2837,7 +2810,7 @@ class MainDock:
             self.iface.removeDockWidget(self.diag_dock); self.diag_dock = None
 
         self.canvas.refresh()
-        QMessageBox.information(self.iface.mainWindow(),"CheminerIndus","Plugin réinitialisé.")
+        QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Plugin réinitialisé.")
         self._autosave()
 
     # ---------------------------------------------------------
