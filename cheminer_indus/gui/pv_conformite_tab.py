@@ -97,10 +97,6 @@ class PVConformiteTab(QWidget):
         btn_export.clicked.connect(self._on_export_csv)
         actions_layout.addWidget(btn_export)
 
-        btn_visualize = QPushButton("🗺️ Visualiser sur la carte")
-        btn_visualize.clicked.connect(self._on_visualize_map)
-        actions_layout.addWidget(btn_visualize)
-
         btn_report = QPushButton("🧾 Générer un rapport")
         btn_report.clicked.connect(self._on_generate_report)
         actions_layout.addWidget(btn_report)
