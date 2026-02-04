@@ -142,7 +142,7 @@ class PVConformiteTab(QWidget):
             btn_layout.addWidget(self.btn_osmose)
 
         group_layout.addLayout(btn_layout)
-        return {"group": group, "table": table, "search": search_input}
+        return {"group": group, "table": table, "search": self.search_input}
 
     def _on_analyze(self):
         self.main_dock._run_with_wait_cursor(
