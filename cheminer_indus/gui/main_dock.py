@@ -6,7 +6,7 @@ from __future__ import annotations
 import os, json, datetime, tempfile
 from typing import Optional, List, Tuple, Set, Dict, Any
 
-from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer
+from qgis.PyQt.QtCore import Qt, QDate, QTime, QDateTime, QSize, QTimer, QElapsedTimer
 from qgis.PyQt.QtGui import QIcon, QPixmap, QColor, QMovie
 from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
@@ -117,6 +117,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -312,6 +313,8 @@ class MainDock:
                 msg_bar = None
             return func(*args, **kwargs)
         finally:
+            if timer is not None:
+                timer.stop()
             try:
                 if msg_bar:
                     self.iface.messageBar().clearWidgets()
@@ -323,6 +326,8 @@ class MainDock:
                 QApplication.restoreOverrideCursor()
             except Exception:
                 pass
+            if elapsed.isValid():
+                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
 
     def _confirm_reset(self):
         """
