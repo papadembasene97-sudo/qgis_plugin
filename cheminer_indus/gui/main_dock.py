@@ -110,6 +110,7 @@ class MainDock:
         self.visited: List[Dict[str, object]] = []
         self.polluter_id   : str = ""
         self.polluter_note : str = ""
+        self.polluter_type : str = ""
         self.astreint_details: Dict[str, object] = {}
 
         # masque étiquettes (via LABEL_CI)
@@ -286,42 +287,15 @@ class MainDock:
     def _run_with_wait_cursor(self, func, *args, process_key: Optional[str] = None,
                               label: str = "Traitement en cours...", **kwargs):
         """
-        Exécute une fonction en affichant un sablier, une barre de progression
-        simple et un message dans QGIS.
+        Exécute une fonction en affichant uniquement un sablier.
         """
-        msg_bar = None
-        progress = None
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            progress = QProgressDialog(
-                label,
-                "",
-                0,
-                0,
-                self.iface.mainWindow()
-            )
-            progress.setWindowTitle("TRACK-EAU POLL")
-            progress.setWindowModality(Qt.ApplicationModal)
-            progress.setCancelButton(None)
-            progress.setMinimumDuration(0)
-            progress.show()
             QApplication.processEvents()
-            try:
-                msg_bar = self.iface.messageBar().createMessage("TRACK-EAU POLL", label)
-                self.iface.messageBar().pushWidget(msg_bar, Qgis.Info)
-            except Exception:
-                msg_bar = None
             return func(*args, **kwargs)
         finally:
             if timer is not None:
                 timer.stop()
-            try:
-                if msg_bar:
-                    self.iface.messageBar().clearWidgets()
-            except Exception:
-                pass
-            if progress is not None:
-                progress.close()
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
@@ -1820,6 +1794,7 @@ class MainDock:
     def _designate_pv(self, pv_id: str):
         """Désigne un PV comme pollueur."""
         self.polluter_id = str(pv_id)
+        self.polluter_type = "PV"
         self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
         choice = self._ask_pv_trace_network()
         if not choice:
@@ -2075,6 +2050,7 @@ class MainDock:
         # 1) Mémoriser note + ID
         self.polluter_note = (self.note_text.toPlainText() or "").strip()
         self.polluter_id = ind_id
+        self.polluter_type = "INDUS"
 
         # 2) S'assurer que les couches sont bien récupérées depuis les combos
         if not self.indus_layer or not self.indus_layer.isValid():
@@ -2451,7 +2427,7 @@ class MainDock:
             # Construire le PDF avec logo personnalisé
             pdf = PDFGenerator(
                 logo_path=self.get_logo_path(),
-                legend_path=os.path.join(ICONS_DIR,'legende.png')
+                legend_path=os.path.join(ICONS_DIR, 'icon.png')
             )
             pdf.alias_nb_pages()
             if pdf.page_no() == 0:
@@ -2476,8 +2452,30 @@ class MainDock:
                 pdf.cell(0,6,"Aucune visite.", ln=True)
             pdf.ln(3)
 
-            # Industriel désigné
-            if self.polluter_id:
+            # Pollueur désigné
+            polluter_type = (self.polluter_type or "").strip().upper()
+            if self.polluter_id and polluter_type == "PV":
+                if not self.pv_svc and self.pv_combo:
+                    try:
+                        self.pv_svc = PVService(
+                            pv_layer=self.pv_combo.currentData(),
+                            canal_layer=self.canal_combo.currentData() if self.canal_combo else None,
+                            distance=float(self.distance_spin.value()) if getattr(self, "distance_spin", None) else 15.0
+                        )
+                    except Exception:
+                        self.pv_svc = None
+                pv_info = {}
+                if self.pv_svc:
+                    pv_info = self.pv_svc.fetch(self.polluter_id) or {}
+                pdf.section_title("PV à l'origine de la pollution")
+                pdf.table_pv_info(pv_info, bordered=True)
+
+                self.polluter_note = (self.note_text.toPlainText() or "").strip()
+                if self.polluter_note:
+                    pdf.sub_section("Note de pollution")
+                    pdf.multi_cell(0, 5, self.polluter_note)
+                    pdf.ln(2)
+            elif self.polluter_id:
                 d = {}
                 if not self.indus_svc and self.indus_combo:
                     self.indus_svc = IndustrialsService(self.indus_combo.currentData(), self.liaison_combo.currentData())
@@ -2577,6 +2575,7 @@ class MainDock:
             "visited": self.visited,
             "polluter_id": self.polluter_id,
             "polluter_note": self.polluter_note,
+            "polluter_type": self.polluter_type,
             "astreinte": {k:_safe_json(v) for k,v in self.astreint_details.items()},
             "mask_on": self._mask_on,
             "label_ci": label_dump,
@@ -2607,6 +2606,7 @@ class MainDock:
             self.visited = st.get("visited",[])
             self.polluter_id = st.get("polluter_id","")
             self.polluter_note = st.get("polluter_note","")
+            self.polluter_type = st.get("polluter_type","")
             if self.note_text:
                 self.note_text.setPlainText(self.polluter_note or "")
             self.astreint_details = st.get("astreinte",{})
@@ -2799,6 +2799,7 @@ class MainDock:
 
         self.visited.clear()
         self.polluter_id = ""; self.polluter_note = ""; self.astreint_details.clear()
+        self.polluter_type = ""
         self._last_trace_nodes.clear()
         self._mask_on = False
         self._last_indus_data = {}
