@@ -247,45 +247,32 @@ class MainDock:
         lay  = QVBoxLayout(main)
 
         # -------------------------------------------------
-        # En-tête (logo + icône + titre) centré et plus grand
+        # En-tête (icône centrée)
         # -------------------------------------------------
         head = QHBoxLayout()
 
         header_container = QWidget()
-        header_container.setFixedHeight(110)
+        header_container.setFixedHeight(100)
         header_layout = QHBoxLayout(header_container)
         header_layout.setContentsMargins(0, 0, 0, 0)
 
         header_block = QWidget()
         header_block_layout = QVBoxLayout(header_block)
         header_block_layout.setContentsMargins(0, 0, 0, 0)
-        header_block_layout.setSpacing(4)
-
-        logo_row = QHBoxLayout()
-        logo_row.setContentsMargins(0, 0, 0, 0)
-        logo_row.setSpacing(8)
+        header_block_layout.setSpacing(2)
 
         icon = QLabel()
         icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
         icon_pix = QPixmap(icon_path)
-        icon_scaled = icon_pix.scaledToHeight(40, Qt.SmoothTransformation)
+        icon_scaled = icon_pix.scaledToHeight(64, Qt.SmoothTransformation)
         icon.setPixmap(icon_scaled)
         icon.setAlignment(Qt.AlignCenter)
-
-        logo = QLabel()
-        logo_path = self.get_logo_path() if hasattr(self, 'get_logo_path') else os.path.join(ICONS_DIR, 'logo.png')
-        pix = QPixmap(logo_path)
-        scaled = pix.scaledToHeight(80, Qt.SmoothTransformation)
-        logo.setPixmap(scaled)
-        logo.setAlignment(Qt.AlignCenter)
 
         title = QLabel("TRACK-EAU POLL")
         title.setAlignment(Qt.AlignCenter)
         title.setObjectName("trackHeaderTitle")
 
-        logo_row.addWidget(icon)
-        logo_row.addWidget(logo)
-        header_block_layout.addLayout(logo_row)
+        header_block_layout.addWidget(icon)
         header_block_layout.addWidget(title)
 
         header_layout.addStretch()
@@ -297,7 +284,6 @@ class MainDock:
 
         self._main_widget = main
         self._header_title = title
-        self._header_logo = logo
         self._header_icon = icon
         self._apply_theme(self.theme_name)
 
@@ -344,6 +330,35 @@ class MainDock:
         }
         return translations.get(self.language, translations["fr"]).get(key, key)
 
+    def _tr_report(self, key: str) -> str:
+        translations = {
+            "fr": {
+                "save_pdf": "Enregistrer PDF",
+                "report_title": "RAPPORT DE CHEMINEMENT",
+                "context": "Contexte d'observation",
+                "visit": "Visite d'ouvrage",
+                "no_visit": "Aucune visite.",
+                "pv_origin": "PV à l'origine de la pollution",
+                "indus_origin": "Industriel à l'origine de la pollution",
+                "note": "Note de pollution",
+                "astreinte": "Astreinte exploitation",
+                "map_title": "CARTE DE LA SITUATION DU RÉSEAU",
+            },
+            "en": {
+                "save_pdf": "Save PDF",
+                "report_title": "TRACE REPORT",
+                "context": "Observation context",
+                "visit": "Manhole visit",
+                "no_visit": "No visits.",
+                "pv_origin": "PV identified as pollution source",
+                "indus_origin": "Industrial identified as pollution source",
+                "note": "Pollution note",
+                "astreinte": "On-call operations",
+                "map_title": "NETWORK SITUATION MAP",
+            },
+        }
+        return translations.get(self.language, translations["fr"]).get(key, key)
+
     def _apply_language(self, lang: str):
         if not lang:
             return
@@ -356,6 +371,123 @@ class MainDock:
             self._tabs.setTabText(4, self._t("tab_settings"))
         if self.pv_tab and hasattr(self.pv_tab, "set_language"):
             self.pv_tab.set_language(lang)
+        self._apply_language_to_controls()
+
+    def _apply_language_to_controls(self):
+        translations = {
+            "fr": {
+                "start_id": "ID ouvrage départ :",
+                "select_map": "Sélection carte",
+                "search": "Recherche :",
+                "search_btn": "Rechercher",
+                "type": "Type :",
+                "category": "Catégorie :",
+                "function": "Fonction :",
+                "trace": "Cheminer",
+                "flux": "Flux",
+                "colors": "Couleurs",
+                "visit_nodes": "Visites de nœuds",
+                "visit_btn": "Visiter (Pollué O/N)",
+                "visit_tooltip": "Sélectionner un nœud sur la carte",
+                "industrials": "Industriels",
+                "show_indus": "Afficher Indus connectés",
+                "note_placeholder": "Note de pollution (si désignation)…",
+                "attach": "Rattacher Astreinte",
+                "catchment": "Bassin de collecte",
+                "catchment_tip": "Affiche/masque un contour concave autour du réseau sélectionné",
+                "diagnostic": "Diagnostics",
+                "pdf": "Générer PDF",
+                "photos": "Ajouter Photos (+ commentaires)",
+                "mask": "Masquer/Demasquer étiquettes",
+                "save_session": "Sauvegarder session",
+                "load_session": "Charger session",
+                "schema": "Créer tables minimales",
+                "reset": "Réinitialiser",
+            },
+            "en": {
+                "start_id": "Start structure ID:",
+                "select_map": "Select on map",
+                "search": "Search:",
+                "search_btn": "Search",
+                "type": "Type:",
+                "category": "Category:",
+                "function": "Function:",
+                "trace": "Trace",
+                "flux": "Flow",
+                "colors": "Colors",
+                "visit_nodes": "Node visits",
+                "visit_btn": "Visit (Polluted Y/N)",
+                "visit_tooltip": "Select a node on the map",
+                "industrials": "Industrials",
+                "show_indus": "Show connected Industrials",
+                "note_placeholder": "Pollution note (if designated)…",
+                "attach": "Attach on-call",
+                "catchment": "Catchment area",
+                "catchment_tip": "Show/hide a concave outline around the selected network",
+                "diagnostic": "Diagnostics",
+                "pdf": "Generate PDF",
+                "photos": "Add photos (+ comments)",
+                "mask": "Show/Hide labels",
+                "save_session": "Save session",
+                "load_session": "Load session",
+                "schema": "Create minimal tables",
+                "reset": "Reset",
+            },
+        }
+        tr = translations.get(self.language, translations["fr"])
+        if hasattr(self, "lbl_start_id") and self.lbl_start_id:
+            self.lbl_start_id.setText(tr["start_id"])
+        if hasattr(self, "btn_sel") and self.btn_sel:
+            self.btn_sel.setText(tr["select_map"])
+        if hasattr(self, "lbl_search") and self.lbl_search:
+            self.lbl_search.setText(tr["search"])
+        if hasattr(self, "btn_search") and self.btn_search:
+            self.btn_search.setText(tr["search_btn"])
+        if hasattr(self, "lbl_type") and self.lbl_type:
+            self.lbl_type.setText(tr["type"])
+        if hasattr(self, "lbl_category") and self.lbl_category:
+            self.lbl_category.setText(tr["category"])
+        if hasattr(self, "lbl_function") and self.lbl_function:
+            self.lbl_function.setText(tr["function"])
+        if self.trace_btn:
+            self.trace_btn.setText(tr["trace"])
+        if self.flux_btn:
+            self.flux_btn.setText(tr["flux"])
+        if self.color_btn:
+            self.color_btn.setText(tr["colors"])
+        if hasattr(self, "box_v") and self.box_v:
+            self.box_v.setTitle(tr["visit_nodes"])
+        if hasattr(self, "btn_visit") and self.btn_visit:
+            self.btn_visit.setText(tr["visit_btn"])
+        if hasattr(self, "btn_pick") and self.btn_pick:
+            self.btn_pick.setToolTip(tr["visit_tooltip"])
+        if hasattr(self, "box_i") and self.box_i:
+            self.box_i.setTitle(tr["industrials"])
+        if self.btn_show_indus:
+            self.btn_show_indus.setText(tr["show_indus"])
+        if self.note_text:
+            self.note_text.setPlaceholderText(tr["note_placeholder"])
+        if hasattr(self, "btn_att") and self.btn_att:
+            self.btn_att.setText(tr["attach"])
+        if self.catchment_chk:
+            self.catchment_chk.setText(tr["catchment"])
+            self.catchment_chk.setToolTip(tr["catchment_tip"])
+        if hasattr(self, "btn_diag") and self.btn_diag:
+            self.btn_diag.setText(tr["diagnostic"])
+        if hasattr(self, "btn_pdf") and self.btn_pdf:
+            self.btn_pdf.setText(tr["pdf"])
+        if hasattr(self, "btn_ph") and self.btn_ph:
+            self.btn_ph.setText(tr["photos"])
+        if hasattr(self, "btn_mask") and self.btn_mask:
+            self.btn_mask.setText(tr["mask"])
+        if hasattr(self, "btn_save_session") and self.btn_save_session:
+            self.btn_save_session.setText(tr["save_session"])
+        if hasattr(self, "btn_load_session") and self.btn_load_session:
+            self.btn_load_session.setText(tr["load_session"])
+        if hasattr(self, "btn_schema") and self.btn_schema:
+            self.btn_schema.setText(tr["schema"])
+        if hasattr(self, "btn_rst") and self.btn_rst:
+            self.btn_rst.setText(tr["reset"])
 
     def _theme_styles(self) -> Dict[str, str]:
         return {
@@ -366,8 +498,8 @@ class MainDock:
                 }
                 QTabBar::tab {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1e3a8a, stop:1 #4338ca);
-                    color: #e2e8f0; padding: 10px 16px; margin-right: 6px;
-                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                    color: #e2e8f0; padding: 11px 18px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
                 }
                 QTabBar::tab:selected {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
@@ -394,8 +526,8 @@ class MainDock:
                 QWidget { background-color: #f8fafc; color: #0f172a; }
                 QTabWidget::pane { border: 1px solid #cbd5f5; border-radius: 8px; padding: 6px; background: #ffffff; }
                 QTabBar::tab {
-                    background: #e2e8f0; color: #0f172a; padding: 10px 16px; margin-right: 6px;
-                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                    background: #e2e8f0; color: #0f172a; padding: 11px 18px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
                 }
                 QTabBar::tab:selected { background: #38bdf8; color: #0f172a; font-weight: bold; }
                 QGroupBox { border: 1px solid #cbd5f5; border-radius: 8px; margin-top: 10px; background: #ffffff; }
@@ -410,8 +542,8 @@ class MainDock:
                 QWidget { background-color: #0b1120; color: #e5e7eb; }
                 QTabWidget::pane { border: 1px solid #374151; border-radius: 8px; padding: 6px; background: #0f172a; }
                 QTabBar::tab {
-                    background: #1f2937; color: #e5e7eb; padding: 10px 16px; margin-right: 6px;
-                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 11px;
+                    background: #1f2937; color: #e5e7eb; padding: 11px 18px; margin-right: 6px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
                 }
                 QTabBar::tab:selected { background: #4f46e5; color: #ffffff; font-weight: bold; }
                 QGroupBox { border: 1px solid #374151; border-radius: 8px; margin-top: 10px; background: #0f172a; }
@@ -643,35 +775,40 @@ class MainDock:
         w = QWidget(); g = QGridLayout(w)
 
         self.id_input = QLineEdit()
-        g.addWidget(QLabel("ID ouvrage départ :"), 0, 0)
+        self.lbl_start_id = QLabel("ID ouvrage départ :")
+        g.addWidget(self.lbl_start_id, 0, 0)
         g.addWidget(self.id_input, 0, 1)
 
         # select on map
-        btn_sel = QPushButton("Sélection carte"); btn_sel.setIcon(QIcon(os.path.join(ICONS_DIR,'select.png')))
-        btn_sel.setCheckable(True); btn_sel.clicked.connect(self._toggle_select)
-        g.addWidget(btn_sel, 1, 0, 1, 2)
+        self.btn_sel = QPushButton("Sélection carte"); self.btn_sel.setIcon(QIcon(os.path.join(ICONS_DIR,'select.png')))
+        self.btn_sel.setCheckable(True); self.btn_sel.clicked.connect(self._toggle_select)
+        g.addWidget(self.btn_sel, 1, 0, 1, 2)
 
         # search
         self.search_input = QLineEdit()
-        btn_search = QPushButton("Rechercher"); btn_search.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
-        btn_search.clicked.connect(self._search)
-        hb = QHBoxLayout(); hb.addWidget(self.search_input); hb.addWidget(btn_search)
-        g.addWidget(QLabel("Recherche :"), 2, 0); g.addLayout(hb, 2, 1)
+        self.btn_search = QPushButton("Rechercher"); self.btn_search.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
+        self.btn_search.clicked.connect(self._search)
+        hb = QHBoxLayout(); hb.addWidget(self.search_input); hb.addWidget(self.btn_search)
+        self.lbl_search = QLabel("Recherche :")
+        g.addWidget(self.lbl_search, 2, 0); g.addLayout(hb, 2, 1)
 
         # mode + filtres
         self.direction_combo = QComboBox()
         self.direction_combo.addItems(["Amont vers Aval", "Aval vers Amont", "Cheminement Pollution"])
-        g.addWidget(QLabel("Type :"), 3, 0); g.addWidget(self.direction_combo, 3, 1)
+        self.lbl_type = QLabel("Type :")
+        g.addWidget(self.lbl_type, 3, 0); g.addWidget(self.direction_combo, 3, 1)
 
         self.cat_combo = QComboBox()
         for txt,val in [("",""),("Eaux Pluviales","01"),("Eaux Usées","02"),("Unitaire","03")]:
             self.cat_combo.addItem(txt,val)
-        g.addWidget(QLabel("Catégorie :"), 4, 0); g.addWidget(self.cat_combo, 4, 1)
+        self.lbl_category = QLabel("Catégorie :")
+        g.addWidget(self.lbl_category, 4, 0); g.addWidget(self.cat_combo, 4, 1)
 
         self.func_combo = QComboBox()
         for txt,val in [("",""),("Transport","01"),("Collecte","02")]:
             self.func_combo.addItem(txt,val)
-        g.addWidget(QLabel("Fonction :"), 5, 0); g.addWidget(self.func_combo, 5, 1)
+        self.lbl_function = QLabel("Fonction :")
+        g.addWidget(self.lbl_function, 5, 0); g.addWidget(self.func_combo, 5, 1)
         
         # buttons
         self.trace_btn = QPushButton("Cheminer"); self.trace_btn.setIcon(QIcon(os.path.join(ICONS_DIR,'trace.png')))
@@ -699,21 +836,21 @@ class MainDock:
         w = QWidget(); l = QVBoxLayout(w)
 
         # bloc visites
-        box_v = QGroupBox("Visites de nœuds"); lv = QVBoxLayout(box_v)
+        self.box_v = QGroupBox("Visites de nœuds"); lv = QVBoxLayout(self.box_v)
         hb = QHBoxLayout()
         self.visit_input = QLineEdit(); hb.addWidget(self.visit_input)
-        btn_pick = QPushButton(); btn_pick.setIcon(QIcon(os.path.join(ICONS_DIR,'select.png')))
-        btn_pick.setCheckable(True); btn_pick.setToolTip("Sélectionner un nœud sur la carte")
-        btn_pick.clicked.connect(self._toggle_visit_select); hb.addWidget(btn_pick)
+        self.btn_pick = QPushButton(); self.btn_pick.setIcon(QIcon(os.path.join(ICONS_DIR,'select.png')))
+        self.btn_pick.setCheckable(True); self.btn_pick.setToolTip("Sélectionner un nœud sur la carte")
+        self.btn_pick.clicked.connect(self._toggle_visit_select); hb.addWidget(self.btn_pick)
         lv.addLayout(hb)
 
-        btn_visit = QPushButton("Visiter (Pollué O/N)"); btn_visit.setIcon(QIcon(os.path.join(ICONS_DIR,'pollueur.png')))
-        btn_visit.clicked.connect(self._visit_with_wait)
-        lv.addWidget(btn_visit)
-        l.addWidget(box_v)
+        self.btn_visit = QPushButton("Visiter (Pollué O/N)"); self.btn_visit.setIcon(QIcon(os.path.join(ICONS_DIR,'pollueur.png')))
+        self.btn_visit.clicked.connect(self._visit_with_wait)
+        lv.addWidget(self.btn_visit)
+        l.addWidget(self.box_v)
 
         # bloc indus
-        box_i = QGroupBox("Industriels"); li = QVBoxLayout(box_i)
+        self.box_i = QGroupBox("Industriels"); li = QVBoxLayout(self.box_i)
         self.btn_show_indus = QPushButton("Afficher Indus connectés"); self.btn_show_indus.setIcon(QIcon(os.path.join(ICONS_DIR,'table.png')))
         self.btn_show_indus.clicked.connect(self._open_or_update_industrial_dock)
         li.addWidget(self.btn_show_indus)
@@ -723,10 +860,10 @@ class MainDock:
         li.addWidget(self.note_text)
 
         # rattacher astreinte
-        btn_att = QPushButton("Rattacher Astreinte"); btn_att.setIcon(QIcon(os.path.join(ICONS_DIR,'attach.png')))
-        btn_att.clicked.connect(self._attach_astreint); li.addWidget(btn_att)
+        self.btn_att = QPushButton("Rattacher Astreinte"); self.btn_att.setIcon(QIcon(os.path.join(ICONS_DIR,'attach.png')))
+        self.btn_att.clicked.connect(self._attach_astreint); li.addWidget(self.btn_att)
 
-        l.addWidget(box_i)
+        l.addWidget(self.box_i)
         return w
 
     # ---------------------------------------------------------
@@ -740,34 +877,34 @@ class MainDock:
         self.catchment_chk.stateChanged.connect(self._toggle_catchment)
         l.addWidget(self.catchment_chk)
 
-        btn_diag = QPushButton("Diagnostics"); btn_diag.setIcon(QIcon(os.path.join(ICONS_DIR,'table.png')))
-        btn_diag.clicked.connect(self._open_diagnostic_with_wait); l.addWidget(btn_diag)
+        self.btn_diag = QPushButton("Diagnostics"); self.btn_diag.setIcon(QIcon(os.path.join(ICONS_DIR,'table.png')))
+        self.btn_diag.clicked.connect(self._open_diagnostic_with_wait); l.addWidget(self.btn_diag)
 
-        btn_pdf = QPushButton("Générer PDF"); btn_pdf.setIcon(QIcon(os.path.join(ICONS_DIR,'report.png')))
-        btn_pdf.clicked.connect(self._make_report_with_wait); l.addWidget(btn_pdf)
+        self.btn_pdf = QPushButton("Générer PDF"); self.btn_pdf.setIcon(QIcon(os.path.join(ICONS_DIR,'report.png')))
+        self.btn_pdf.clicked.connect(self._make_report_with_wait); l.addWidget(self.btn_pdf)
 
-        btn_ph = QPushButton("Ajouter Photos (+ commentaires)"); btn_ph.setIcon(QIcon(os.path.join(ICONS_DIR,'save.png')))
-        btn_ph.clicked.connect(lambda: self.ph_mgr.add(self.dock)); l.addWidget(btn_ph)
+        self.btn_ph = QPushButton("Ajouter Photos (+ commentaires)"); self.btn_ph.setIcon(QIcon(os.path.join(ICONS_DIR,'save.png')))
+        self.btn_ph.clicked.connect(lambda: self.ph_mgr.add(self.dock)); l.addWidget(self.btn_ph)
 
         # masquer étiquettes
-        btn_mask = QPushButton("Masquer/Demasquer étiquettes")
-        btn_mask.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
-        btn_mask.setCheckable(True); btn_mask.clicked.connect(self._toggle_mask_labels)
-        l.addWidget(btn_mask)
+        self.btn_mask = QPushButton("Masquer/Demasquer étiquettes")
+        self.btn_mask.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
+        self.btn_mask.setCheckable(True); self.btn_mask.clicked.connect(self._toggle_mask_labels)
+        l.addWidget(self.btn_mask)
 
         # save/load session
         hb = QHBoxLayout()
-        btn_save = QPushButton("Sauvegarder session"); btn_save.clicked.connect(self._save_session)
-        btn_load = QPushButton("Charger session");     btn_load.clicked.connect(self._load_session)
-        hb.addWidget(btn_save); hb.addWidget(btn_load); l.addLayout(hb)
+        self.btn_save_session = QPushButton("Sauvegarder session"); self.btn_save_session.clicked.connect(self._save_session)
+        self.btn_load_session = QPushButton("Charger session");     self.btn_load_session.clicked.connect(self._load_session)
+        hb.addWidget(self.btn_save_session); hb.addWidget(self.btn_load_session); l.addLayout(hb)
 
         # créer tables minimales
-        btn_schema = QPushButton("Créer tables minimales"); btn_schema.clicked.connect(self._create_minimal_tables)
-        l.addWidget(btn_schema)
+        self.btn_schema = QPushButton("Créer tables minimales"); self.btn_schema.clicked.connect(self._create_minimal_tables)
+        l.addWidget(self.btn_schema)
 
         # reset (avec confirmation)
-        btn_rst = QPushButton("Réinitialiser"); btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
-        btn_rst.clicked.connect(self._confirm_reset); l.addWidget(btn_rst)
+        self.btn_rst = QPushButton("Réinitialiser"); self.btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
+        self.btn_rst.clicked.connect(self._confirm_reset); l.addWidget(self.btn_rst)
         return w
 
     # ---------------------------------------------------------
@@ -1448,6 +1585,34 @@ class MainDock:
                     self.industrial_dock.exclude_pv_ids(sorted(removed_pv_all))
             except Exception as e:
                 print(f"Erreur lors de l'exclusion indus/PV : {e}")
+
+        # Désélectionner les PV dans la couche et rafraîchir l'onglet PV
+        if removed_pv_all:
+            try:
+                if not self.pv_layer or not self.pv_layer.isValid():
+                    self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+                if self.pv_layer and self.pv_layer.isValid():
+                    id_field = None
+                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                        if self.pv_layer.fields().indexOf(field_name) >= 0:
+                            id_field = field_name
+                            break
+                    if id_field:
+                        esc = lambda v: str(v).replace("'", "''")
+                        values = ",".join("'{}'".format(esc(pid)) for pid in removed_pv_all if pid)
+                        if values:
+                            expr = QgsExpression(f"trim(\"{id_field}\") IN ({values})")
+                            req = QgsFeatureRequest(expr)
+                            pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
+                            if pv_fids:
+                                self.pv_layer.deselect(pv_fids)
+            except Exception:
+                pass
+            if self.pv_tab and hasattr(self.pv_tab, "exclude_pv_ids"):
+                try:
+                    self.pv_tab.exclude_pv_ids(sorted(removed_pv_all))
+                except Exception:
+                    pass
 
         self.canvas.refresh()
         self._autosave()
@@ -2579,8 +2744,18 @@ class MainDock:
                         feats.append(ff)
 
             # PV DÉSIGNÉ
+            if not self.pv_layer or not self.pv_layer.isValid():
+                self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
             if self.pv_layer and self.pv_layer.isValid() and self.polluter_id and self.polluter_type.upper() == "PV":
-                pv_expr = QgsExpression("trim(\"id\") = '{}'".format(self.polluter_id.replace("'","''")))
+                pv_id_field = None
+                for field_name in ("id", "num_pv", "ID", "NUM_PV"):
+                    if self.pv_layer.fields().indexOf(field_name) >= 0:
+                        pv_id_field = field_name
+                        break
+                pv_id_field = pv_id_field or "id"
+                pv_expr = QgsExpression(
+                    "trim(\"{}\") = '{}'".format(pv_id_field, self.polluter_id.replace("'", "''"))
+                )
                 for f in self.pv_layer.getFeatures(QgsFeatureRequest(pv_expr)):
                     g = f.geometry()
                     pt = None
@@ -2625,7 +2800,12 @@ class MainDock:
     # ---------------------------------------------------------
     def _make_report(self):
         try:
-            save_path, _ = QFileDialog.getSaveFileName(self.iface.mainWindow(), "Enregistrer PDF", "", "PDF (*.pdf)")
+            save_path, _ = QFileDialog.getSaveFileName(
+                self.iface.mainWindow(),
+                self._tr_report("save_pdf"),
+                "",
+                "PDF (*.pdf)"
+            )
             if not save_path:
                 return
 
@@ -2646,21 +2826,21 @@ class MainDock:
 
             # ——— Page 1 : Contexte / Visites / Industriel ———
             pdf.set_global_header("SOURCE: BD SIG DU SIAH - "+datetime.datetime.now().strftime("%d/%m/%Y %H:%M"))
-            pdf.set_title_top("RAPPORT DE CHEMINEMENT")
+            pdf.set_title_top(self._tr_report("report_title"))
 
             # Contexte
-            pdf.section_title("Contexte d'observation")
+            pdf.section_title(self._tr_report("context"))
             pdf.set_font('Helvetica','',10)
             pdf.cell(0, 8, "Ouvrage de départ : {}".format(self.id_input.text()), ln=True)
             pdf.ln(2)
 
             # Visites
-            pdf.section_title("Visite d'ouvrage")
+            pdf.section_title(self._tr_report("visit"))
             if self.visited:
                 for v in self.visited:
                     pdf.cell(0, 6, "- {} : Pollué = {}".format(v['id'], "OUI" if v['pollution'] else "NON"), ln=True)
             else:
-                pdf.cell(0,6,"Aucune visite.", ln=True)
+                pdf.cell(0, 6, self._tr_report("no_visit"), ln=True)
             pdf.ln(3)
 
             # Pollueur désigné
@@ -2678,12 +2858,12 @@ class MainDock:
                 pv_info = {}
                 if self.pv_svc:
                     pv_info = self.pv_svc.fetch(self.polluter_id) or {}
-                pdf.section_title("PV à l'origine de la pollution")
+                pdf.section_title(self._tr_report("pv_origin"))
                 pdf.table_pv_info(pv_info, bordered=True)
 
                 self.polluter_note = (self.note_text.toPlainText() or "").strip()
                 if self.polluter_note:
-                    pdf.sub_section("Note de pollution")
+                    pdf.sub_section(self._tr_report("note"))
                     pdf.multi_cell(0, 5, self.polluter_note)
                     pdf.ln(2)
             elif self.polluter_id:
@@ -2693,13 +2873,13 @@ class MainDock:
                 if self.indus_svc:
                     info = self.indus_svc.fetch_many([self.polluter_id])
                     d = info.get(self.polluter_id, {})
-                pdf.section_title("Industriel à l'origine de la pollution")
+                pdf.section_title(self._tr_report("indus_origin"))
                 pdf.table_industrial_info(d, bordered=True)
 
                 # Note synchronisée
                 self.polluter_note = (self.note_text.toPlainText() or "").strip()
                 if self.polluter_note:
-                    pdf.sub_section("Note de pollution")
+                    pdf.sub_section(self._tr_report("note"))
                     pdf.multi_cell(0, 5, self.polluter_note)
                     pdf.ln(2)
 
@@ -2707,8 +2887,8 @@ class MainDock:
             if self.astreint_details:
                 pdf.add_page()
                 pdf.set_global_header("SOURCE: BD SIG DU SIAH - "+datetime.datetime.now().strftime("%d/%m/%Y %H:%M"))
-                pdf.set_title_top("RAPPORT DE CHEMINEMENT")
-                pdf.section_title("Astreinte exploitation")
+                pdf.set_title_top(self._tr_report("report_title"))
+                pdf.section_title(self._tr_report("astreinte"))
                 tab = {k:_safe_json(v) for k,v in self.astreint_details.items()}
 
                 try:
@@ -2721,7 +2901,7 @@ class MainDock:
             # ——— Page Carte + légende ———
             pdf.add_map_page(
                 map_img_path=screenshot,
-                title="CARTE DE LA SITUATION DU RÉSEAU"
+                title=self._tr_report("map_title")
             )
 
             # ——— Photos ———

@@ -459,6 +459,19 @@ class PVConformiteTab(QWidget):
     def _on_clear_map(self):
         self.main_dock._reset()
 
+    def exclude_pv_ids(self, pv_ids: List[str]):
+        if not pv_ids:
+            return
+        removed = False
+        for pid in pv_ids:
+            if pid in self._last_pv_data:
+                self._last_pv_data.pop(pid, None)
+                removed = True
+        if removed:
+            self._visible_pv_data = dict(self._last_pv_data)
+            self._refresh_tables()
+            self.status_label.setText(f"PV détectés : {len(self._last_pv_data)}")
+
     def set_language(self, lang: str):
         translations = {
             "fr": {
