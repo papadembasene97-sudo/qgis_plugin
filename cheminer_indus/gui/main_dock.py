@@ -1614,6 +1614,9 @@ class MainDock:
                 except Exception:
                     pass
 
+        if self.label_layer:
+            self._toggle_mask_labels(True)
+
         self.canvas.refresh()
         self._autosave()
 
@@ -2141,6 +2144,8 @@ class MainDock:
         self.polluter_id = str(pv_id)
         self.polluter_type = "PV"
         self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
+        if self.label_layer:
+            self._toggle_mask_labels(True)
         choice = self._ask_pv_trace_network()
         if not choice:
             return
@@ -2396,6 +2401,8 @@ class MainDock:
         self.polluter_note = (self.note_text.toPlainText() or "").strip()
         self.polluter_id = ind_id
         self.polluter_type = "INDUS"
+        if self.label_layer:
+            self._toggle_mask_labels(True)
 
         # 2) S'assurer que les couches sont bien récupérées depuis les combos
         if not self.indus_layer or not self.indus_layer.isValid():
