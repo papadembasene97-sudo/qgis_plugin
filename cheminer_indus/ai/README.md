@@ -304,9 +304,9 @@ viz.export_complex_zones_report(
   "upstream_data": [
     {
       "diametre": 400,
-      "pente": 0.008,
-      "z_amont": 127.5,
-      "z_aval": 125.3,
+      "_pente": 0.008,
+      "zmont": 127.5,
+      "zaval": 125.3,
       "longueur": 45.2,
       "type_reseau": "EU",
       "materiau": "PVC"
