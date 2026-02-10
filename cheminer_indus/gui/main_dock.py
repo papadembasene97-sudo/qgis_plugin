@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
@@ -127,6 +127,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -585,6 +586,8 @@ class MainDock:
                     self._last_process_durations[process_key] = elapsed.elapsed()
             except Exception:
                 pass
+            if elapsed.isValid():
+                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
 
     def _confirm_reset(self):
         """
@@ -1570,6 +1573,37 @@ class MainDock:
         current_nodes = self._current_selected_nodes()
         self._last_trace_nodes = current_nodes
         self._refresh_indus_and_pv_from_nodes(current_nodes)
+
+        if self.label_layer:
+            self._toggle_mask_labels(True)
+
+        # Désélectionner les PV dans la couche et rafraîchir l'onglet PV
+        if removed_pv_all:
+            try:
+                if not self.pv_layer or not self.pv_layer.isValid():
+                    self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+                if self.pv_layer and self.pv_layer.isValid():
+                    id_field = None
+                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                        if self.pv_layer.fields().indexOf(field_name) >= 0:
+                            id_field = field_name
+                            break
+                    if id_field:
+                        esc = lambda v: str(v).replace("'", "''")
+                        values = ",".join("'{}'".format(esc(pid)) for pid in removed_pv_all if pid)
+                        if values:
+                            expr = QgsExpression(f"trim(\"{id_field}\") IN ({values})")
+                            req = QgsFeatureRequest(expr)
+                            pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
+                            if pv_fids:
+                                self.pv_layer.deselect(pv_fids)
+            except Exception:
+                pass
+            if self.pv_tab and hasattr(self.pv_tab, "exclude_pv_ids"):
+                try:
+                    self.pv_tab.exclude_pv_ids(sorted(removed_pv_all))
+                except Exception:
+                    pass
 
         if self.label_layer:
             self._toggle_mask_labels(True)
