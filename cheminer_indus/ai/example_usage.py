@@ -60,18 +60,18 @@ def example_2_make_predictions(predictor):
     upstream_data = [
         {
             'diametre': 400,
-            'pente': 0.004,  # Pente faible !
-            'z_amont': 102.0,
-            'z_aval': 100.0,
+        '_pente': 0.004,  # Pente faible !
+        'zmont': 102.0,
+        'zaval': 100.0,
             'longueur': 50.0,
             'type_reseau': 'EU',
             'materiau': 'PVC'
         },
         {
             'diametre': 300,
-            'pente': 0.005,
-            'z_amont': 101.5,
-            'z_aval': 100.0,
+        '_pente': 0.005,
+        'zmont': 101.5,
+        'zaval': 100.0,
             'longueur': 30.0,
             'type_reseau': 'EU',
             'materiau': 'Béton'
@@ -81,9 +81,9 @@ def example_2_make_predictions(predictor):
     downstream_data = [
         {
             'diametre': 600,  # Augmentation de diamètre
-            'pente': 0.008,
-            'z_amont': 100.0,
-            'z_aval': 96.0,
+        '_pente': 0.008,
+        'zmont': 100.0,
+        'zaval': 96.0,
             'longueur': 50.0,
             'type_reseau': 'EU',
             'materiau': 'Béton'
@@ -169,18 +169,18 @@ def example_3_optimize_route(predictor):
         return {
             'upstream': [{
                 'diametre': random.choice([300, 400, 500]),
-                'pente': random.uniform(0.003, 0.015),
-                'z_amont': node['elevation'] + random.uniform(0.5, 2),
-                'z_aval': node['elevation'],
+                '_pente': random.uniform(0.003, 0.015),
+                'zmont': node['elevation'] + random.uniform(0.5, 2),
+                'zaval': node['elevation'],
                 'longueur': random.uniform(20, 80),
                 'type_reseau': 'EU',
                 'materiau': 'PVC'
             } for _ in range(random.randint(1, 3))],
             'downstream': [{
                 'diametre': random.choice([400, 500, 600]),
-                'pente': random.uniform(0.005, 0.02),
-                'z_amont': node['elevation'],
-                'z_aval': node['elevation'] - random.uniform(0.5, 3),
+                '_pente': random.uniform(0.005, 0.02),
+                'zmont': node['elevation'],
+                'zaval': node['elevation'] - random.uniform(0.5, 3),
                 'longueur': random.uniform(30, 100),
                 'type_reseau': 'EU',
                 'materiau': 'Béton'
@@ -254,9 +254,9 @@ def example_4_visualize_3d():
                 'id': canal_id,
                 'geometry': {'coordinates': [[x1, y1], [x2, y2]]},
                 'diametre': random.choice([200, 300, 400, 500, 600]),
-                'pente': pente,
-                'z_amont': z1,
-                'z_aval': z2,
+                '_pente': pente,
+                'zmont': z1,
+                'zaval': z2,
                 'longueur': length,
                 'type_reseau': random.choice(['EU', 'EP', 'Mixte']),
                 'materiau': random.choice(['PVC', 'Fonte', 'Béton'])
