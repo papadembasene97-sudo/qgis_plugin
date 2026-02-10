@@ -472,6 +472,12 @@ class PVConformiteTab(QWidget):
             self._refresh_tables()
             self.status_label.setText(f"PV détectés : {len(self._last_pv_data)}")
 
+    def set_pv_data(self, pv_details: Dict[str, Dict[str, str]]):
+        self._last_pv_data = self._annotate_pv_data(pv_details or {})
+        self._visible_pv_data = dict(self._last_pv_data)
+        self._refresh_tables()
+        self.status_label.setText(f"PV détectés : {len(self._last_pv_data)}")
+
     def set_language(self, lang: str):
         translations = {
             "fr": {

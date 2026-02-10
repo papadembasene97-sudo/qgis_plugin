@@ -100,6 +100,7 @@ class MainDock:
         self.diag_dock      : Optional[DiagnosticsDock] = None
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
         self._last_pv_data: Dict[str, Dict[str, str]] = {}  # Données PV détectés
+        self._last_process_durations: Dict[str, int] = {}
         self.theme_name: str = "Futuriste"
         self.language: str = "fr"
         self._tabs: Optional[QTabWidget] = None
@@ -569,6 +570,8 @@ class MainDock:
         """
         Exécute une fonction en affichant uniquement un sablier.
         """
+        elapsed = QElapsedTimer()
+        elapsed.start()
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             QApplication.processEvents()
@@ -576,6 +579,11 @@ class MainDock:
         finally:
             try:
                 QApplication.restoreOverrideCursor()
+            except Exception:
+                pass
+            try:
+                if process_key and elapsed.isValid():
+                    self._last_process_durations[process_key] = elapsed.elapsed()
             except Exception:
                 pass
             if elapsed.isValid():
@@ -1561,30 +1569,13 @@ class MainDock:
             if nodes_removed:
                 removed_indus_down.update(self._node_ops.deselect_liaisons_and_indus_from_nodes_optimized(nodes_removed))
 
-        # 6) Exclure dans le tableau des indus + PV
-        removed_indus_all = set()
-        removed_indus_all.update(removed_indus_up or set())
-        removed_indus_all.update(removed_indus_down or set())
-        
-        # ✅ NOUVEAU v1.2.3 : Calculer les PV à exclure
-        removed_pv_all = set()
-        if nodes_removed:  # Nœuds des branches désélectionnées
-            removed_pv_all.update(self._get_pv_from_nodes(nodes_removed))
-        # Ajouter aussi les PV en aval si pollution = OUI
-        if polluted and 'nodes_ds' in locals() and nodes_ds:
-            removed_pv_all.update(self._get_pv_from_nodes(nodes_ds))
-        
-        if self.industrial_dock:
-            try:
-                # Exclure industriels (existant)
-                if removed_indus_all:
-                    self.industrial_dock.exclude_ids(sorted(removed_indus_all))
-                
-                # ✅ NOUVEAU v1.2.3 : Exclure PV
-                if removed_pv_all:
-                    self.industrial_dock.exclude_pv_ids(sorted(removed_pv_all))
-            except Exception as e:
-                print(f"Erreur lors de l'exclusion indus/PV : {e}")
+        # 6) Synchroniser les tableaux indus/PV avec les sélections restantes
+        current_nodes = self._current_selected_nodes()
+        self._last_trace_nodes = current_nodes
+        self._refresh_indus_and_pv_from_nodes(current_nodes)
+
+        if self.label_layer:
+            self._toggle_mask_labels(True)
 
         # Désélectionner les PV dans la couche et rafraîchir l'onglet PV
         if removed_pv_all:
@@ -2031,32 +2022,102 @@ class MainDock:
         Rappelé lorsque l'utilisateur clique sur 'Rafraîchir' dans le dock des industriels.
         On recalcule les industriels connectés aux derniers nœuds tracés.
         """
+        nodes = self._current_selected_nodes()
+        if nodes:
+            self._last_trace_nodes = nodes
+        elif self._last_trace_nodes:
+            nodes = self._last_trace_nodes
+        self._refresh_indus_and_pv_from_nodes(nodes)
+
+    def _current_selected_nodes(self) -> Set[str]:
+        sel_c, sel_f = self._selected_id_sets()
+        if not sel_c and not sel_f:
+            return set()
+        return self._collect_nodes_from_ids(list(sel_c), list(sel_f), downstream=True)
+
+    def _refresh_indus_and_pv_from_nodes(self, nodes: Set[str], pv_distance: Optional[float] = None):
+        if not nodes:
+            if self.indus_layer and self.indus_layer.isValid():
+                self.indus_layer.removeSelection()
+            if not self.pv_layer or not self.pv_layer.isValid():
+                self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+            if self.pv_layer and self.pv_layer.isValid():
+                self.pv_layer.removeSelection()
+            self._last_indus_data = {}
+            self._last_pv_data = {}
+            if self.industrial_dock:
+                self.industrial_dock.set_data({})
+                if hasattr(self.industrial_dock, "set_pv_data"):
+                    self.industrial_dock.set_pv_data([])
+            if self.pv_tab and hasattr(self.pv_tab, "set_pv_data"):
+                self.pv_tab.set_pv_data({})
+            return
+
         if not self.indus_svc:
             self.indus_layer   = self.indus_combo.currentData()
             self.liaison_layer = self.liaison_combo.currentData()
             self.indus_svc = IndustrialsService(self.indus_layer, self.liaison_layer)
 
-        if not self._last_trace_nodes:
-            return
+        indus_ids = self.indus_svc.connected_ids_from_nodes(nodes)
+        indus_details = self.indus_svc.fetch_many(indus_ids)
 
-        ids = self.indus_svc.connected_ids_from_nodes(self._last_trace_nodes)
-        details = self.indus_svc.fetch_many(ids)
-
-        # Sélection graphique des indus à partir de ces IDs
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
-            if ids:
+            if indus_ids:
                 esc = lambda s: (s or "").replace("'", "''")
-                values = ",".join("'{}'".format(esc(i)) for i in ids if i)
+                values = ",".join("'{}'".format(esc(i)) for i in indus_ids if i)
                 expr = QgsExpression("trim(\"id\") IN ({})".format(values))
                 req = QgsFeatureRequest(expr)
                 fids = [f.id() for f in self.indus_layer.getFeatures(req)]
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
-        self._last_indus_data = details # <-- mémorisation
+        if pv_distance is None:
+            pv_distance = float(self.pv_tab.distance_spin.value()) if self.pv_tab and hasattr(self.pv_tab, "distance_spin") else 15.0
+
+        if not self.pv_svc:
+            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+            if self.pv_layer and self.pv_layer.isValid():
+                self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+
+        pv_ids = []
+        if self.pv_svc and self.pv_layer and self.pv_layer.isValid():
+            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
+
+            self.pv_layer.removeSelection()
+            if pv_ids:
+                id_field = None
+                for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
+                    if self.pv_layer.fields().indexOf(field_name) >= 0:
+                        id_field = field_name
+                        break
+                if id_field:
+                    esc = lambda s: (s or "").replace("'", "''")
+                    values = ",".join("'{}'".format(esc(str(pid))) for pid in pv_ids if pid)
+                    if values:
+                        expr = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+                        req = QgsFeatureRequest(expr)
+                        pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
+                        if pv_fids:
+                            self.pv_layer.selectByIds(pv_fids)
+
+        pv_details = {}
+        if self.pv_svc and pv_ids:
+            pv_details = self.pv_svc.fetch_many(pv_ids)
+            for pv_id in pv_details:
+                distance = self.pv_svc.get_distance_to_network(pv_id)
+                if distance is not None:
+                    pv_details[pv_id]['distance'] = str(distance)
+
+        self._last_indus_data = indus_details
+        self._last_pv_data = pv_details
+
         if self.industrial_dock:
-            self.industrial_dock.set_data(details)
+            self.industrial_dock.set_data(indus_details)
+            if hasattr(self.industrial_dock, "set_pv_data"):
+                self.industrial_dock.set_pv_data(list(pv_details.values()))
+        if self.pv_tab and hasattr(self.pv_tab, "set_pv_data"):
+            self.pv_tab.set_pv_data(pv_details)
 
     def _open_or_update_industrial_dock(self, data: Optional[Dict[str,Dict[str,str]]] = None, 
                                          pv_data: Optional[Dict[str,Dict[str,str]]] = None):
@@ -2660,6 +2721,21 @@ class MainDock:
 
         if checked:
             feats: List[QgsFeature] = []
+            label_crs = self.label_layer.crs()
+
+            def _point_to_label_crs(point: QgsPointXY, source_layer: Optional[QgsVectorLayer]) -> QgsPointXY:
+                if not source_layer or not point:
+                    return QgsPointXY(point.x(), point.y())
+                try:
+                    source_crs = source_layer.crs()
+                    if source_crs and label_crs and source_crs != label_crs:
+                        transform = QgsCoordinateTransform(
+                            source_crs, label_crs, QgsProject.instance()
+                        )
+                        return transform.transform(QgsPointXY(point.x(), point.y()))
+                except Exception:
+                    pass
+                return QgsPointXY(point.x(), point.y())
 
             # OUVRAGE DE DÉPART
             start = (self.id_input.text() or "").strip()
@@ -2674,6 +2750,7 @@ class MainDock:
                             try: pt = g.centroid().asPoint()
                             except Exception: pt = None
                     if pt:
+                        pt = _point_to_label_crs(pt, self.ouvr_layer)
                         ff = QgsFeature(self.label_layer.fields())
                         ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                         ff.setAttribute("categorie", CAT_DEPART)
@@ -2698,6 +2775,7 @@ class MainDock:
                                 try: pt = g.centroid().asPoint()
                                 except Exception: pt = None
                         if pt:
+                            pt = _point_to_label_crs(pt, self.ouvr_layer)
                             ff = QgsFeature(self.label_layer.fields())
                             ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                             ff.setAttribute("categorie", cat)
@@ -2718,6 +2796,7 @@ class MainDock:
                                 try: pt = g.centroid().asPoint()
                                 except Exception: pt = None
                         if pt:
+                            pt = _point_to_label_crs(pt, self.astreint_layer)
                             ff = QgsFeature(self.label_layer.fields())
                             ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                             ff.setAttribute("categorie", CAT_ASTREINTE)
@@ -2736,6 +2815,7 @@ class MainDock:
                             try: pt = g.centroid().asPoint()
                             except Exception: pt = None
                     if pt:
+                        pt = _point_to_label_crs(pt, self.indus_layer)
                         nom = ""
                         for k in ("Nom","nom","name","Name"):
                             try:
@@ -2775,6 +2855,7 @@ class MainDock:
                             except Exception:
                                 pt = None
                     if pt:
+                        pt = _point_to_label_crs(pt, self.pv_layer)
                         pv_label = ""
                         for k in ("num_pv", "NUM_PV", "id", "ID"):
                             try:
