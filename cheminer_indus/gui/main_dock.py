@@ -46,6 +46,10 @@ CAT_VISITE_NON   = "Non_Pollué"
 CAT_ASTREINTE    = "Astreinte"
 CAT_INDUS_DES    = "Origine_Pollution"
 
+PLUGIN_BASE_NAME = "TRACK-EAU-POLL"
+PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
+PLUGIN_DISPLAY_NAME = PLUGIN_BASE_NAME if PLUGIN_VARIANT == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
+
 
 def _safe_json(o: Any) -> Any:
     """Convertit QDate/QTime/QDateTime et autres objets en types JSON."""
@@ -93,7 +97,7 @@ class MainDock:
         self.highlight_mgr   = HighlightManager(self.canvas)
         self.flow_anim       = FlowAnimator(self.canvas)
         self.ph_mgr          = PhotoManager()
-        self.auto_mgr        = AutoSaveManager(self.iface, plugin_name="TRACK-EAU POLL")
+        self.auto_mgr        = AutoSaveManager(self.iface, plugin_name=PLUGIN_DISPLAY_NAME)
 
         # UI state
         self.industrial_dock: Optional[IndustrialDock] = None
@@ -160,6 +164,11 @@ class MainDock:
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
         self.custom_icon_path: str = ""  # Chemin vers l'icône personnalisée
 
+        # Autosave instantané (debounce court)
+        self._autosave_timer = QTimer()
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.timeout.connect(self._autosave)
+
     # ---------------------------------------------------------
     # Integration QGIS
     # ---------------------------------------------------------
@@ -170,17 +179,21 @@ class MainDock:
         # Utiliser l'icône personnalisée s'il existe
         icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
         icon = QIcon(icon_path)
-        act = QAction(icon, "TRACK-EAU POLL", self.iface.mainWindow())
+        act = QAction(icon, PLUGIN_DISPLAY_NAME, self.iface.mainWindow())
         act.triggered.connect(self._show_with_splash)
         self.iface.addToolBarIcon(act)
-        self.iface.addPluginToMenu("&TRACK-EAU POLL", act)
+        self.iface.addPluginToMenu(f"&{PLUGIN_DISPLAY_NAME}", act)
         self._action = act
 
     def unload(self):
+        try:
+            self._autosave()
+        except Exception:
+            pass
         if self._action:
             try:
                 self.iface.removeToolBarIcon(self._action)
-                self.iface.removePluginMenu("&TRACK-EAU POLL", self._action)
+                self.iface.removePluginMenu(f"&{PLUGIN_DISPLAY_NAME}", self._action)
             except Exception:
                 pass
         if self.dock:
@@ -238,7 +251,7 @@ class MainDock:
         if self.dock:
             self.iface.removeDockWidget(self.dock)
 
-        self.dock = QDockWidget("TRACK-EAU POLL", self.iface.mainWindow())
+        self.dock = QDockWidget(PLUGIN_DISPLAY_NAME, self.iface.mainWindow())
         self.dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         
         # Charger les paramètres personnalisés au démarrage
@@ -269,7 +282,7 @@ class MainDock:
         icon.setPixmap(icon_scaled)
         icon.setAlignment(Qt.AlignCenter)
 
-        title = QLabel("TRACK-EAU POLL")
+        title = QLabel(PLUGIN_DISPLAY_NAME)
         title.setAlignment(Qt.AlignCenter)
         title.setObjectName("trackHeaderTitle")
 
@@ -306,6 +319,7 @@ class MainDock:
         self._populate_layers()
         self._init_autosave()
         self._apply_language(self.language)
+        self._setup_autosave_hooks()
 
     # ---------------------------------------------------------
     # Utilitaires génériques (sablier, autosave, inversion)
@@ -640,6 +654,44 @@ class MainDock:
         try:
             if self.auto_mgr and self.auto_mgr.path:
                 self.auto_mgr.save(self._session_state())
+        except Exception:
+            pass
+
+
+    def _request_autosave(self, delay_ms: int = 250):
+        """Programme une sauvegarde quasi instantanée après une action utilisateur."""
+        try:
+            self._autosave_timer.start(max(50, int(delay_ms)))
+        except Exception:
+            self._autosave()
+
+    def _setup_autosave_hooks(self):
+        """Branche l'autosave sur les interactions principales de l'UI."""
+        try:
+            if self.id_input:
+                self.id_input.textChanged.connect(lambda *_: self._request_autosave())
+            if self.search_input:
+                self.search_input.textChanged.connect(lambda *_: self._request_autosave())
+            if self.visit_input:
+                self.visit_input.textChanged.connect(lambda *_: self._request_autosave())
+            if self.note_text:
+                self.note_text.textChanged.connect(lambda: self._request_autosave())
+            if self.direction_combo:
+                self.direction_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if self.cat_combo:
+                self.cat_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if self.func_combo:
+                self.func_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            for combo in (self.canal_combo, self.ouvr_combo, self.fosse_combo, self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
+                if combo:
+                    combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if self.theme_combo:
+                self.theme_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if self.lang_combo:
+                self.lang_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            for lyr in (self.canal_layer, self.fosse_layer, self.indus_layer, self.liaison_layer, self.pv_layer):
+                if lyr and hasattr(lyr, 'selectionChanged'):
+                    lyr.selectionChanged.connect(lambda *_: self._request_autosave())
         except Exception:
             pass
 
@@ -1029,7 +1081,7 @@ class MainDock:
         if checked:
             self.ouvr_layer = self.ouvr_combo.currentData()
             if not self.ouvr_layer or not self.ouvr_layer.isValid():
-                QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
+                QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Couche OUVRAGE invalide.")
                 return
             self.tool_select = MapSelectionTool(self.canvas, self.ouvr_layer, id_field='idouvrage')
             self.tool_select.featureIdentified.connect(self._on_select)
@@ -1045,7 +1097,7 @@ class MainDock:
         if checked:
             self.ouvr_layer = self.ouvr_combo.currentData()
             if not self.ouvr_layer or not self.ouvr_layer.isValid():
-                QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
+                QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Couche OUVRAGE invalide.")
                 return
             self.tool_visit = MapSelectionTool(self.canvas, self.ouvr_layer, id_field='idouvrage')
             self.tool_visit.featureIdentified.connect(self._on_visit_select)
@@ -1064,7 +1116,7 @@ class MainDock:
             return
         self.ouvr_layer = self.ouvr_combo.currentData()
         if not self.ouvr_layer or not self.ouvr_layer.isValid():
-            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Couche OUVRAGE invalide.")
+            QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Couche OUVRAGE invalide.")
             return
         expr = QgsExpression("\"idouvrage\" = '{}'".format(oid.replace("'", "''")))
         req  = QgsFeatureRequest(expr)
@@ -1082,7 +1134,7 @@ class MainDock:
     def _do_trace(self):
         start_id = (self.id_input.text() or "").strip()
         if not start_id:
-            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Veuillez saisir un ID départ.")
+            QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Veuillez saisir un ID départ.")
             return
 
         # couches
@@ -1093,7 +1145,7 @@ class MainDock:
         self.ouvr_layer    = self.ouvr_combo.currentData()
 
         if not self.canal_layer or not self.ouvr_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Sélectionnez au minimum CANALISATION et OUVRAGE.")
+            QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Sélectionnez au minimum CANALISATION et OUVRAGE.")
             return
 
         mode = self.direction_combo.currentText()
@@ -2374,7 +2426,7 @@ class MainDock:
         if not self.canal_layer or not self.canal_layer.isValid():
             QMessageBox.warning(
                 self.iface.mainWindow(),
-                "TRACK-EAU POLL",
+                PLUGIN_DISPLAY_NAME,
                 "Couche CANALISATION invalide pour le cheminement depuis l'industriel."
             )
             self.canvas.refresh()
@@ -2409,7 +2461,7 @@ class MainDock:
         if not ouvrages_all:
             QMessageBox.information(
                 self.iface.mainWindow(),
-                "TRACK-EAU POLL",
+                PLUGIN_DISPLAY_NAME,
                 "Aucun ouvrage relié trouvé pour cet industriel via les liaisons."
             )
             if self.industrial_dock and self.indus_svc:
@@ -2450,7 +2502,7 @@ class MainDock:
                 )
                 QMessageBox.information(
                     self.iface.mainWindow(),
-                    "TRACK-EAU POLL",
+                    PLUGIN_DISPLAY_NAME,
                     msg
                 )
                 if self.industrial_dock and self.indus_svc:
@@ -2512,7 +2564,7 @@ class MainDock:
     def _attach_astreint(self):
         layer = self.astreint_combo.currentData()
         if not layer or not layer.isValid():
-            QMessageBox.warning(self.iface.mainWindow(), "TRACK-EAU POLL", "Couche ASTREINTE invalide.")
+            QMessageBox.warning(self.iface.mainWindow(), PLUGIN_DISPLAY_NAME, "Couche ASTREINTE invalide.")
             return
         self.astreint_layer = layer
         self.tool_astreint = AstreintSelectionTool(self.canvas, layer, id_field='id')
@@ -2534,7 +2586,7 @@ class MainDock:
     # ---------------------------------------------------------
     def _open_diagnostic(self):
         if not self.canal_layer or not self.ouvr_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","Il faut CANALISATION et OUVRAGE.")
+            QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Il faut CANALISATION et OUVRAGE.")
             return
 
         diag = Diagnostics(self.canal_layer, self.ouvr_layer)
@@ -2565,7 +2617,7 @@ class MainDock:
     # ---------------------------------------------------------
     def _toggle_mask_labels(self, checked: bool):
         if not self.label_layer:
-            QMessageBox.warning(self.iface.mainWindow(),"TRACK-EAU POLL","La couche LABEL_CI est introuvable.")
+            QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"La couche LABEL_CI est introuvable.")
             return
 
         prov = self.label_layer.dataProvider()
@@ -2851,7 +2903,7 @@ class MainDock:
             pdf.output(save_path)
             QMessageBox.information(self.iface.mainWindow(),"Rapport généré", save_path)
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur génération PDF : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Erreur génération PDF : {}".format(e))
 
     # ---------------------------------------------------------
     # SESSION
@@ -2914,6 +2966,19 @@ class MainDock:
             "selected_fosse_ids": selected_fosse_ids,
             "catchment_on": bool(self.catchment_chk.isChecked()) if self.catchment_chk else False,
             "industrial_dock": industrial_state,
+            "theme": self.theme_name,
+            "language": self.language,
+            "last_trace_nodes": sorted(self._last_trace_nodes),
+            "process_durations": dict(self._last_process_durations),
+            "layers": {
+                "canal": self.canal_combo.currentText() if self.canal_combo else "",
+                "ouvr": self.ouvr_combo.currentText() if self.ouvr_combo else "",
+                "fosse": self.fosse_combo.currentText() if self.fosse_combo else "",
+                "indus": self.indus_combo.currentText() if self.indus_combo else "",
+                "liaison": self.liaison_combo.currentText() if self.liaison_combo else "",
+                "astreinte": self.astreint_combo.currentText() if self.astreint_combo else "",
+                "pv": self.pv_combo.currentText() if self.pv_combo else "",
+            },
         }
 
     def _apply_session_state(self, st: Dict[str, Any], show_message: bool = True):
@@ -2935,6 +3000,26 @@ class MainDock:
                         self.func_combo.setCurrentIndex(i); break
 
             self.visited = st.get("visited",[])
+            self.theme_name = st.get("theme", self.theme_name)
+            self.language = st.get("language", self.language)
+            self._last_trace_nodes = set(st.get("last_trace_nodes", []) or [])
+            self._last_process_durations = dict(st.get("process_durations", {}) or {})
+
+            layers_state = st.get("layers", {}) or {}
+            for combo, key in (
+                (self.canal_combo, "canal"),
+                (self.ouvr_combo, "ouvr"),
+                (self.fosse_combo, "fosse"),
+                (self.indus_combo, "indus"),
+                (self.liaison_combo, "liaison"),
+                (self.astreint_combo, "astreinte"),
+                (self.pv_combo, "pv"),
+            ):
+                if combo and layers_state.get(key):
+                    idx = combo.findText(str(layers_state.get(key)))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+
             self.polluter_id = st.get("polluter_id","")
             self.polluter_note = st.get("polluter_note","")
             self.polluter_type = st.get("polluter_type","")
@@ -3028,17 +3113,14 @@ class MainDock:
                 else:
                     self.industrial_dock.hide()
 
-            if show_message:
-                QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session chargée.")
-            self.canvas.refresh()
-        except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur restauration session : {}".format(e))
+            self._apply_theme(self.theme_name)
+            self._apply_language(self.language)
 
             if show_message:
-                QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session chargée.")
+                QMessageBox.information(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Session chargée.")
             self.canvas.refresh()
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur restauration session : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Erreur restauration session : {}".format(e))
 
     def _save_session(self):
         path, _ = QFileDialog.getSaveFileName(self.iface.mainWindow(),"Sauvegarder session",".","Texte (*.txt)")
@@ -3047,9 +3129,9 @@ class MainDock:
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self._session_state(), f, ensure_ascii=False, indent=2)
-            QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Session sauvegardée.")
+            QMessageBox.information(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Session sauvegardée.")
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur sauvegarde : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Erreur sauvegarde : {}".format(e))
 
     def _load_session(self):
         path, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(),"Charger session",".","Texte (*.txt)")
@@ -3060,7 +3142,7 @@ class MainDock:
                 st = json.load(f)
             self._apply_session_state(st, show_message=True)
         except Exception as e:
-            QMessageBox.critical(self.iface.mainWindow(),"TRACK-EAU POLL","Erreur chargement : {}".format(e))
+            QMessageBox.critical(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Erreur chargement : {}".format(e))
 
     # ---------------------------------------------------------
     # TABLES MINIMALES (couches mémoire si absentes)
@@ -3089,7 +3171,7 @@ class MainDock:
             v = QgsVectorLayer("Point?crs=EPSG:2154&field=categorie:string&field=label:string", "LABEL_CI", "memory")
             prj.addMapLayer(v)
 
-        QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Tables minimales créées (mémoire).")
+        QMessageBox.information(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Tables minimales créées (mémoire).")
         self._autosave()
 
     # ---------------------------------------------------------
@@ -3142,7 +3224,7 @@ class MainDock:
             self.iface.removeDockWidget(self.diag_dock); self.diag_dock = None
 
         self.canvas.refresh()
-        QMessageBox.information(self.iface.mainWindow(),"TRACK-EAU POLL","Plugin réinitialisé.")
+        QMessageBox.information(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Plugin réinitialisé.")
         self._autosave()
 
     # ---------------------------------------------------------
@@ -3366,7 +3448,7 @@ class MainDock:
                         if idx >= 0:
                             self.lang_combo.setCurrentIndex(idx)
                     self._apply_language(self.language)
-                
+
                 QMessageBox.information(
                     self.iface.mainWindow(),
                     "Import réussi",
