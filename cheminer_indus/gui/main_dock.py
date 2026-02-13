@@ -295,11 +295,9 @@ class MainDock:
         self._tabs = tabs
         lay.addWidget(tabs)
 
-        # ordre : CHEMINEMENT, VISITE-INDUS, ACTIONS, PV, PARAMÈTRES
+        # Version lite : CHEMINEMENT, VISITE-INDUS, PARAMÉTRAGE
         tabs.addTab(self._tab_trace(),       self._t("tab_trace"))
         tabs.addTab(self._tab_visit_indus(), self._t("tab_visit"))
-        tabs.addTab(self._tab_actions(),     self._t("tab_actions"))
-        tabs.addTab(self._tab_pv(),          self._t("tab_pv"))
         tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
 
         self.dock.setWidget(main)
@@ -317,15 +315,11 @@ class MainDock:
             "fr": {
                 "tab_trace": "CHEMINEMENT",
                 "tab_visit": "VISITE-INDUS",
-                "tab_actions": "ACTIONS",
-                "tab_pv": "🏠 PV",
-                "tab_settings": "⚙️ PARAMÈTRES",
+                "tab_settings": "⚙️ PARAMÉTRAGE",
             },
             "en": {
                 "tab_trace": "TRACE",
                 "tab_visit": "VISIT-INDUS",
-                "tab_actions": "ACTIONS",
-                "tab_pv": "🏠 PV",
                 "tab_settings": "⚙️ SETTINGS",
             },
         }
@@ -367,9 +361,7 @@ class MainDock:
         if self._tabs:
             self._tabs.setTabText(0, self._t("tab_trace"))
             self._tabs.setTabText(1, self._t("tab_visit"))
-            self._tabs.setTabText(2, self._t("tab_actions"))
-            self._tabs.setTabText(3, self._t("tab_pv"))
-            self._tabs.setTabText(4, self._t("tab_settings"))
+            self._tabs.setTabText(2, self._t("tab_settings"))
         if self.pv_tab and hasattr(self.pv_tab, "set_language"):
             self.pv_tab.set_language(lang)
         self._apply_language_to_controls()
@@ -924,22 +916,19 @@ class MainDock:
         return self.pv_tab
 
     def _tab_settings(self) -> QWidget:
-        """Crée l'onglet PARAMÈTRES pour personnaliser couches, logo et icône"""
-        # Widget principal avec scroll
+        """Crée l'onglet PARAMÉTRAGE lite (couches, thème/langue, actions session)."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
-        
-        # Widget de contenu
+
         w = QWidget()
         lay = QVBoxLayout(w)
-        lay.setContentsMargins(5, 5, 5, 5)  # Marges réduites
-        
+        lay.setContentsMargins(5, 5, 5, 5)
+
         # === SECTION COUCHES SIG ===
         grp_layers = QGroupBox("🗺️ Sélection des couches SIG")
         grp_layers_lay = QGridLayout(grp_layers)
-        
-        # Créer les combos (réutilisation du code de _tab_layers)
+
         self.canal_combo    = QComboBox()
         self.ouvr_combo     = QComboBox()
         self.fosse_combo    = QComboBox()
@@ -947,42 +936,28 @@ class MainDock:
         self.liaison_combo  = QComboBox()
         self.astreint_combo = QComboBox()
         self.pv_combo       = QComboBox()
-        
-        # Ajouter dans une grille compacte
+
         grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
         grp_layers_lay.addWidget(self.canal_combo, 0, 1)
-        
         grp_layers_lay.addWidget(QLabel("🔴 Ouvrages :"), 1, 0)
         grp_layers_lay.addWidget(self.ouvr_combo, 1, 1)
-        
         grp_layers_lay.addWidget(QLabel("🌊 Cours d'eau / fossés :"), 2, 0)
         grp_layers_lay.addWidget(self.fosse_combo, 2, 1)
-        
         grp_layers_lay.addWidget(QLabel("🏭 Industriels :"), 3, 0)
         grp_layers_lay.addWidget(self.indus_combo, 3, 1)
-        
         grp_layers_lay.addWidget(QLabel("🔗 Liaisons Indus :"), 4, 0)
         grp_layers_lay.addWidget(self.liaison_combo, 4, 1)
-        
         grp_layers_lay.addWidget(QLabel("⚠️ Astreinte-Exploit :"), 5, 0)
         grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
-        
         grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
         grp_layers_lay.addWidget(self.pv_combo, 6, 1)
-        
-        # Bouton Actualiser les couches
+
         btn_refresh_layers = QPushButton("🔄 Actualiser les couches")
         btn_refresh_layers.setToolTip("Recharge la liste des couches disponibles dans QGIS")
         btn_refresh_layers.clicked.connect(self._populate_layers)
         btn_refresh_layers.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px; font-weight: bold; }")
         grp_layers_lay.addWidget(btn_refresh_layers, 7, 0, 1, 2)
-        
-        # Info couches
-        info_layers = QLabel("💡 Ces couches sont utilisées pour le cheminement et l'analyse des industriels/PV.\n⚠️ Si une couche n'apparaît pas, cliquez sur 'Actualiser les couches'.")
-        info_layers.setWordWrap(True)
-        info_layers.setStyleSheet("color: #666; font-size: 10px; margin-top: 10px;")
-        grp_layers_lay.addWidget(info_layers, 8, 0, 1, 2)
-        
+
         lay.addWidget(grp_layers)
 
         # === SECTION THEME & LANGUE ===
@@ -1010,133 +985,41 @@ class MainDock:
             lambda _: self._apply_language(self.lang_combo.currentData())
         )
         grp_ui_lay.addWidget(self.lang_combo, 1, 1)
-
-        info_ui = QLabel("💡 Choisissez un thème de couleur et la langue de l'interface.")
-        info_ui.setWordWrap(True)
-        info_ui.setStyleSheet("color: #666; font-size: 10px;")
-        grp_ui_lay.addWidget(info_ui, 2, 0, 1, 2)
-
         lay.addWidget(grp_ui)
 
-        # === SECTION LOGO ===
-        grp_logo = QGroupBox("🖼️ Logo du plugin")
-        grp_logo_lay = QVBoxLayout(grp_logo)
-        
-        # Aperçu du logo actuel
-        self.logo_preview_label = QLabel()
-        self.logo_preview_label.setFixedSize(150, 60)  # Réduit de 200x80 à 150x60
-        self.logo_preview_label.setScaledContents(True)
-        self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
-        self._update_logo_preview()
-        grp_logo_lay.addWidget(self.logo_preview_label, alignment=Qt.AlignCenter)
-        
-        # Chemin du logo
-        logo_path_lay = QHBoxLayout()
-        logo_path_lay.addWidget(QLabel("Chemin du logo :"))
-        self.logo_path_input = QLineEdit()
-        self.logo_path_input.setPlaceholderText("Chemin vers le fichier logo (PNG, JPG)")
-        self.logo_path_input.setText(self.custom_logo_path)
-        self.logo_path_input.setReadOnly(True)
-        logo_path_lay.addWidget(self.logo_path_input, stretch=1)
-        
-        btn_browse_logo = QPushButton("📁 Parcourir")
-        btn_browse_logo.clicked.connect(self._on_browse_logo)
-        logo_path_lay.addWidget(btn_browse_logo)
-        
-        btn_reset_logo = QPushButton("🔄 Réinitialiser")
-        btn_reset_logo.clicked.connect(self._on_reset_logo)
-        logo_path_lay.addWidget(btn_reset_logo)
-        
-        grp_logo_lay.addLayout(logo_path_lay)
-        
-        # Info logo
-        info_logo = QLabel("💡 Le logo apparaît dans les rapports PDF et en haut du plugin.")
-        info_logo.setWordWrap(True)
-        info_logo.setStyleSheet("color: #666; font-size: 10px;")
-        grp_logo_lay.addWidget(info_logo)
-        
-        lay.addWidget(grp_logo)
-        
-        # === SECTION ICÔNE ===
-        grp_icon = QGroupBox("⭐ Icône du plugin")
-        grp_icon_lay = QVBoxLayout(grp_icon)
-        
-        # Aperçu de l'icône actuelle
-        self.icon_preview_label = QLabel()
-        self.icon_preview_label.setFixedSize(48, 48)  # Réduit de 64x64 à 48x48
-        self.icon_preview_label.setScaledContents(True)
-        self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
-        self._update_icon_preview()
-        grp_icon_lay.addWidget(self.icon_preview_label, alignment=Qt.AlignCenter)
-        
-        # Chemin de l'icône
-        icon_path_lay = QHBoxLayout()
-        icon_path_lay.addWidget(QLabel("Chemin de l'icône :"))
-        self.icon_path_input = QLineEdit()
-        self.icon_path_input.setPlaceholderText("Chemin vers le fichier icône (PNG, 64x64 recommandé)")
-        self.icon_path_input.setText(self.custom_icon_path)
-        self.icon_path_input.setReadOnly(True)
-        icon_path_lay.addWidget(self.icon_path_input, stretch=1)
-        
-        btn_browse_icon = QPushButton("📁 Parcourir")
-        btn_browse_icon.clicked.connect(self._on_browse_icon)
-        icon_path_lay.addWidget(btn_browse_icon)
-        
-        btn_reset_icon = QPushButton("🔄 Réinitialiser")
-        btn_reset_icon.clicked.connect(self._on_reset_icon)
-        icon_path_lay.addWidget(btn_reset_icon)
-        
-        grp_icon_lay.addLayout(icon_path_lay)
-        
-        # Info icône
-        info_icon = QLabel("💡 L'icône apparaît dans la barre d'outils QGIS et dans l'interface du plugin.\n⚠️ Nécessite un redémarrage de QGIS pour prendre effet.")
-        info_icon.setWordWrap(True)
-        info_icon.setStyleSheet("color: #666; font-size: 10px;")
-        grp_icon_lay.addWidget(info_icon)
-        
-        lay.addWidget(grp_icon)
-        
-        # === BOUTONS D'ACTION ===
-        btn_lay = QHBoxLayout()
-        btn_lay.addStretch()
-        
-        btn_save = QPushButton("💾 Sauvegarder les paramètres")
-        btn_save.clicked.connect(self._on_save_settings)
-        btn_save.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; }")
-        btn_lay.addWidget(btn_save)
-        
-        btn_export = QPushButton("📤 Exporter les paramètres")
-        btn_export.clicked.connect(self._on_export_settings)
-        btn_lay.addWidget(btn_export)
-        
-        btn_import = QPushButton("📥 Importer les paramètres")
-        btn_import.clicked.connect(self._on_import_settings)
-        btn_lay.addWidget(btn_import)
-        
-        lay.addLayout(btn_lay)
-        
-        # Spacer
+        # === SECTION ACTIONS LITE ===
+        grp_actions = QGroupBox("🛠️ Actions")
+        actions_lay = QVBoxLayout(grp_actions)
+
+        self.btn_pdf = QPushButton("Générer PDF")
+        self.btn_pdf.setIcon(QIcon(os.path.join(ICONS_DIR,'report.png')))
+        self.btn_pdf.clicked.connect(self._make_report_with_wait)
+        actions_lay.addWidget(self.btn_pdf)
+
+        self.btn_mask = QPushButton("Masquer/Demasquer étiquettes")
+        self.btn_mask.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
+        self.btn_mask.setCheckable(True)
+        self.btn_mask.clicked.connect(self._toggle_mask_labels)
+        actions_lay.addWidget(self.btn_mask)
+
+        hb = QHBoxLayout()
+        self.btn_save_session = QPushButton("Sauvegarder session")
+        self.btn_save_session.clicked.connect(self._save_session)
+        self.btn_load_session = QPushButton("Charger session")
+        self.btn_load_session.clicked.connect(self._load_session)
+        hb.addWidget(self.btn_save_session)
+        hb.addWidget(self.btn_load_session)
+        actions_lay.addLayout(hb)
+
+        self.btn_rst = QPushButton("Réinitialiser")
+        self.btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
+        self.btn_rst.clicked.connect(self._confirm_reset)
+        actions_lay.addWidget(self.btn_rst)
+
+        lay.addWidget(grp_actions)
         lay.addStretch()
-        
-        # === INFORMATIONS ===
-        info_final = QLabel(
-            "<b>ℹ️ Informations :</b><br>"
-            "• Les paramètres sont sauvegardés automatiquement<br>"
-            "• Le logo est utilisé dans les rapports PDF<br>"
-            "• L'icône nécessite un redémarrage de QGIS<br>"
-            "• Formats supportés : PNG, JPG, JPEG<br>"
-            "• Taille recommandée icône : 64x64 pixels"
-        )
-        info_final.setWordWrap(True)
-        info_final.setStyleSheet(
-            "background-color: #e3f2fd; padding: 10px; "
-            "border-left: 4px solid #2196F3; margin-top: 10px;"
-        )
-        lay.addWidget(info_final)
-        
-        # Assigner le widget de contenu au scroll area
+
         scroll.setWidget(w)
-        
         return scroll
 
     # ---------------------------------------------------------
@@ -1573,37 +1456,6 @@ class MainDock:
         current_nodes = self._current_selected_nodes()
         self._last_trace_nodes = current_nodes
         self._refresh_indus_and_pv_from_nodes(current_nodes)
-
-        if self.label_layer:
-            self._toggle_mask_labels(True)
-
-        # Désélectionner les PV dans la couche et rafraîchir l'onglet PV
-        if removed_pv_all:
-            try:
-                if not self.pv_layer or not self.pv_layer.isValid():
-                    self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
-                if self.pv_layer and self.pv_layer.isValid():
-                    id_field = None
-                    for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
-                        if self.pv_layer.fields().indexOf(field_name) >= 0:
-                            id_field = field_name
-                            break
-                    if id_field:
-                        esc = lambda v: str(v).replace("'", "''")
-                        values = ",".join("'{}'".format(esc(pid)) for pid in removed_pv_all if pid)
-                        if values:
-                            expr = QgsExpression(f"trim(\"{id_field}\") IN ({values})")
-                            req = QgsFeatureRequest(expr)
-                            pv_fids = [feat.id() for feat in self.pv_layer.getFeatures(req)]
-                            if pv_fids:
-                                self.pv_layer.deselect(pv_fids)
-            except Exception:
-                pass
-            if self.pv_tab and hasattr(self.pv_tab, "exclude_pv_ids"):
-                try:
-                    self.pv_tab.exclude_pv_ids(sorted(removed_pv_all))
-                except Exception:
-                    pass
 
         if self.label_layer:
             self._toggle_mask_labels(True)
