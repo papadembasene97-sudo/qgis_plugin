@@ -51,6 +51,11 @@ PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
 PLUGIN_DISPLAY_NAME = PLUGIN_BASE_NAME if PLUGIN_VARIANT == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
 
 
+def _display_name_for_variant(variant: str) -> str:
+    v = str(variant or "LITE").strip().upper()
+    return PLUGIN_BASE_NAME if v == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
+
+
 def _safe_json(o: Any) -> Any:
     """Convertit QDate/QTime/QDateTime et autres objets en types JSON."""
     if isinstance(o, (QDate,)):
@@ -79,6 +84,7 @@ class MainDock:
         self.canvas = iface.mapCanvas()
         self.dock   = None
         self._action = None
+        self._plugin_menu_name = ""
 
         # couches
         self.canal_layer   : Optional[QgsVectorLayer] = None
@@ -145,6 +151,7 @@ class MainDock:
         self.note_text = None
         self.catchment_chk = None
         self.color_btn = None  # bouton Couleurs
+        self.variant_combo = None
 
         # flux labels
         self._flux_labels = {'01': 'Eaux Pluviales', '02': 'Eaux Usées', '03': 'Unitaire'}
@@ -163,6 +170,12 @@ class MainDock:
         # Chemins personnalisés pour logo et icône
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
         self.custom_icon_path: str = ""  # Chemin vers l'icône personnalisée
+        self.plugin_variant: str = PLUGIN_VARIANT
+
+        # Autosave instantané (debounce court)
+        self._autosave_timer = QTimer()
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.timeout.connect(self._autosave)
 
         # Autosave instantané (debounce court)
         self._autosave_timer = QTimer()
@@ -175,14 +188,16 @@ class MainDock:
     def init_gui(self):
         # Charger les paramètres pour obtenir l'icône personnalisée
         self._load_settings_on_startup()
-        
+        self._apply_plugin_variant(self.plugin_variant, persist=False, show_message=False)
+
         # Utiliser l'icône personnalisée s'il existe
         icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
         icon = QIcon(icon_path)
         act = QAction(icon, PLUGIN_DISPLAY_NAME, self.iface.mainWindow())
         act.triggered.connect(self._show_with_splash)
         self.iface.addToolBarIcon(act)
-        self.iface.addPluginToMenu(f"&{PLUGIN_DISPLAY_NAME}", act)
+        self._plugin_menu_name = f"&{PLUGIN_DISPLAY_NAME}"
+        self.iface.addPluginToMenu(self._plugin_menu_name, act)
         self._action = act
 
     def unload(self):
@@ -193,7 +208,8 @@ class MainDock:
         if self._action:
             try:
                 self.iface.removeToolBarIcon(self._action)
-                self.iface.removePluginMenu(f"&{PLUGIN_DISPLAY_NAME}", self._action)
+                if self._plugin_menu_name:
+                    self.iface.removePluginMenu(self._plugin_menu_name, self._action)
             except Exception:
                 pass
         if self.dock:
@@ -202,6 +218,48 @@ class MainDock:
             self.iface.removeDockWidget(self.industrial_dock)
         if self.diag_dock:
             self.iface.removeDockWidget(self.diag_dock)
+
+
+    def _on_variant_changed(self, _index: int):
+        variant = self.variant_combo.currentData() if self.variant_combo else "LITE"
+        self._apply_plugin_variant(variant, persist=True, show_message=True)
+        self._request_autosave()
+
+    def _apply_plugin_variant(self, variant: str, persist: bool = True, show_message: bool = False):
+        global PLUGIN_VARIANT, PLUGIN_DISPLAY_NAME
+        PLUGIN_VARIANT = str(variant or "LITE").strip().upper()
+        PLUGIN_DISPLAY_NAME = _display_name_for_variant(PLUGIN_VARIANT)
+        self.plugin_variant = PLUGIN_VARIANT
+
+        if self.auto_mgr:
+            self.auto_mgr.plugin_name = PLUGIN_DISPLAY_NAME
+
+        try:
+            if self._action:
+                self._action.setText(PLUGIN_DISPLAY_NAME)
+                try:
+                    if self._plugin_menu_name:
+                        self.iface.removePluginMenu(self._plugin_menu_name, self._action)
+                except Exception:
+                    pass
+                self._plugin_menu_name = f"&{PLUGIN_DISPLAY_NAME}"
+                self.iface.addPluginToMenu(self._plugin_menu_name, self._action)
+            if self.dock:
+                self.dock.setWindowTitle(PLUGIN_DISPLAY_NAME)
+            if self._header_title:
+                self._header_title.setText(PLUGIN_DISPLAY_NAME)
+        except Exception:
+            pass
+
+        if persist:
+            self._save_settings_silent()
+
+        if show_message:
+            QMessageBox.information(
+                self.iface.mainWindow(),
+                PLUGIN_DISPLAY_NAME,
+                "Variante enregistrée. Redémarrez QGIS pour appliquer complètement le menu plugin."
+            )
 
     # ---------------------------------------------------------
     # UI + Splash screen GIF
@@ -689,6 +747,8 @@ class MainDock:
                 self.theme_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             if self.lang_combo:
                 self.lang_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if hasattr(self, "variant_combo") and self.variant_combo:
+                self.variant_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             for lyr in (self.canal_layer, self.fosse_layer, self.indus_layer, self.liaison_layer, self.pv_layer):
                 if lyr and hasattr(lyr, 'selectionChanged'):
                     lyr.selectionChanged.connect(lambda *_: self._request_autosave())
@@ -1037,6 +1097,17 @@ class MainDock:
             lambda _: self._apply_language(self.lang_combo.currentData())
         )
         grp_ui_lay.addWidget(self.lang_combo, 1, 1)
+
+        grp_ui_lay.addWidget(QLabel("Mode plugin :"), 2, 0)
+        self.variant_combo = QComboBox()
+        self.variant_combo.addItem("TRACK-EAU-POLL-LITE", "LITE")
+        self.variant_combo.addItem("TRACK-EAU-POLL", "FULL")
+        idx_variant = self.variant_combo.findData(self.plugin_variant)
+        if idx_variant >= 0:
+            self.variant_combo.setCurrentIndex(idx_variant)
+        self.variant_combo.currentIndexChanged.connect(self._on_variant_changed)
+        grp_ui_lay.addWidget(self.variant_combo, 2, 1)
+
         lay.addWidget(grp_ui)
 
         # === SECTION ACTIONS LITE ===
@@ -3336,6 +3407,23 @@ class MainDock:
                 "💾 N'oubliez pas de sauvegarder les paramètres !"
             )
 
+    def _save_settings_silent(self):
+        """Sauvegarde silencieuse des paramètres sans popup."""
+        try:
+            settings = {
+                "custom_logo_path": self.custom_logo_path,
+                "custom_icon_path": self.custom_icon_path,
+                "theme_name": self.theme_name,
+                "language": self.language,
+                "plugin_variant": self.plugin_variant,
+            }
+            config_dir = os.path.join(os.path.dirname(__file__), "..")
+            config_file = os.path.join(config_dir, "settings.json")
+            with open(config_file, "w", encoding="utf-8") as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
     def _on_save_settings(self):
         """Sauvegarde les paramètres dans un fichier de configuration"""
         try:
@@ -3346,6 +3434,7 @@ class MainDock:
                 'custom_icon_path': self.custom_icon_path,
                 'theme_name': self.theme_name,
                 'language': self.language,
+                'plugin_variant': self.plugin_variant,
             }
             
             # Chemin du fichier de configuration
@@ -3388,6 +3477,7 @@ class MainDock:
                     'custom_icon_path': self.custom_icon_path,
                     'theme_name': self.theme_name,
                     'language': self.language,
+                'plugin_variant': self.plugin_variant,
                     'exported_date': str(datetime.now())
                 }
                 
@@ -3449,6 +3539,13 @@ class MainDock:
                             self.lang_combo.setCurrentIndex(idx)
                     self._apply_language(self.language)
 
+                if 'plugin_variant' in settings:
+                    self._apply_plugin_variant(settings.get('plugin_variant', 'LITE'), persist=False, show_message=False)
+                    if hasattr(self, "variant_combo") and self.variant_combo:
+                        idx = self.variant_combo.findData(self.plugin_variant)
+                        if idx >= 0:
+                            self.variant_combo.setCurrentIndex(idx)
+
                 QMessageBox.information(
                     self.iface.mainWindow(),
                     "Import réussi",
@@ -3478,6 +3575,7 @@ class MainDock:
                 self.custom_icon_path = settings.get('custom_icon_path', '')
                 self.theme_name = settings.get('theme_name', self.theme_name)
                 self.language = settings.get('language', self.language)
+                self.plugin_variant = str(settings.get('plugin_variant', self.plugin_variant)).strip().upper()
         except Exception as e:
             print(f"Impossible de charger les paramètres : {e}")
 
