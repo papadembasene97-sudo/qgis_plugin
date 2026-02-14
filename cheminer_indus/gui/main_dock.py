@@ -114,6 +114,7 @@ class MainDock:
         self.theme_name: str = "Futuriste"
         self.language: str = "fr"
         self._tabs: Optional[QTabWidget] = None
+        self._tab_order: List[str] = []
         self._main_widget: Optional[QWidget] = None
         self._header_title: Optional[QLabel] = None
         self._header_logo: Optional[QLabel] = None
@@ -171,11 +172,6 @@ class MainDock:
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
         self.custom_icon_path: str = ""  # Chemin vers l'icône personnalisée
         self.plugin_variant: str = PLUGIN_VARIANT
-
-        # Autosave instantané (debounce court)
-        self._autosave_timer = QTimer()
-        self._autosave_timer.setSingleShot(True)
-        self._autosave_timer.timeout.connect(self._autosave)
 
         # Autosave instantané (debounce court)
         self._autosave_timer = QTimer()
@@ -258,7 +254,7 @@ class MainDock:
             QMessageBox.information(
                 self.iface.mainWindow(),
                 PLUGIN_DISPLAY_NAME,
-                "Variante enregistrée. Redémarrez QGIS pour appliquer complètement le menu plugin."
+                "Variante enregistrée. Redémarrez QGIS pour afficher les onglets correspondants (FULL/LITE)."
             )
 
     # ---------------------------------------------------------
@@ -366,10 +362,18 @@ class MainDock:
         self._tabs = tabs
         lay.addWidget(tabs)
 
-        # Version lite : CHEMINEMENT, VISITE-INDUS, PARAMÉTRAGE
-        tabs.addTab(self._tab_trace(),       self._t("tab_trace"))
-        tabs.addTab(self._tab_visit_indus(), self._t("tab_visit"))
-        tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
+        if self.plugin_variant == "FULL":
+            self._tab_order = ["tab_trace", "tab_visit", "tab_actions", "tab_pv", "tab_settings"]
+            tabs.addTab(self._tab_trace(),       self._t("tab_trace"))
+            tabs.addTab(self._tab_visit_indus(), self._t("tab_visit"))
+            tabs.addTab(self._tab_actions(),     self._t("tab_actions"))
+            tabs.addTab(self._tab_pv(),          self._t("tab_pv"))
+            tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
+        else:
+            self._tab_order = ["tab_trace", "tab_visit", "tab_settings"]
+            tabs.addTab(self._tab_trace(),       self._t("tab_trace"))
+            tabs.addTab(self._tab_visit_indus(), self._t("tab_visit"))
+            tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
 
         self.dock.setWidget(main)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
@@ -387,11 +391,15 @@ class MainDock:
             "fr": {
                 "tab_trace": "CHEMINEMENT",
                 "tab_visit": "VISITE-INDUS",
-                "tab_settings": "⚙️ PARAMÉTRAGE",
+                "tab_actions": "ACTIONS",
+                "tab_pv": "🏠 PV",
+                "tab_settings": "⚙️ PARAMÈTRES" if self.plugin_variant == "FULL" else "⚙️ PARAMÉTRAGE",
             },
             "en": {
                 "tab_trace": "TRACE",
                 "tab_visit": "VISIT-INDUS",
+                "tab_actions": "ACTIONS",
+                "tab_pv": "🏠 PV",
                 "tab_settings": "⚙️ SETTINGS",
             },
         }
@@ -430,10 +438,9 @@ class MainDock:
         if not lang:
             return
         self.language = lang
-        if self._tabs:
-            self._tabs.setTabText(0, self._t("tab_trace"))
-            self._tabs.setTabText(1, self._t("tab_visit"))
-            self._tabs.setTabText(2, self._t("tab_settings"))
+        if self._tabs and self._tab_order:
+            for idx, key in enumerate(self._tab_order):
+                self._tabs.setTabText(idx, self._t(key))
         if self.pv_tab and hasattr(self.pv_tab, "set_language"):
             self.pv_tab.set_language(lang)
         self._apply_language_to_controls()
