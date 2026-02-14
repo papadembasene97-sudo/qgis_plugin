@@ -1,8 +1,8 @@
 [general]
-name=CheminerIndus
+name=TRACK-EAU-POLL-LITE
 qgisMinimumVersion=3.28
 qgisMaximumVersion=3.40
-description=CheminerIndus : Outil avancé de cheminement et d'analyse des réseaux d'assainissement (EU/EP), détection d'industries connectées, diagnostics automatiques, génération de rapports et IA prédictive.
+description=TRACK-EAU-POLL-LITE : version allégée (CHEMINEMENT, VISITE-INDUS, PARAMÉTRAGE) avec sauvegarde/reprise complète de session compatible avec TRACK-EAU-POLL.
 version=1.2.3
 author=Papa Demba SENE
 email=papademba.sene97@gmail.com
