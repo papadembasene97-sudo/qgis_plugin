@@ -599,22 +599,22 @@ class MainDock:
                 QTabWidget::pane { border: 1px solid #cbd5f5; border-radius: 8px; padding: 6px; background: #ffffff; }
                 QTabBar::tab {
                     background: #e2e8f0; color: #0f172a; padding: 11px 18px; margin-right: 6px;
-                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
+                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 10px;
                 }
-                QTabBar::tab:selected { background: #38bdf8; color: #0f172a; font-weight: bold; }
+                QTabBar::tab:selected { background: #CCEDFC; color: #0f172a; font-weight: bold; }
                 QGroupBox { border: 1px solid #cbd5f5; border-radius: 8px; margin-top: 10px; background: #ffffff; }
                 QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 6px; color: #2563eb; font-weight: bold; }
-                QPushButton { background: #2563eb; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
-                QPushButton:hover { background: #1d4ed8; }
+                QPushButton { background: #DAE3F7; color: #1C1A1A; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
+                QPushButton:hover { background: #DFE5F5; }
                 QTableWidget { background: #ffffff; alternate-background-color: #f1f5f9; gridline-color: #e2e8f0; }
                 QHeaderView::section { background-color: #e2e8f0; color: #0f172a; padding: 4px; border: 1px solid #cbd5f5; }
                 QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; color: #0f172a; }
             """,
             "Sombre": """
-                QWidget { background-color: #0b1120; color: #e5e7eb; }
+                QWidget { background-color: #121D33; color: #e5e7eb; }
                 QTabWidget::pane { border: 1px solid #374151; border-radius: 8px; padding: 6px; background: #0f172a; }
                 QTabBar::tab {
-                    background: #1f2937; color: #e5e7eb; padding: 11px 18px; margin-right: 6px;
+                    background: #62748C; color: #e5e7eb; padding: 11px 18px; margin-right: 6px;
                     border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
                 }
                 QTabBar::tab:selected { background: #4f46e5; color: #ffffff; font-weight: bold; }
@@ -1035,7 +1035,7 @@ class MainDock:
         return self.pv_tab
 
     def _tab_settings(self) -> QWidget:
-        """Crée l'onglet PARAMÉTRAGE lite (couches, thème/langue, actions session)."""
+        """Crée l'onglet PARAMÉTRAGE/PARAMÈTRES selon la variante."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -1079,7 +1079,7 @@ class MainDock:
 
         lay.addWidget(grp_layers)
 
-        # === SECTION THEME & LANGUE ===
+        # === SECTION THEME & LANGUE + MODE ===
         grp_ui = QGroupBox("🎨 Thème & Langue")
         grp_ui_lay = QGridLayout(grp_ui)
 
@@ -1117,7 +1117,87 @@ class MainDock:
 
         lay.addWidget(grp_ui)
 
-        # === SECTION ACTIONS LITE ===
+        if self.plugin_variant == "FULL":
+            # === SECTION LOGO ===
+            grp_logo = QGroupBox("🖼️ Logo du plugin")
+            grp_logo_lay = QVBoxLayout(grp_logo)
+
+            self.logo_preview_label = QLabel()
+            self.logo_preview_label.setFixedSize(150, 60)
+            self.logo_preview_label.setScaledContents(True)
+            self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
+            self._update_logo_preview()
+            grp_logo_lay.addWidget(self.logo_preview_label, alignment=Qt.AlignCenter)
+
+            logo_path_lay = QHBoxLayout()
+            logo_path_lay.addWidget(QLabel("Chemin du logo :"))
+            self.logo_path_input = QLineEdit()
+            self.logo_path_input.setPlaceholderText("Chemin vers le fichier logo (PNG, JPG)")
+            self.logo_path_input.setText(self.custom_logo_path)
+            self.logo_path_input.setReadOnly(True)
+            logo_path_lay.addWidget(self.logo_path_input, stretch=1)
+
+            btn_browse_logo = QPushButton("📁 Parcourir")
+            btn_browse_logo.clicked.connect(self._on_browse_logo)
+            logo_path_lay.addWidget(btn_browse_logo)
+
+            btn_reset_logo = QPushButton("🔄 Réinitialiser")
+            btn_reset_logo.clicked.connect(self._on_reset_logo)
+            logo_path_lay.addWidget(btn_reset_logo)
+
+            grp_logo_lay.addLayout(logo_path_lay)
+            lay.addWidget(grp_logo)
+
+            # === SECTION ICÔNE ===
+            grp_icon = QGroupBox("⭐ Icône du plugin")
+            grp_icon_lay = QVBoxLayout(grp_icon)
+
+            self.icon_preview_label = QLabel()
+            self.icon_preview_label.setFixedSize(48, 48)
+            self.icon_preview_label.setScaledContents(True)
+            self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
+            self._update_icon_preview()
+            grp_icon_lay.addWidget(self.icon_preview_label, alignment=Qt.AlignCenter)
+
+            icon_path_lay = QHBoxLayout()
+            icon_path_lay.addWidget(QLabel("Chemin de l'icône :"))
+            self.icon_path_input = QLineEdit()
+            self.icon_path_input.setPlaceholderText("Chemin vers le fichier icône (PNG, 64x64 recommandé)")
+            self.icon_path_input.setText(self.custom_icon_path)
+            self.icon_path_input.setReadOnly(True)
+            icon_path_lay.addWidget(self.icon_path_input, stretch=1)
+
+            btn_browse_icon = QPushButton("📁 Parcourir")
+            btn_browse_icon.clicked.connect(self._on_browse_icon)
+            icon_path_lay.addWidget(btn_browse_icon)
+
+            btn_reset_icon = QPushButton("🔄 Réinitialiser")
+            btn_reset_icon.clicked.connect(self._on_reset_icon)
+            icon_path_lay.addWidget(btn_reset_icon)
+
+            grp_icon_lay.addLayout(icon_path_lay)
+            lay.addWidget(grp_icon)
+
+            # === BOUTONS PARAMÈTRES ===
+            btn_lay = QHBoxLayout()
+            btn_lay.addStretch()
+
+            btn_save = QPushButton("💾 Sauvegarder les paramètres")
+            btn_save.clicked.connect(self._on_save_settings)
+            btn_save.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; }")
+            btn_lay.addWidget(btn_save)
+
+            btn_export = QPushButton("📤 Exporter les paramètres")
+            btn_export.clicked.connect(self._on_export_settings)
+            btn_lay.addWidget(btn_export)
+
+            btn_import = QPushButton("📥 Importer les paramètres")
+            btn_import.clicked.connect(self._on_import_settings)
+            btn_lay.addWidget(btn_import)
+
+            lay.addLayout(btn_lay)
+
+        # === SECTION ACTIONS ===
         grp_actions = QGroupBox("🛠️ Actions")
         actions_lay = QVBoxLayout(grp_actions)
 
