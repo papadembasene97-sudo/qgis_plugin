@@ -16,6 +16,28 @@ class IndustrialsService:
                  liaison_layer: Optional[QgsVectorLayer]):
         self.indus_layer = indus_layer
         self.liaison_layer = liaison_layer
+        self._id_field_cache: Optional[str] = None
+
+    def _get_indus_id_field(self) -> Optional[str]:
+        if self._id_field_cache and self.indus_layer and self.indus_layer.fields().indexOf(self._id_field_cache) >= 0:
+            return self._id_field_cache
+        if not self.indus_layer:
+            return None
+        fields = {name.lower(): name for name in self.indus_layer.fields().names()}
+        for field_name in ("id", "id_indus", "id_industriel", "idindus", "idindustriel"):
+            mapped = fields.get(field_name)
+            if mapped:
+                self._id_field_cache = mapped
+                return mapped
+        for lname, original in fields.items():
+            if "id" in lname and "indus" in lname:
+                self._id_field_cache = original
+                return original
+        for lname, original in fields.items():
+            if lname == "id":
+                self._id_field_cache = original
+                return original
+        return None
 
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
@@ -62,13 +84,15 @@ class IndustrialsService:
 
         self.indus_layer.removeSelection()
         if ind_ids:
-            esc = lambda s: (s or "").replace("'", "''")
-            values = ",".join("'{}'".format(esc(i)) for i in ind_ids)
-            exprI = QgsExpression("\"id\" IN ({})".format(values))
-            reqI = QgsFeatureRequest(exprI)
-            fids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
-            if fids:
-                self.indus_layer.selectByIds(fids)
+            id_field = self._get_indus_id_field()
+            if id_field:
+                esc = lambda s: (s or "").replace("'", "''")
+                values = ",".join("'{}'".format(esc(i)) for i in ind_ids)
+                exprI = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+                reqI = QgsFeatureRequest(exprI)
+                fids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
+                if fids:
+                    self.indus_layer.selectByIds(fids)
 
         return sorted(ind_ids)
 
@@ -92,7 +116,11 @@ class IndustrialsService:
         if not self.indus_layer:
             return {}
 
-        expr = QgsExpression("\"id\" = '{}'".format(str(ind_id).replace("'", "''")))
+        id_field = self._get_indus_id_field()
+        if not id_field:
+            return {}
+
+        expr = QgsExpression("\"{}\" = '{}'".format(id_field, str(ind_id).replace("'", "''")))
         req = QgsFeatureRequest(expr)
 
         for f in self.indus_layer.getFeatures(req):
@@ -120,6 +148,37 @@ class IndustrialsService:
         Renvoie {id_indus: {champ: valeur, ...}, ...}
         """
         out: Dict[str, Dict[str, str]] = {}
+        if not ids or not self.indus_layer:
+            return out
+
+        id_field = self._get_indus_id_field()
+        if not id_field:
+            for i in ids:
+                out[i] = self.fetch(i)
+            return out
+
+        esc = lambda s: (s or "").replace("'", "''")
+        values = ",".join("'{}'".format(esc(i)) for i in ids if i)
+        if not values:
+            return out
+        expr = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+        req = QgsFeatureRequest(expr)
+        for f in self.indus_layer.getFeatures(req):
+            ind_val = f.attribute(id_field)
+            if ind_val is None:
+                continue
+            ind_id = str(ind_val)
+            row: Dict[str, str] = {}
+            for name in f.fields().names():
+                row[name] = "" if f[name] is None else str(f[name])
+            row.setdefault("Nom", row.get("nom", ""))
+            row.setdefault("Adresse", row.get("adresse", ""))
+            row.setdefault("Activite", row.get("activite", ""))
+            row.setdefault("Risques", row.get("risques", ""))
+            row.setdefault("Produits", row.get("produits", ""))
+            row.setdefault("siret", row.get("SIRET", row.get("siret", "")))
+            row.setdefault("id", ind_id)
+            out[ind_id] = row
         for i in ids:
-            out[i] = self.fetch(i)
+            out.setdefault(i, self.fetch(i))
         return out
