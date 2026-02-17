@@ -111,7 +111,7 @@ class MainDock:
         self._last_indus_data: Dict[str, Dict[str, str]] = {}
         self._last_pv_data: Dict[str, Dict[str, str]] = {}  # Données PV détectés
         self._last_process_durations: Dict[str, int] = {}
-        self.theme_name: str = "Futuriste"
+        self.theme_name: str = "Clair"
         self.language: str = "fr"
         self._tabs: Optional[QTabWidget] = None
         self._tab_order: List[str] = []
@@ -563,37 +563,6 @@ class MainDock:
 
     def _theme_styles(self) -> Dict[str, str]:
         return {
-            "Futuriste": """
-                QWidget { background-color: #0f172a; color: #e2e8f0; }
-                QTabWidget::pane {
-                    border: 1px solid #334155; border-radius: 10px; padding: 6px; background: #111827;
-                }
-                QTabBar::tab {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1e3a8a, stop:1 #4338ca);
-                    color: #e2e8f0; padding: 11px 18px; margin-right: 6px;
-                    border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
-                }
-                QTabBar::tab:selected {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
-                    color: #0f172a; font-weight: bold;
-                }
-                QGroupBox {
-                    border: 1px solid #1f2937; border-radius: 10px; margin-top: 12px; background: #111827;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #22d3ee; font-weight: bold;
-                }
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0ea5e9, stop:1 #6366f1);
-                    color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px;
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #22d3ee, stop:1 #a78bfa);
-                }
-                QTableWidget { background: #0b1220; alternate-background-color: #111827; gridline-color: #1f2937; }
-                QHeaderView::section { background-color: #1f2937; color: #e2e8f0; padding: 4px; border: 1px solid #334155; }
-                QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; letter-spacing: 1px; color: #e2e8f0; }
-            """,
             "Clair": """
                 QWidget { background-color: #f8fafc; color: #0f172a; }
                 QTabWidget::pane { border: 1px solid #cbd5f5; border-radius: 8px; padding: 6px; background: #ffffff; }
@@ -633,6 +602,9 @@ class MainDock:
             return
         self.theme_name = theme_name
         stylesheet = self._theme_styles().get(theme_name)
+        if not stylesheet:
+            self.theme_name = "Clair"
+            stylesheet = self._theme_styles().get("Clair", "")
         if stylesheet:
             self._main_widget.setStyleSheet(stylesheet)
 
@@ -1085,7 +1057,7 @@ class MainDock:
 
         grp_ui_lay.addWidget(QLabel("Thème :"), 0, 0)
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Futuriste", "Clair", "Sombre"])
+        self.theme_combo.addItems(["Clair", "Sombre"])
         if self.theme_name:
             idx_theme = self.theme_combo.findText(self.theme_name)
             if idx_theme >= 0:
@@ -1197,36 +1169,51 @@ class MainDock:
 
             lay.addLayout(btn_lay)
 
-        # === SECTION ACTIONS ===
-        grp_actions = QGroupBox("🛠️ Actions")
-        actions_lay = QVBoxLayout(grp_actions)
+        if self.plugin_variant == "FULL":
+            grp_info = QGroupBox("ℹ️ Indications")
+            info_lay = QVBoxLayout(grp_info)
+            info_txt = QLabel(
+                "• Les actions opérationnelles sont disponibles dans les onglets dédiés :\n"
+                "  - ACTIONS (PDF, masque étiquettes, session, reset)\n"
+                "  - PV (analyse conformité)\n"
+                "• Cet onglet PARAMÈTRES est réservé au paramétrage (couches, thème/langue, logo, icône, mode)."
+            )
+            info_txt.setWordWrap(True)
+            info_txt.setStyleSheet("padding: 6px;")
+            info_lay.addWidget(info_txt)
+            lay.addWidget(grp_info)
+        else:
+            # === SECTION ACTIONS (LITE uniquement) ===
+            grp_actions = QGroupBox("🛠️ Actions")
+            actions_lay = QVBoxLayout(grp_actions)
 
-        self.btn_pdf = QPushButton("Générer PDF")
-        self.btn_pdf.setIcon(QIcon(os.path.join(ICONS_DIR,'report.png')))
-        self.btn_pdf.clicked.connect(self._make_report_with_wait)
-        actions_lay.addWidget(self.btn_pdf)
+            self.btn_pdf = QPushButton("Générer PDF")
+            self.btn_pdf.setIcon(QIcon(os.path.join(ICONS_DIR,'report.png')))
+            self.btn_pdf.clicked.connect(self._make_report_with_wait)
+            actions_lay.addWidget(self.btn_pdf)
 
-        self.btn_mask = QPushButton("Masquer/Demasquer étiquettes")
-        self.btn_mask.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
-        self.btn_mask.setCheckable(True)
-        self.btn_mask.clicked.connect(self._toggle_mask_labels)
-        actions_lay.addWidget(self.btn_mask)
+            self.btn_mask = QPushButton("Masquer/Demasquer étiquettes")
+            self.btn_mask.setIcon(QIcon(os.path.join(ICONS_DIR,'filtre.png')))
+            self.btn_mask.setCheckable(True)
+            self.btn_mask.clicked.connect(self._toggle_mask_labels)
+            actions_lay.addWidget(self.btn_mask)
 
-        hb = QHBoxLayout()
-        self.btn_save_session = QPushButton("Sauvegarder session")
-        self.btn_save_session.clicked.connect(self._save_session)
-        self.btn_load_session = QPushButton("Charger session")
-        self.btn_load_session.clicked.connect(self._load_session)
-        hb.addWidget(self.btn_save_session)
-        hb.addWidget(self.btn_load_session)
-        actions_lay.addLayout(hb)
+            hb = QHBoxLayout()
+            self.btn_save_session = QPushButton("Sauvegarder session")
+            self.btn_save_session.clicked.connect(self._save_session)
+            self.btn_load_session = QPushButton("Charger session")
+            self.btn_load_session.clicked.connect(self._load_session)
+            hb.addWidget(self.btn_save_session)
+            hb.addWidget(self.btn_load_session)
+            actions_lay.addLayout(hb)
 
-        self.btn_rst = QPushButton("Réinitialiser")
-        self.btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
-        self.btn_rst.clicked.connect(self._confirm_reset)
-        actions_lay.addWidget(self.btn_rst)
+            self.btn_rst = QPushButton("Réinitialiser")
+            self.btn_rst.setIcon(QIcon(os.path.join(ICONS_DIR,'reset.png')))
+            self.btn_rst.clicked.connect(self._confirm_reset)
+            actions_lay.addWidget(self.btn_rst)
 
-        lay.addWidget(grp_actions)
+            lay.addWidget(grp_actions)
+
         lay.addStretch()
 
         scroll.setWidget(w)
