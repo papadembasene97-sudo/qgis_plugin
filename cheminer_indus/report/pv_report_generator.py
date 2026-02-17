@@ -13,9 +13,10 @@ from .pdf_generator import PDFGenerator
 class PVReportGenerator:
     """Générateur de rapports PDF pour les PV non conformes"""
     
-    def __init__(self, logo_path: str = "", legend_path: str = ""):
+    def __init__(self, logo_path: str = "", legend_path: str = "", icon_path: str = ""):
         self.logo_path = logo_path
         self.legend_path = legend_path
+        self.icon_path = icon_path
         
     def generate_pollution_report(
         self,
@@ -35,7 +36,7 @@ class PVReportGenerator:
             True si réussi, False sinon
         """
         try:
-            pdf = PDFGenerator(self.logo_path, self.legend_path)
+            pdf = PDFGenerator(self.logo_path, self.legend_path, self.icon_path)
             pdf.alias_nb_pages()
             pdf.add_page()
             
@@ -84,6 +85,7 @@ class PVReportGenerator:
             pdf._set_font_base()
             
             rows = [
+                ("Type d'origine", "PV"),
                 ("N° PV", polluter_info.get('num_pv', 'N/A')),
                 ("Adresse", polluter_info.get('adresse', 'N/A')),
                 ("Commune", polluter_info.get('commune', 'N/A')),
@@ -127,6 +129,7 @@ class PVReportGenerator:
             pdf._set_font_base()
             
             rows = [
+                ("Type d'origine", "Industriel"),
                 ("Nom", polluter_info.get('nom', 'N/A')),
                 ("Type", polluter_info.get('type', 'N/A')),
                 ("Adresse", polluter_info.get('adresse', 'N/A')),
