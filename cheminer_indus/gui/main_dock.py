@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
@@ -138,6 +138,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -628,6 +629,8 @@ class MainDock:
                     self._last_process_durations[process_key] = elapsed.elapsed()
             except Exception:
                 pass
+            if elapsed.isValid():
+                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
 
     def _confirm_reset(self):
         """
