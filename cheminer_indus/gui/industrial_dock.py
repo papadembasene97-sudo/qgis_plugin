@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Dict, Callable, Optional, List
 
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QPushButton, QLabel,
@@ -358,6 +359,7 @@ class IndustrialDock(QDockWidget):
 
         for row_idx, (ind_id, row) in enumerate(self._visible_data.items()):
             self.table.insertRow(row_idx)
+            risk_color = self._risk_color_for_row(row)
             for col_idx, field in enumerate(self._all_fields):
                 val = str(row.get(field, "") or "")
                 item = QTableWidgetItem(val)
@@ -365,6 +367,8 @@ class IndustrialDock(QDockWidget):
                 # même si le champ 'id' n'est pas la première colonne logique.
                 if col_idx == 0:
                     item.setData(Qt.UserRole, ind_id)
+                if risk_color:
+                    item.setBackground(risk_color)
                 self.table.setItem(row_idx, col_idx, item)
 
         self.table.resizeColumnsToContents()
@@ -374,6 +378,21 @@ class IndustrialDock(QDockWidget):
         self.setWindowTitle(
             "Industriels connectés ({})".format(len(self._visible_data))
         )
+
+    def _risk_color_for_row(self, row: Dict[str, str]) -> Optional[QColor]:
+        risques = str(row.get("Risques", row.get("risques", "")) or "").lower()
+        if not risques.strip():
+            return None
+
+        if any(token in risques for token in ("pollution", "déversement", "deversement", "rejet")):
+            return QColor("#f5b7b1")
+        if any(token in risques for token in ("hydrocarbure", "huile")):
+            return QColor("#f9e79f")
+        if "graisse" in risques:
+            return QColor("#fcf3cf")
+        if any(token in risques for token in ("chimique", "solvant")):
+            return QColor("#d7bde2")
+        return QColor("#fadbd8")
 
     # ----------------------------------------------------------------------
     # Utilitaires de sélection
