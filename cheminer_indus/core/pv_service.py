@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import List, Dict, Set, Optional
 
 from qgis.core import (
-    QgsVectorLayer, QgsExpression, QgsFeatureRequest, 
-    QgsGeometry, QgsCoordinateTransform, QgsProject
+    QgsVectorLayer, QgsExpression, QgsFeatureRequest, QgsFeature,
+    QgsGeometry, QgsCoordinateTransform, QgsProject, QgsSpatialIndex
 )
 
 
@@ -26,10 +26,88 @@ class PVService:
         self.pv_layer = pv_layer
         self.canal_layer = canal_layer
 
+        # Caches performance
+        self._canal_ids_by_node: Optional[Dict[str, Set[int]]] = None
+        self._pv_index_all: Optional[QgsSpatialIndex] = None
+        self._pv_geom_cache_all: Optional[Dict[int, QgsGeometry]] = None
+        self._pv_index_nonconf: Optional[QgsSpatialIndex] = None
+        self._pv_geom_cache_nonconf: Optional[Dict[int, QgsGeometry]] = None
+
+
+    def invalidate_caches(self):
+        """Invalide les caches (à appeler si les couches changent)."""
+        self._canal_ids_by_node = None
+        self._pv_index_all = None
+        self._pv_geom_cache_all = None
+        self._pv_index_nonconf = None
+        self._pv_geom_cache_nonconf = None
+
+    def _build_node_to_canal_cache(self) -> Dict[str, Set[int]]:
+        if self._canal_ids_by_node is not None:
+            return self._canal_ids_by_node
+
+        cache: Dict[str, Set[int]] = {}
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self._canal_ids_by_node = cache
+            return cache
+
+        for feat in self.canal_layer.getFeatures():
+            try:
+                idnini = str(feat['idnini'] or '').strip()
+                idnterm = str(feat['idnterm'] or '').strip()
+                fid = feat.id()
+                if idnini and idnini.upper() != 'INCONNU':
+                    cache.setdefault(idnini, set()).add(fid)
+                if idnterm and idnterm.upper() != 'INCONNU':
+                    cache.setdefault(idnterm, set()).add(fid)
+            except Exception:
+                continue
+
+        self._canal_ids_by_node = cache
+        return cache
+
+    def _build_pv_spatial_cache(self, include_conformes: bool, transform: Optional[QgsCoordinateTransform]):
+        if include_conformes and self._pv_index_all is not None and self._pv_geom_cache_all is not None:
+            return self._pv_index_all, self._pv_geom_cache_all
+        if (not include_conformes) and self._pv_index_nonconf is not None and self._pv_geom_cache_nonconf is not None:
+            return self._pv_index_nonconf, self._pv_geom_cache_nonconf
+
+        pv_index = QgsSpatialIndex()
+        pv_geom_cache: Dict[int, QgsGeometry] = {}
+
+        if self.pv_layer and self.pv_layer.isValid():
+            for pv_feat in self.pv_layer.getFeatures():
+                if not include_conformes and not self._is_non_conforme(pv_feat):
+                    continue
+                pv_geom = pv_feat.geometry()
+                if not pv_geom:
+                    continue
+                if transform:
+                    pv_geom = QgsGeometry(pv_geom)
+                    pv_geom.transform(transform)
+                pv_geom_cache[pv_feat.id()] = pv_geom
+                feat_for_index = QgsFeature(pv_feat)
+                feat_for_index.setGeometry(pv_geom)
+                pv_index.addFeature(feat_for_index)
+
+        if include_conformes:
+            self._pv_index_all = pv_index
+            self._pv_geom_cache_all = pv_geom_cache
+        else:
+            self._pv_index_nonconf = pv_index
+            self._pv_geom_cache_nonconf = pv_geom_cache
+
+        return pv_index, pv_geom_cache
+
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
     # ------------------------------------------------------------------
-    def select_pv_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[int]:
+    def select_pv_from_nodes(
+        self,
+        nodes: Set[str],
+        distance: float = 15.0,
+        include_conformes: bool = False
+    ) -> List[int]:
         """
         À partir d'un ensemble de nœuds, sélectionne les PV dans un rayon donné
         et renvoie la liste de leurs FIDs.
@@ -54,7 +132,7 @@ class PVService:
             return []
 
         # Trouver les PV proches de ces canalisations
-        pv_fids = self._find_pv_near_canals(canal_ids, distance)
+        pv_fids = self._find_pv_near_canals(canal_ids, distance, include_conformes)
         
         # Sélectionner les PV dans la couche
         self.pv_layer.removeSelection()
@@ -66,32 +144,27 @@ class PVService:
     def _get_canals_from_nodes(self, nodes: Set[str]) -> Set[int]:
         """
         Récupère les FIDs des canalisations connectées aux nœuds donnés.
-        
-        Args:
-            nodes: Ensemble de nœuds
-        
-        Returns:
-            Set des FIDs de canalisations
         """
-        canal_ids = set()
-        
+        canal_ids: Set[int] = set()
+
         if not self.canal_layer or not self.canal_layer.isValid():
             return canal_ids
 
+        by_node = self._build_node_to_canal_cache()
         for node in nodes:
-            node_esc = str(node).replace("'", "''")
-            expr = QgsExpression(
-                "trim(\"idnini\") = '{}' OR trim(\"idnterm\") = '{}'".format(
-                    node_esc, node_esc
-                )
-            )
-            req = QgsFeatureRequest(expr)
-            for feat in self.canal_layer.getFeatures(req):
-                canal_ids.add(feat.id())
+            nid = str(node or '').strip()
+            if not nid:
+                continue
+            canal_ids.update(by_node.get(nid, set()))
 
         return canal_ids
 
-    def _find_pv_near_canals(self, canal_ids: Set[int], distance: float) -> List[int]:
+    def _find_pv_near_canals(
+        self,
+        canal_ids: Set[int],
+        distance: float,
+        include_conformes: bool
+    ) -> List[int]:
         """
         Trouve les PV dans un rayon autour des canalisations données.
         Gère automatiquement les différences de CRS (4326 vs 2154).
@@ -116,6 +189,9 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
+        # Construire/relire un index spatial PV cache pour accélérer les recherches
+        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform)
+
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
         
@@ -127,25 +203,21 @@ class PVService:
             # Créer un buffer autour de la canalisation (dans le CRS du canal)
             buffer_geom = canal_geom.buffer(distance, 8)
 
-            # Chercher les PV dans ce buffer
-            for pv_feat in self.pv_layer.getFeatures():
-                pv_geom = pv_feat.geometry()
-                
-                # Transformer le PV dans le CRS du canal si nécessaire
-                if transform:
-                    pv_geom_transformed = QgsGeometry(pv_geom)
-                    pv_geom_transformed.transform(transform)
-                else:
-                    pv_geom_transformed = pv_geom
-                
-                # Vérifier si le PV est dans le buffer
-                if buffer_geom.intersects(pv_geom_transformed):
-                    if pv_feat.id() not in pv_fids:
-                        pv_fids.append(pv_feat.id())
+            candidate_ids = pv_index.intersects(buffer_geom.boundingBox())
+            for fid in candidate_ids:
+                pv_geom = pv_geom_cache.get(fid)
+                if pv_geom and buffer_geom.intersects(pv_geom):
+                    if fid not in pv_fids:
+                        pv_fids.append(fid)
 
         return pv_fids
 
-    def connected_ids_from_nodes(self, nodes: Set[str], distance: float = 15.0) -> List[str]:
+    def connected_ids_from_nodes(
+        self,
+        nodes: Set[str],
+        distance: float = 15.0,
+        include_conformes: bool = False
+    ) -> List[str]:
         """
         Raccourci : à partir des nœuds → sélectionner PV → renvoyer IDs texte.
         
@@ -156,7 +228,7 @@ class PVService:
         Returns:
             Liste des IDs texte des PV (colonne 'id' ou 'num_pv')
         """
-        fids = self.select_pv_from_nodes(nodes, distance)
+        fids = self.select_pv_from_nodes(nodes, distance, include_conformes)
         
         if not fids or not self.pv_layer:
             return []
@@ -166,6 +238,8 @@ class PVService:
         req = QgsFeatureRequest().setFilterFids(fids)
         
         for feat in self.pv_layer.getFeatures(req):
+            if not include_conformes and not self._is_non_conforme(feat):
+                continue
             # Essayer plusieurs noms de colonnes possibles
             pv_id = None
             for field_name in ['id', 'num_pv', 'ID', 'NUM_PV']:
@@ -182,7 +256,7 @@ class PVService:
     # ------------------------------------------------------------------
     # Récupération d'infos
     # ------------------------------------------------------------------
-    def fetch(self, pv_id: str) -> Dict[str, str]:
+    def fetch(self, pv_id: str, include_conformes: bool = False) -> Dict[str, str]:
         """
         Renvoie un dictionnaire {champ: valeur} pour un PV donné.
         
@@ -205,6 +279,8 @@ class PVService:
                 req = QgsFeatureRequest(expr)
 
                 for f in self.pv_layer.getFeatures(req):
+                    if not include_conformes and not self._is_non_conforme(f):
+                        return {}
                     out: Dict[str, str] = {}
                     for name in f.fields().names():
                         out[name] = "" if f[name] is None else str(f[name])
@@ -217,7 +293,11 @@ class PVService:
 
         return {}
 
-    def fetch_many(self, ids: List[str]) -> Dict[str, Dict[str, str]]:
+    def fetch_many(
+        self,
+        ids: List[str],
+        include_conformes: bool = False
+    ) -> Dict[str, Dict[str, str]]:
         """
         Renvoie {pv_id: {champ: valeur, ...}, ...}
         
@@ -229,7 +309,7 @@ class PVService:
         """
         out: Dict[str, Dict[str, str]] = {}
         for pv_id in ids:
-            out[pv_id] = self.fetch(pv_id)
+            out[pv_id] = self.fetch(pv_id, include_conformes=include_conformes)
         return out
 
     def get_distance_to_network(self, pv_id: str) -> Optional[float]:
@@ -285,3 +365,14 @@ class PVService:
                     min_distance = dist
 
         return round(min_distance, 2) if min_distance != float('inf') else None
+
+    def _is_non_conforme(self, feat) -> bool:
+        """Retourne True si le PV est non conforme ou si l'info est absente."""
+        for field_name in ["conforme", "conformite", "conformité", "conform"]:
+            if feat.fields().indexOf(field_name) >= 0:
+                val = feat.attribute(field_name)
+                sval = str(val or "").strip().lower()
+                if sval in ("oui", "yes", "true", "1"):
+                    return False
+                return True
+        return True
