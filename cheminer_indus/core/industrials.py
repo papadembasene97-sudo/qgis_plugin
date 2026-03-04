@@ -18,6 +18,14 @@ class IndustrialsService:
         self.liaison_layer = liaison_layer
         self._id_field_cache: Optional[str] = None
 
+        # Caches performance
+        self._liaison_fids_by_node: Optional[Dict[str, List[int]]] = None
+        self._indus_fid_by_id: Optional[Dict[str, int]] = None
+
+    def invalidate_caches(self):
+        self._liaison_fids_by_node = None
+        self._indus_fid_by_id = None
+
     def _get_indus_id_field(self) -> Optional[str]:
         if self._id_field_cache and self.indus_layer and self.indus_layer.fields().indexOf(self._id_field_cache) >= 0:
             return self._id_field_cache
@@ -39,6 +47,51 @@ class IndustrialsService:
                 return original
         return None
 
+    def _build_liaison_cache(self) -> Dict[str, List[int]]:
+        if self._liaison_fids_by_node is not None:
+            return self._liaison_fids_by_node
+
+        cache: Dict[str, List[int]] = {}
+        if self.liaison_layer and self.liaison_layer.isValid():
+            for lf in self.liaison_layer.getFeatures():
+                try:
+                    node = str(lf['id_ouvrage'] or '').strip()
+                    if not node or node.upper() == 'INCONNU':
+                        continue
+                    cache.setdefault(node, []).append(lf.id())
+                except Exception:
+                    continue
+
+        self._liaison_fids_by_node = cache
+        return cache
+
+    def _build_indus_id_cache(self) -> Dict[str, int]:
+        if self._indus_fid_by_id is not None:
+            return self._indus_fid_by_id
+
+        cache: Dict[str, int] = {}
+        if self.indus_layer and self.indus_layer.isValid():
+            id_field = self._get_indus_id_field()
+            if id_field:
+                for feat in self.indus_layer.getFeatures():
+                    try:
+                        val = feat.attribute(id_field)
+                        if val is None:
+                            continue
+                        iid = str(val).strip()
+                        if iid and iid.upper() != 'INCONNU':
+                            cache[iid] = feat.id()
+                    except Exception:
+                        continue
+
+        self._indus_fid_by_id = cache
+        return cache
+
+    def indus_fids_from_ids(self, ids: Set[str]) -> List[int]:
+        """Résout rapidement des IDs industriels texte vers FIDs couche."""
+        cache = self._build_indus_id_cache()
+        return [cache[i] for i in ids if i in cache]
+
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
     # ------------------------------------------------------------------
@@ -52,16 +105,15 @@ class IndustrialsService:
                 self.liaison_layer.removeSelection()
             return []
 
-        esc = lambda s: (s or "").replace("'", "''")
-        values = ",".join("'{}'".format(esc(n)) for n in nodes if n)
-        if not values:
-            self.liaison_layer.removeSelection()
-            return []
+        by_node = self._build_liaison_cache()
+        ids_set: Set[int] = set()
+        for n in nodes:
+            key = str(n or '').strip()
+            if not key:
+                continue
+            ids_set.update(by_node.get(key, []))
 
-        expr = QgsExpression("\"id_ouvrage\" IN ({})".format(values))
-        req = QgsFeatureRequest(expr)
-        ids = [f.id() for f in self.liaison_layer.getFeatures(req)]
-
+        ids = list(ids_set)
         self.liaison_layer.removeSelection()
         if ids:
             self.liaison_layer.selectByIds(ids)
@@ -84,15 +136,9 @@ class IndustrialsService:
 
         self.indus_layer.removeSelection()
         if ind_ids:
-            id_field = self._get_indus_id_field()
-            if id_field:
-                esc = lambda s: (s or "").replace("'", "''")
-                values = ",".join("'{}'".format(esc(i)) for i in ind_ids)
-                exprI = QgsExpression("\"{}\" IN ({})".format(id_field, values))
-                reqI = QgsFeatureRequest(exprI)
-                fids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
-                if fids:
-                    self.indus_layer.selectByIds(fids)
+            fids = self.indus_fids_from_ids(ind_ids)
+            if fids:
+                self.indus_layer.selectByIds(fids)
 
         return sorted(ind_ids)
 
@@ -128,15 +174,12 @@ class IndustrialsService:
             for name in f.fields().names():
                 out[name] = "" if f[name] is None else str(f[name])
 
-            # Renommages usuels (on ajoute ces clés si absentes)
             out.setdefault("Nom", out.get("nom", ""))
             out.setdefault("Adresse", out.get("adresse", ""))
             out.setdefault("Activite", out.get("activite", ""))
             out.setdefault("Risques", out.get("risques", ""))
             out.setdefault("Produits", out.get("produits", ""))
             out.setdefault("siret", out.get("SIRET", out.get("siret", "")))
-
-            # Toujours stocker l'id pour le tableau
             out.setdefault("id", str(ind_id))
 
             return out
