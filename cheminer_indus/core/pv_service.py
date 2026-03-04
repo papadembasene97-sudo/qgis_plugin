@@ -26,6 +26,79 @@ class PVService:
         self.pv_layer = pv_layer
         self.canal_layer = canal_layer
 
+        # Caches performance
+        self._canal_ids_by_node: Optional[Dict[str, Set[int]]] = None
+        self._pv_index_all: Optional[QgsSpatialIndex] = None
+        self._pv_geom_cache_all: Optional[Dict[int, QgsGeometry]] = None
+        self._pv_index_nonconf: Optional[QgsSpatialIndex] = None
+        self._pv_geom_cache_nonconf: Optional[Dict[int, QgsGeometry]] = None
+
+
+    def invalidate_caches(self):
+        """Invalide les caches (à appeler si les couches changent)."""
+        self._canal_ids_by_node = None
+        self._pv_index_all = None
+        self._pv_geom_cache_all = None
+        self._pv_index_nonconf = None
+        self._pv_geom_cache_nonconf = None
+
+    def _build_node_to_canal_cache(self) -> Dict[str, Set[int]]:
+        if self._canal_ids_by_node is not None:
+            return self._canal_ids_by_node
+
+        cache: Dict[str, Set[int]] = {}
+        if not self.canal_layer or not self.canal_layer.isValid():
+            self._canal_ids_by_node = cache
+            return cache
+
+        for feat in self.canal_layer.getFeatures():
+            try:
+                idnini = str(feat['idnini'] or '').strip()
+                idnterm = str(feat['idnterm'] or '').strip()
+                fid = feat.id()
+                if idnini and idnini.upper() != 'INCONNU':
+                    cache.setdefault(idnini, set()).add(fid)
+                if idnterm and idnterm.upper() != 'INCONNU':
+                    cache.setdefault(idnterm, set()).add(fid)
+            except Exception:
+                continue
+
+        self._canal_ids_by_node = cache
+        return cache
+
+    def _build_pv_spatial_cache(self, include_conformes: bool, transform: Optional[QgsCoordinateTransform]):
+        if include_conformes and self._pv_index_all is not None and self._pv_geom_cache_all is not None:
+            return self._pv_index_all, self._pv_geom_cache_all
+        if (not include_conformes) and self._pv_index_nonconf is not None and self._pv_geom_cache_nonconf is not None:
+            return self._pv_index_nonconf, self._pv_geom_cache_nonconf
+
+        pv_index = QgsSpatialIndex()
+        pv_geom_cache: Dict[int, QgsGeometry] = {}
+
+        if self.pv_layer and self.pv_layer.isValid():
+            for pv_feat in self.pv_layer.getFeatures():
+                if not include_conformes and not self._is_non_conforme(pv_feat):
+                    continue
+                pv_geom = pv_feat.geometry()
+                if not pv_geom:
+                    continue
+                if transform:
+                    pv_geom = QgsGeometry(pv_geom)
+                    pv_geom.transform(transform)
+                pv_geom_cache[pv_feat.id()] = pv_geom
+                feat_for_index = QgsFeature(pv_feat)
+                feat_for_index.setGeometry(pv_geom)
+                pv_index.addFeature(feat_for_index)
+
+        if include_conformes:
+            self._pv_index_all = pv_index
+            self._pv_geom_cache_all = pv_geom_cache
+        else:
+            self._pv_index_nonconf = pv_index
+            self._pv_geom_cache_nonconf = pv_geom_cache
+
+        return pv_index, pv_geom_cache
+
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
     # ------------------------------------------------------------------
@@ -71,28 +144,18 @@ class PVService:
     def _get_canals_from_nodes(self, nodes: Set[str]) -> Set[int]:
         """
         Récupère les FIDs des canalisations connectées aux nœuds donnés.
-        
-        Args:
-            nodes: Ensemble de nœuds
-        
-        Returns:
-            Set des FIDs de canalisations
         """
-        canal_ids = set()
-        
+        canal_ids: Set[int] = set()
+
         if not self.canal_layer or not self.canal_layer.isValid():
             return canal_ids
 
+        by_node = self._build_node_to_canal_cache()
         for node in nodes:
-            node_esc = str(node).replace("'", "''")
-            expr = QgsExpression(
-                "trim(\"idnini\") = '{}' OR trim(\"idnterm\") = '{}'".format(
-                    node_esc, node_esc
-                )
-            )
-            req = QgsFeatureRequest(expr)
-            for feat in self.canal_layer.getFeatures(req):
-                canal_ids.add(feat.id())
+            nid = str(node or '').strip()
+            if not nid:
+                continue
+            canal_ids.update(by_node.get(nid, set()))
 
         return canal_ids
 
@@ -126,22 +189,8 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
-        # Construire un index spatial PV pour accélérer les recherches
-        pv_index = QgsSpatialIndex()
-        pv_geom_cache = {}
-        for pv_feat in self.pv_layer.getFeatures():
-            if not include_conformes and not self._is_non_conforme(pv_feat):
-                continue
-            pv_geom = pv_feat.geometry()
-            if not pv_geom:
-                continue
-            if transform:
-                pv_geom = QgsGeometry(pv_geom)
-                pv_geom.transform(transform)
-            pv_geom_cache[pv_feat.id()] = pv_geom
-            feat_for_index = QgsFeature(pv_feat)
-            feat_for_index.setGeometry(pv_geom)
-            pv_index.addFeature(feat_for_index)
+        # Construire/relire un index spatial PV cache pour accélérer les recherches
+        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform)
 
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))

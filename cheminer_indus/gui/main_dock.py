@@ -177,6 +177,7 @@ class MainDock:
         self._autosave_timer = QTimer()
         self._autosave_timer.setSingleShot(True)
         self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_suspended = False
 
     # ---------------------------------------------------------
     # Integration QGIS
@@ -616,10 +617,12 @@ class MainDock:
         elapsed = QElapsedTimer()
         elapsed.start()
         try:
+            self._autosave_suspended = True
             QApplication.setOverrideCursor(Qt.WaitCursor)
             QApplication.processEvents()
             return func(*args, **kwargs)
         finally:
+            self._autosave_suspended = False
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
@@ -629,8 +632,8 @@ class MainDock:
                     self._last_process_durations[process_key] = elapsed.elapsed()
             except Exception:
                 pass
-            if elapsed.isValid():
-                self._process_durations[process_key] = max(1000.0, float(elapsed.elapsed()))
+            # flush autosave à la fin des traitements lourds
+            self._request_autosave(delay_ms=1200)
 
     def _confirm_reset(self):
         """
@@ -688,6 +691,8 @@ class MainDock:
         """
         Sauvegarde l'état courant si un fichier projet a été défini.
         """
+        if self._autosave_suspended:
+            return
         try:
             if self.auto_mgr and self.auto_mgr.path:
                 self.auto_mgr.save(self._session_state())
@@ -697,8 +702,10 @@ class MainDock:
 
     def _request_autosave(self, delay_ms: int = 250):
         """Programme une sauvegarde quasi instantanée après une action utilisateur."""
+        if self._autosave_suspended:
+            return
         try:
-            self._autosave_timer.start(max(50, int(delay_ms)))
+            self._autosave_timer.start(max(150, int(delay_ms)))
         except Exception:
             self._autosave()
 
