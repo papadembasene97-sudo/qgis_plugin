@@ -440,6 +440,21 @@ class PDFGenerator(FPDF):
         ]
         self._kv_table(rows, bordered=bordered)
 
+    def table_pv_info(self, data: Dict[str, Any], bordered: bool = True):
+        self._ensure_page()
+        rows = [
+            ("ID",          data.get("id", "") or data.get("ID", "")),
+            ("N° PV",       data.get("num_pv", "") or data.get("NUM_PV", "")),
+            ("Adresse",     data.get("adresse", "") or data.get("Adresse", "")),
+            ("Commune",     data.get("commune", "") or data.get("Commune", "")),
+            ("Conforme",    data.get("conforme", "") or data.get("Conforme", "")),
+            ("Date PV",     data.get("date_pv", "") or data.get("DATE_PV", "") or data.get("date", "")),
+            ("Type visite", data.get("type_visite", "")),
+            ("EU vers EP",  data.get("eu_vers_ep", "")),
+            ("EP vers EU",  data.get("ep_vers_eu", "")),
+        ]
+        self._kv_table(rows, bordered=bordered)
+
     def add_astreint_table(self, data: Dict[str, Any], bordered: bool = True):
         self._ensure_page()
         rows = [

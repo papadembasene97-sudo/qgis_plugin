@@ -177,7 +177,6 @@ class MainDock:
         self._autosave_timer = QTimer()
         self._autosave_timer.setSingleShot(True)
         self._autosave_timer.timeout.connect(self._autosave)
-        self._autosave_suspended = False
 
     # ---------------------------------------------------------
     # Integration QGIS
@@ -702,10 +701,8 @@ class MainDock:
 
     def _request_autosave(self, delay_ms: int = 250):
         """Programme une sauvegarde quasi instantanée après une action utilisateur."""
-        if self._autosave_suspended:
-            return
         try:
-            self._autosave_timer.start(max(150, int(delay_ms)))
+            self._autosave_timer.start(max(50, int(delay_ms)))
         except Exception:
             self._autosave()
 

@@ -189,8 +189,22 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
-        # Construire/relire un index spatial PV cache pour accélérer les recherches
-        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform)
+        # Construire un index spatial PV pour accélérer les recherches
+        pv_index = QgsSpatialIndex()
+        pv_geom_cache = {}
+        for pv_feat in self.pv_layer.getFeatures():
+            if not include_conformes and not self._is_non_conforme(pv_feat):
+                continue
+            pv_geom = pv_feat.geometry()
+            if not pv_geom:
+                continue
+            if transform:
+                pv_geom = QgsGeometry(pv_geom)
+                pv_geom.transform(transform)
+            pv_geom_cache[pv_feat.id()] = pv_geom
+            feat_for_index = QgsFeature(pv_feat)
+            feat_for_index.setGeometry(pv_geom)
+            pv_index.addFeature(feat_for_index)
 
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
