@@ -177,6 +177,10 @@ class MainDock:
         self._autosave_timer = QTimer()
         self._autosave_timer.setSingleShot(True)
         self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_suspended = False
+        self._indus_svc_key = None
+        self._pv_svc_key = None
+        self._node_ops_key = None
 
     # ---------------------------------------------------------
     # Integration QGIS
@@ -1386,35 +1390,42 @@ class MainDock:
         self._last_trace_nodes = nodes
 
         # liaisons + indus
-        if not self.indus_svc:
+        indus_key = (
+            self.indus_layer.id() if self.indus_layer and self.indus_layer.isValid() else None,
+            self.liaison_layer.id() if self.liaison_layer and self.liaison_layer.isValid() else None,
+        )
+        if (not self.indus_svc) or (self._indus_svc_key != indus_key):
             self.indus_svc = IndustrialsService(self.indus_layer, self.liaison_layer)
+            self._indus_svc_key = indus_key
 
         self.indus_svc.select_liaisons_from_nodes(nodes)  # sélectionne liaisons dans la couche
         ind_ids = self.indus_svc.select_industrials_from_selected_liaisons()  # renvoie les IDs texte
 
-        # Sélection explicite des industriels sur la carte
+        # Sélection explicite des industriels sur la carte (cache IDs->FIDs)
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
-            if ind_ids:
-                id_field = self.indus_svc._get_indus_id_field() if self.indus_svc else None
-                if id_field:
-                    esc = lambda s: (s or "").replace("'", "''")
-                    values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
-                    expr = QgsExpression("trim(\"{}\") IN ({})".format(id_field, values))
-                    req = QgsFeatureRequest(expr)
-                    fids = [f.id() for f in self.indus_layer.getFeatures(req)]
-                    if fids:
-                        self.indus_layer.selectByIds(fids)
+            if ind_ids and self.indus_svc:
+                fids = self.indus_svc.indus_fids_from_ids(set(ind_ids))
+                if fids:
+                    self.indus_layer.selectByIds(fids)
 
         details = self.indus_svc.fetch_many(ind_ids)
         self._last_indus_data = details
         
         # PV non conformes (même pattern que les industriels)
         pv_ids = []
-        if not self.pv_svc:
-            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        self.pv_layer = self.pv_combo.currentData() if self.pv_combo else self.pv_layer
+        pv_key = (
+            self.pv_layer.id() if self.pv_layer and self.pv_layer.isValid() else None,
+            self.canal_layer.id() if self.canal_layer and self.canal_layer.isValid() else None,
+        )
+        if (not self.pv_svc) or (self._pv_svc_key != pv_key):
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+                self._pv_svc_key = pv_key
+            else:
+                self.pv_svc = None
+                self._pv_svc_key = None
         
         if self.pv_svc and self.pv_layer:
             pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
@@ -1512,20 +1523,27 @@ class MainDock:
             QMessageBox.information(self.iface.mainWindow(),"Info","Saisir un ID visite.")
             return
 
-        # Initialiser l'optimiseur si nécessaire et construire les caches
+        # Initialiser l'optimiseur (et n'invalider que si couches changées)
+        node_ops_key = (
+            self.canal_layer.id() if self.canal_layer and self.canal_layer.isValid() else None,
+            self.fosse_layer.id() if self.fosse_layer and self.fosse_layer.isValid() else None,
+            self.liaison_layer.id() if self.liaison_layer and self.liaison_layer.isValid() else None,
+            self.indus_layer.id() if self.indus_layer and self.indus_layer.isValid() else None,
+        )
         if not self._node_ops:
             self._node_ops = OptimizedNodeOps(
-                self.canal_layer, self.fosse_layer, 
+                self.canal_layer, self.fosse_layer,
                 self.liaison_layer, self.indus_layer
             )
+            self._node_ops_key = node_ops_key
         else:
-            # Mettre à jour les couches au cas où elles auraient changé
             self._node_ops.canal_layer = self.canal_layer
             self._node_ops.fosse_layer = self.fosse_layer
             self._node_ops.liaison_layer = self.liaison_layer
             self._node_ops.indus_layer = self.indus_layer
-            # Invalider les caches pour refléter les changements
-            self._node_ops.invalidate_caches()
+            if self._node_ops_key != node_ops_key:
+                self._node_ops.invalidate_caches()
+                self._node_ops_key = node_ops_key
 
         # 1) Confirmer la pollution au nœud
         resp = QMessageBox.question(
@@ -1539,20 +1557,24 @@ class MainDock:
         polluted = (resp == QMessageBox.Yes)
         self.visited.append({'id': node_id, 'pollution': polluted})
 
-        # 2) Branches AMONT du nœud (canal, fosse) + liaisons au nœud
+        # 2) Branches AMONT du nœud (canal/fosse) + liaisons au nœud (caches)
         branches: List[Tuple[str,int,Optional[str],Optional[str]]] = []
-        if self.canal_layer:
-            expr_c = QgsExpression("trim(\"idnterm\") = '{}' AND trim(\"idnini\") != 'INCONNU'".format(node_id.replace("'","''")))
-            for feat in self.canal_layer.getFeatures(QgsFeatureRequest(expr_c)):
-                branches.append(("canal", feat.id(), feat['idnini'], None))
-        if self.fosse_layer:
-            expr_f = QgsExpression("trim(\"idnterm\") = '{}' AND trim(\"idnini\") != 'INCONNU'".format(node_id.replace("'","''")))
-            for feat in self.fosse_layer.getFeatures(QgsFeatureRequest(expr_f)):
-                branches.append(("fosse", feat.id(), feat['idnini'], None))
-        if self.liaison_layer:
-            expr_l = QgsExpression("trim(\"id_ouvrage\") = '{}'".format(node_id.replace("'","''")))
-            for lf in self.liaison_layer.getFeatures(QgsFeatureRequest(expr_l)):
-                branches.append(("liaison", lf.id(), None, lf['id_industriel']))
+        incoming_cache = self._node_ops.build_incoming_cache() if self._node_ops else {}
+        for typ, _lyr, feat in incoming_cache.get(node_id, []):
+            try:
+                amont = feat['idnini']
+            except Exception:
+                amont = None
+            branches.append((typ, feat.id(), amont, None))
+
+        if self._node_ops:
+            liaison_cache = self._node_ops.build_liaison_cache()
+            for lf in liaison_cache.get(node_id, []):
+                try:
+                    iid = lf['id_industriel']
+                except Exception:
+                    iid = None
+                branches.append(("liaison", lf.id(), None, iid))
 
         # 3) Si aucune branche amont, on gère tout de même l'aval quand pollution = OUI
         if not branches and not polluted:
@@ -1671,10 +1693,18 @@ class MainDock:
         """Retourne les IDs des PV non conformes proches des nœuds fournis."""
         if not nodes:
             return []
-        if not self.pv_svc or not self.pv_layer:
-            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        self.pv_layer = self.pv_combo.currentData() if self.pv_combo else self.pv_layer
+        pv_key = (
+            self.pv_layer.id() if self.pv_layer and self.pv_layer.isValid() else None,
+            self.canal_layer.id() if self.canal_layer and self.canal_layer.isValid() else None,
+        )
+        if (not self.pv_svc) or (self._pv_svc_key != pv_key):
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+                self._pv_svc_key = pv_key
+            else:
+                self.pv_svc = None
+                self._pv_svc_key = None
         if not self.pv_svc:
             return []
         return self.pv_svc.connected_ids_from_nodes(set(nodes), distance=15.0)
@@ -2106,32 +2136,41 @@ class MainDock:
                 self.pv_tab.set_pv_data({})
             return
 
-        if not self.indus_svc:
-            self.indus_layer   = self.indus_combo.currentData()
-            self.liaison_layer = self.liaison_combo.currentData()
+        self.indus_layer = self.indus_combo.currentData() if self.indus_combo else self.indus_layer
+        self.liaison_layer = self.liaison_combo.currentData() if self.liaison_combo else self.liaison_layer
+        indus_key = (
+            self.indus_layer.id() if self.indus_layer and self.indus_layer.isValid() else None,
+            self.liaison_layer.id() if self.liaison_layer and self.liaison_layer.isValid() else None,
+        )
+        if (not self.indus_svc) or (self._indus_svc_key != indus_key):
             self.indus_svc = IndustrialsService(self.indus_layer, self.liaison_layer)
+            self._indus_svc_key = indus_key
 
-        indus_ids = self.indus_svc.connected_ids_from_nodes(nodes)
-        indus_details = self.indus_svc.fetch_many(indus_ids)
+        indus_ids = self.indus_svc.connected_ids_from_nodes(nodes) if self.indus_svc else []
+        indus_details = self.indus_svc.fetch_many(indus_ids) if self.indus_svc else {}
 
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
-            if indus_ids:
-                esc = lambda s: (s or "").replace("'", "''")
-                values = ",".join("'{}'".format(esc(i)) for i in indus_ids if i)
-                expr = QgsExpression("trim(\"id\") IN ({})".format(values))
-                req = QgsFeatureRequest(expr)
-                fids = [f.id() for f in self.indus_layer.getFeatures(req)]
+            if indus_ids and self.indus_svc:
+                fids = self.indus_svc.indus_fids_from_ids(set(indus_ids))
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
         if pv_distance is None:
             pv_distance = float(self.pv_tab.distance_spin.value()) if self.pv_tab and hasattr(self.pv_tab, "distance_spin") else 15.0
 
-        if not self.pv_svc:
-            self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        self.pv_layer = self.pv_combo.currentData() if self.pv_combo else self.pv_layer
+        pv_key = (
+            self.pv_layer.id() if self.pv_layer and self.pv_layer.isValid() else None,
+            self.canal_layer.id() if self.canal_layer and self.canal_layer.isValid() else None,
+        )
+        if (not self.pv_svc) or (self._pv_svc_key != pv_key):
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
+                self._pv_svc_key = pv_key
+            else:
+                self.pv_svc = None
+                self._pv_svc_key = None
 
         pv_ids = []
         if self.pv_svc and self.pv_layer and self.pv_layer.isValid():

@@ -32,6 +32,10 @@ class PVService:
         self._pv_geom_cache_all: Optional[Dict[int, QgsGeometry]] = None
         self._pv_index_nonconf: Optional[QgsSpatialIndex] = None
         self._pv_geom_cache_nonconf: Optional[Dict[int, QgsGeometry]] = None
+        self._pv_cache_target_crs: Optional[str] = None
+
+        self._canal_spatial_index: Optional[QgsSpatialIndex] = None
+        self._canal_geom_cache: Optional[Dict[int, QgsGeometry]] = None
 
 
     def invalidate_caches(self):
@@ -41,6 +45,9 @@ class PVService:
         self._pv_geom_cache_all = None
         self._pv_index_nonconf = None
         self._pv_geom_cache_nonconf = None
+        self._pv_cache_target_crs = None
+        self._canal_spatial_index = None
+        self._canal_geom_cache = None
 
     def _build_node_to_canal_cache(self) -> Dict[str, Set[int]]:
         if self._canal_ids_by_node is not None:
@@ -66,7 +73,32 @@ class PVService:
         self._canal_ids_by_node = cache
         return cache
 
-    def _build_pv_spatial_cache(self, include_conformes: bool, transform: Optional[QgsCoordinateTransform]):
+    def _build_canal_spatial_cache(self):
+        if self._canal_spatial_index is not None and self._canal_geom_cache is not None:
+            return self._canal_spatial_index, self._canal_geom_cache
+
+        idx = QgsSpatialIndex()
+        geom_cache: Dict[int, QgsGeometry] = {}
+        if self.canal_layer and self.canal_layer.isValid():
+            for feat in self.canal_layer.getFeatures():
+                g = feat.geometry()
+                if not g:
+                    continue
+                geom_cache[feat.id()] = g
+                idx.addFeature(feat)
+
+        self._canal_spatial_index = idx
+        self._canal_geom_cache = geom_cache
+        return idx, geom_cache
+
+    def _build_pv_spatial_cache(self, include_conformes: bool, transform: Optional[QgsCoordinateTransform], target_crs_authid: str):
+        if self._pv_cache_target_crs != target_crs_authid:
+            self._pv_index_all = None
+            self._pv_geom_cache_all = None
+            self._pv_index_nonconf = None
+            self._pv_geom_cache_nonconf = None
+            self._pv_cache_target_crs = target_crs_authid
+
         if include_conformes and self._pv_index_all is not None and self._pv_geom_cache_all is not None:
             return self._pv_index_all, self._pv_geom_cache_all
         if (not include_conformes) and self._pv_index_nonconf is not None and self._pv_geom_cache_nonconf is not None:
@@ -189,22 +221,8 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
-        # Construire un index spatial PV pour accélérer les recherches
-        pv_index = QgsSpatialIndex()
-        pv_geom_cache = {}
-        for pv_feat in self.pv_layer.getFeatures():
-            if not include_conformes and not self._is_non_conforme(pv_feat):
-                continue
-            pv_geom = pv_feat.geometry()
-            if not pv_geom:
-                continue
-            if transform:
-                pv_geom = QgsGeometry(pv_geom)
-                pv_geom.transform(transform)
-            pv_geom_cache[pv_feat.id()] = pv_geom
-            feat_for_index = QgsFeature(pv_feat)
-            feat_for_index.setGeometry(pv_geom)
-            pv_index.addFeature(feat_for_index)
+        # Construire/relire un index spatial PV cache pour accélérer les recherches
+        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform, canal_crs.authid())
 
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
@@ -368,15 +386,35 @@ class PVService:
             pv_geom = QgsGeometry(pv_geom)
             pv_geom.transform(transform)
 
-        # Trouver la canalisation la plus proche
+        # Trouver la canalisation la plus proche (index spatial)
+        canal_index, canal_geom_cache = self._build_canal_spatial_cache()
+
+        try:
+            pv_point = pv_geom.asPoint()
+        except Exception:
+            cent = pv_geom.centroid() if pv_geom else None
+            pv_point = cent.asPoint() if cent else None
+        if not pv_point:
+            return None
+
+        nearest = canal_index.nearestNeighbor(pv_point, 8) if canal_index else []
         min_distance = float('inf')
-        
-        for canal_feat in self.canal_layer.getFeatures():
-            canal_geom = canal_feat.geometry()
-            if canal_geom:
-                dist = pv_geom.distance(canal_geom)
-                if dist < min_distance:
-                    min_distance = dist
+        for fid in nearest:
+            canal_geom = canal_geom_cache.get(fid)
+            if not canal_geom:
+                continue
+            dist = pv_geom.distance(canal_geom)
+            if dist < min_distance:
+                min_distance = dist
+
+        # fallback si index vide
+        if min_distance == float('inf'):
+            for canal_feat in self.canal_layer.getFeatures():
+                canal_geom = canal_feat.geometry()
+                if canal_geom:
+                    dist = pv_geom.distance(canal_geom)
+                    if dist < min_distance:
+                        min_distance = dist
 
         return round(min_distance, 2) if min_distance != float('inf') else None
 
