@@ -705,8 +705,10 @@ class MainDock:
 
     def _request_autosave(self, delay_ms: int = 250):
         """Programme une sauvegarde quasi instantanée après une action utilisateur."""
+        if self._autosave_suspended:
+            return
         try:
-            self._autosave_timer.start(max(50, int(delay_ms)))
+            self._autosave_timer.start(max(150, int(delay_ms)))
         except Exception:
             self._autosave()
 
@@ -1347,6 +1349,28 @@ class MainDock:
 
         self._autosave()
 
+    def _indus_fids_from_ids_compat(self, ind_ids):
+        """Retourne des FIDs industriels à partir d'IDs texte avec fallback compatibilité."""
+        if not (self.indus_layer and self.indus_layer.isValid() and self.indus_svc and ind_ids):
+            return []
+
+        if hasattr(self.indus_svc, "indus_fids_from_ids"):
+            return self.indus_svc.indus_fids_from_ids(set(ind_ids))
+
+        # Fallback compatibilité ancienne classe IndustrialsService
+        id_field = self.indus_svc._get_indus_id_field() if hasattr(self.indus_svc, "_get_indus_id_field") else None
+        if not id_field:
+            return []
+
+        esc = lambda s: (s or "").replace("'", "''")
+        values = ",".join("'{}'".format(esc(i)) for i in ind_ids if i)
+        if not values:
+            return []
+
+        expr = QgsExpression("trim(\"{}\") IN ({})".format(id_field, values))
+        req = QgsFeatureRequest(expr)
+        return [f.id() for f in self.indus_layer.getFeatures(req)]
+
     def _trace_for_industrials(self, start_id: str, filters: Dict[str,str], pv_distance: float = 15.0):
         """
         Cheminement spécifique pour les industriels :
@@ -1405,7 +1429,7 @@ class MainDock:
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
             if ind_ids and self.indus_svc:
-                fids = self.indus_svc.indus_fids_from_ids(set(ind_ids))
+                fids = self._indus_fids_from_ids_compat(ind_ids)
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
@@ -2152,7 +2176,7 @@ class MainDock:
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
             if indus_ids and self.indus_svc:
-                fids = self.indus_svc.indus_fids_from_ids(set(indus_ids))
+                fids = self._indus_fids_from_ids_compat(indus_ids)
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
