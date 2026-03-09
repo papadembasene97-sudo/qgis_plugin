@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
@@ -138,6 +138,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -615,10 +616,12 @@ class MainDock:
         elapsed = QElapsedTimer()
         elapsed.start()
         try:
+            self._autosave_suspended = True
             QApplication.setOverrideCursor(Qt.WaitCursor)
             QApplication.processEvents()
             return func(*args, **kwargs)
         finally:
+            self._autosave_suspended = False
             try:
                 QApplication.restoreOverrideCursor()
             except Exception:
@@ -628,6 +631,8 @@ class MainDock:
                     self._last_process_durations[process_key] = elapsed.elapsed()
             except Exception:
                 pass
+            # flush autosave à la fin des traitements lourds
+            self._request_autosave(delay_ms=1200)
 
     def _confirm_reset(self):
         """
@@ -685,6 +690,8 @@ class MainDock:
         """
         Sauvegarde l'état courant si un fichier projet a été défini.
         """
+        if self._autosave_suspended:
+            return
         try:
             if self.auto_mgr and self.auto_mgr.path:
                 self.auto_mgr.save(self._session_state())
@@ -3085,11 +3092,31 @@ class MainDock:
         if self.fosse_layer:
             selected_fosse_ids = list(self.fosse_layer.selectedFeatureIds())
 
+        # Sélection industriels
+        selected_indus_ids: List[int] = []
+        if self.indus_layer:
+            selected_indus_ids = list(self.indus_layer.selectedFeatureIds())
+
+        # Sélection PV
+        selected_pv_ids: List[int] = []
+        if self.pv_layer:
+            selected_pv_ids = list(self.pv_layer.selectedFeatureIds())
+
+        # Sauver le contenu des tableaux (dock) au moment précis de la sauvegarde
+        industrial_table_data: Dict[str, Dict[str, str]] = dict(self._last_indus_data or {})
+        pv_table_data: Dict[str, Dict[str, str]] = dict(self._last_pv_data or {})
+
         # ---- NOUVEAU : état du dock des industriels ----
         industrial_state: Optional[Dict[str, Any]] = None
         if self.industrial_dock:
             try:
                 industrial_state = self.industrial_dock.get_state()
+                raw_indus = industrial_state.get("visible_indus_data") or industrial_state.get("raw_indus_data") or industrial_state.get("raw_data")
+                raw_pv = industrial_state.get("visible_pv_data") or industrial_state.get("raw_pv_data")
+                if isinstance(raw_indus, dict):
+                    industrial_table_data = dict(raw_indus)
+                if isinstance(raw_pv, dict):
+                    pv_table_data = dict(raw_pv)
             except Exception:
                 industrial_state = None
         return {
@@ -3106,6 +3133,10 @@ class MainDock:
             "label_ci": label_dump,
             "selected_canal_ids": selected_canal_ids,
             "selected_fosse_ids": selected_fosse_ids,
+            "selected_indus_ids": selected_indus_ids,
+            "selected_pv_ids": selected_pv_ids,
+            "industrial_table_data": industrial_table_data,
+            "pv_table_data": pv_table_data,
             "catchment_on": bool(self.catchment_chk.isChecked()) if self.catchment_chk else False,
             "industrial_dock": industrial_state,
             "theme": self.theme_name,
@@ -3213,6 +3244,28 @@ class MainDock:
                 except Exception:
                     pass
 
+            # Restauration sélection industriels
+            if self.indus_combo and self.indus_combo.currentData():
+                self.indus_layer = self.indus_combo.currentData()
+                try:
+                    iids = list(map(int, st.get("selected_indus_ids", [])))
+                    self.indus_layer.removeSelection()
+                    if iids:
+                        self.indus_layer.selectByIds(iids)
+                except Exception:
+                    pass
+
+            # Restauration sélection PV
+            if self.pv_combo and self.pv_combo.currentData():
+                self.pv_layer = self.pv_combo.currentData()
+                try:
+                    pids = list(map(int, st.get("selected_pv_ids", [])))
+                    self.pv_layer.removeSelection()
+                    if pids:
+                        self.pv_layer.selectByIds(pids)
+                except Exception:
+                    pass
+
             # Restauration bassin de collecte
             catch_on = bool(st.get("catchment_on", False))
             if self.catchment_chk:
@@ -3232,9 +3285,11 @@ class MainDock:
                 if not self.industrial_dock:
                     from ..gui.industrial_dock_v2 import IndustrialDockV2
                     self.industrial_dock = IndustrialDockV2(self.iface.mainWindow())
-                    # Callbacks industriels
+                    # Callbacks industriels / PV
                     self.industrial_dock.on_zoom_indus_request(self._zoom_to_industrial)
                     self.industrial_dock.on_designate_indus_request(self._designate_industrial)
+                    self.industrial_dock.on_zoom_pv_request(self._zoom_to_pv)
+                    self.industrial_dock.on_designate_pv_request(self._designate_pv)
                     # Callback refresh
                     self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
                     self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
@@ -3245,8 +3300,26 @@ class MainDock:
                 except Exception:
                     pass
 
-                # Mémoriser les derniers industriels (pour les rafraîchissements / rapport)
-                self._last_indus_data = ind_state.get("raw_data") or {}
+                # Mémoriser les derniers industriels/PV (pour les rafraîchissements / rapport)
+                self._last_indus_data = (
+                    ind_state.get("visible_indus_data")
+                    or ind_state.get("raw_indus_data")
+                    or ind_state.get("raw_data")
+                    or st.get("industrial_table_data")
+                    or {}
+                )
+                self._last_pv_data = (
+                    ind_state.get("visible_pv_data")
+                    or ind_state.get("raw_pv_data")
+                    or st.get("pv_table_data")
+                    or {}
+                )
+                if hasattr(self.industrial_dock, "set_data"):
+                    self.industrial_dock.set_data(self._last_indus_data)
+                if hasattr(self.industrial_dock, "set_pv_data"):
+                    self.industrial_dock.set_pv_data(list(self._last_pv_data.values()))
+                if self.pv_tab and hasattr(self.pv_tab, "set_pv_data"):
+                    self.pv_tab.set_pv_data(self._last_pv_data)
 
                 # Ouvrir / fermer selon l'état sauvegardé
                 if ind_state.get("is_open", False):
@@ -3254,6 +3327,14 @@ class MainDock:
                     self.industrial_dock.raise_()
                 else:
                     self.industrial_dock.hide()
+            else:
+                self._last_indus_data = st.get("industrial_table_data") or {}
+                self._last_pv_data = st.get("pv_table_data") or {}
+                if self._last_indus_data or self._last_pv_data:
+                    self._open_or_update_industrial_dock(
+                        data=self._last_indus_data,
+                        pv_data=self._last_pv_data,
+                    )
 
             self._apply_theme(self.theme_name)
             self._apply_language(self.language)
@@ -3339,7 +3420,7 @@ class MainDock:
                 pass
 
         for lyr in (self.canal_layer, self.ouvr_layer, self.fosse_layer,
-                    self.liaison_layer, self.indus_layer, self.astreint_layer):
+                    self.liaison_layer, self.indus_layer, self.pv_layer, self.astreint_layer):
             try:
                 if isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                     lyr.removeSelection()
