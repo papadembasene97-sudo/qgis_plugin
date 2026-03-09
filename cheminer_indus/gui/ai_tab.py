@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Onglet IA pour le plugin CheminerIndus
+Onglet IA pour le plugin TRACK-EAU-POLL
 Interface pour la prédiction de pollution et la visualisation 3D
 """
 

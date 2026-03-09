@@ -1,5 +1,5 @@
 """
-Exemple complet d'utilisation du module IA de CheminerIndus
+Exemple complet d'utilisation du module IA de TRACK-EAU-POLL
 """
 
 import sys

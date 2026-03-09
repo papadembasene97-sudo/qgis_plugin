@@ -1,4 +1,4 @@
-# 🎉 CheminerIndus v1.2.3 - Plugin QGIS
+# 🎉 TRACK-EAU-POLL v1.2.3 - Plugin QGIS
 
 ## 🚀 Mise à jour majeure : Module PV Conformité
 
@@ -44,7 +44,7 @@
 ### Méthode 1 : Depuis le dépôt QGIS (recommandé)
 ```
 QGIS → Extensions → Installer/Gérer les extensions
-→ Rechercher "CheminerIndus" → Installer
+→ Rechercher "TRACK-EAU-POLL" → Installer
 ```
 
 ### Méthode 2 : Depuis GitHub
@@ -180,7 +180,7 @@ python entrainer_modele_ia.py
 
 ### 4. Utiliser le plugin
 ```
-QGIS → Extensions → CheminerIndus → Lancer
+QGIS → Extensions → TRACK-EAU-POLL → Lancer
 ```
 
 ---
@@ -278,7 +278,7 @@ Gain      |   +24    |  +5-7%    |   +60%
 
 ## 🙏 Remerciements
 
-Merci à tous les contributeurs et utilisateurs du plugin CheminerIndus !
+Merci à tous les contributeurs et utilisateurs du plugin TRACK-EAU-POLL !
 
 **Contributeurs :**
 - Papa Demba SENE - Développement principal
@@ -303,5 +303,5 @@ Merci à tous les contributeurs et utilisateurs du plugin CheminerIndus !
 
 ---
 
-**CheminerIndus v1.2.3** - Détection intelligente des pollutions  
+**TRACK-EAU-POLL v1.2.3** - Détection intelligente des pollutions  
 *Optimisez vos réseaux d'assainissement avec l'IA* 🚀

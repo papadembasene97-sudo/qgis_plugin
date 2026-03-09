@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Générateur de rapports PDF pour les PV non conformes - CheminerIndus
+Générateur de rapports PDF pour les PV non conformes - TRACK-EAU-POLL
 Génère des rapports d'enquête de pollution originés depuis un PV non conforme
 """
 
@@ -41,7 +41,7 @@ class PVReportGenerator:
             pdf.add_page()
             
             # En-tête du rapport
-            pdf.set_global_header("RAPPORT D'ENQUÊTE DE POLLUTION - CheminerIndus v1.2.3")
+            pdf.set_global_header("RAPPORT D'ENQUÊTE DE POLLUTION - TRACK-EAU-POLL v1.2.3")
             pdf.set_title_top("RAPPORT D'ENQUÊTE DE POLLUTION")
             
             # Vérifier le type d'origine

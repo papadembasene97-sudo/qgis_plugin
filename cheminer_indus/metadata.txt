@@ -22,7 +22,7 @@ tags=assainissement,cheminement,eaux usées,eaux pluviales,industrie,pollution,r
 hasProcessingProvider=False
 
 # Informations affichées dans QGIS
-about=CheminerIndus est un outil métier complet permettant de :
+about=TRACK-EAU-POLL est un outil métier complet permettant de :
   - Réaliser des cheminements réseaux (amont→aval, aval→amont, multi-directionnels)
   - Tracer automatiquement les réseaux EU/EP/mixtes
   - Détecter les industriels connectés et générer un tableau interactif avancé

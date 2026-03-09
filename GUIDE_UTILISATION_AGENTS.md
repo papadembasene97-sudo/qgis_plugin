@@ -1,12 +1,12 @@
-# Guide d’utilisation complet — Agents CheminerIndus
+# Guide d’utilisation complet — Agents TRACK-EAU-POLL
 
-> **Objectif** : Ce guide décrit de manière claire et intuitive toutes les fonctionnalités du plugin **CheminerIndus**, avec des emplacements dédiés pour insérer vos captures d’écran.
+> **Objectif** : Ce guide décrit de manière claire et intuitive toutes les fonctionnalités du plugin **TRACK-EAU-POLL**, avec des emplacements dédiés pour insérer vos captures d’écran.
 
 ---
 
 ## 1) Vue d’ensemble
 
-CheminerIndus permet de :
+TRACK-EAU-POLL permet de :
 - **Cheminer** un réseau (amont/aval) pour analyser les écoulements.
 - **Identifier** les industriels connectés.
 - **Détecter** les PV liés au réseau et analyser leur conformité.
