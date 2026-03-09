@@ -23,7 +23,7 @@ class AutoSaveManager:
     - Permet de recharger automatiquement l'état au démarrage
     """
 
-    def __init__(self, iface, plugin_name: str = "CheminerIndus"):
+    def __init__(self, iface, plugin_name: str = "TRACK-EAU-POLL"):
         self.iface = iface
         self.plugin_name = plugin_name
         self.path: Optional[str] = None
@@ -44,7 +44,7 @@ class AutoSaveManager:
             "Sauvegarde automatique",
             (
                 "Voulez-vous créer ou choisir un fichier de projet pour la "
-                "sauvegarde automatique de CheminerIndus ?\n\n"
+                "sauvegarde automatique de TRACK-EAU-POLL ?\n\n"
                 "Ce fichier conservera l'état du cheminement (sélections, visites,\n"
                 "industriel désigné, astreinte, étiquettes, bassin de collecte...)."
             ),
@@ -56,7 +56,7 @@ class AutoSaveManager:
 
         path, _ = QFileDialog.getSaveFileName(
             parent,
-            "Fichier de projet CheminerIndus",
+            "Fichier de projet TRACK-EAU-POLL",
             "",
             "Texte (*.txt)"
         )
