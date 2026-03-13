@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # cheminer_indus/report/pdf_generator.py
 """
-Générateur de PDF pour CheminerIndus.
+Générateur de PDF pour TRACK-EAU-POLL.
 
 Ajouts :
 - Numéros de page en bas à droite (footer).
@@ -26,6 +26,7 @@ class PDFGenerator(FPDF):
     LOGO_X       = 15
     LOGO_Y       = 8
     LOGO_W       = 25
+    ICON_W       = 18
 
     FONT_BASE    = 10
     FONT_SMALL   = 9
@@ -40,11 +41,12 @@ class PDFGenerator(FPDF):
     LEG_GAP           = 8
     LEG_SCALE         = 0.90
 
-    def __init__(self, logo_path: str = "", legend_path: str = ""):
+    def __init__(self, logo_path: str = "", legend_path: str = "", icon_path: str = ""):
         super().__init__(orientation='P', unit='mm', format='A4')
 
         self.logo_path   = logo_path or ""
         self.legend_path = legend_path or ""
+        self.icon_path   = icon_path or ""
 
         base_dir  = os.path.dirname(os.path.dirname(__file__))
         fonts_dir = os.path.join(base_dir, "fonts")
@@ -118,8 +120,12 @@ class PDFGenerator(FPDF):
 
     def set_title_top(self, title: str):
         self._ensure_page()
+        x = self.LOGO_X
         if self.logo_path and os.path.exists(self.logo_path):
-            self.image(self.logo_path, x=self.LOGO_X, y=self.LOGO_Y, w=self.LOGO_W)
+            self.image(self.logo_path, x=x, y=self.LOGO_Y, w=self.LOGO_W)
+            x += self.LOGO_W + 3
+        if self.icon_path and os.path.exists(self.icon_path):
+            self.image(self.icon_path, x=x, y=self.LOGO_Y + 2, w=self.ICON_W)
         self.set_xy(0, self.TITLE_Y + 5)
         self._set_font_bold(self.FONT_TITLE)
         self.cell(0, 8, title, align='C', ln=1)
@@ -161,6 +167,21 @@ class PDFGenerator(FPDF):
             ("SIRET",     data.get("siret", "") or data.get("SIRET", "")),
             ("Produits",  data.get("Produits", "")),
             ("Risques",   data.get("Risques", "")),
+        ]
+        self._kv_table(rows, bordered=bordered)
+
+    def table_pv_info(self, data: Dict[str, Any], bordered: bool = True):
+        self._ensure_page()
+        rows = [
+            ("ID",          data.get("id", "") or data.get("ID", "")),
+            ("N° PV",       data.get("num_pv", "") or data.get("NUM_PV", "")),
+            ("Adresse",     data.get("adresse", "") or data.get("Adresse", "")),
+            ("Commune",     data.get("commune", "") or data.get("Commune", "")),
+            ("Conforme",    data.get("conforme", "") or data.get("Conforme", "")),
+            ("Date PV",     data.get("date_pv", "") or data.get("DATE_PV", "") or data.get("date", "")),
+            ("Type visite", data.get("type_visite", "")),
+            ("EU vers EP",  data.get("eu_vers_ep", "")),
+            ("EP vers EU",  data.get("ep_vers_eu", "")),
         ]
         self._kv_table(rows, bordered=bordered)
 

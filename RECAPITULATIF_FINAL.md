@@ -1,4 +1,4 @@
-# 🎉 Récapitulatif final : CheminerIndus v1.1.1 - ZIP corrigé
+# 🎉 Récapitulatif final : TRACK-EAU-POLL v1.1.1 - ZIP corrigé
 
 ## ✅ Problème résolu
 
@@ -51,7 +51,7 @@ cheminer_indus.zip
 ```
 1. QGIS → Extensions → Installer/Gérer les extensions
 2. Paramètres → Ajouter un dépôt
-3. Nom : CheminerIndus
+3. Nom : TRACK-EAU-POLL
 4. URL : https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
 5. Installer depuis l'onglet "Tous"
 ```
@@ -169,14 +169,14 @@ cheminer_indus.zip
 
 ### Test 2 : Imports Python
 ```python
-from cheminer_indus import CheminerIndusPlugin
+from cheminer_indus import TRACK-EAU-POLLPlugin
 from cheminer_indus.gui.main_dock import MainDock
 from cheminer_indus.gui.main_dock_optimized import OptimizedNodeOps
 ```
 ✅ **Résultat attendu** : Tous les imports réussissent
 
 ### Test 3 : Interface
-1. Ouvrir le dock CheminerIndus
+1. Ouvrir le dock TRACK-EAU-POLL
 2. Vérifier les 4 onglets : CHEMINEMENT, VISITE-INDUS, ACTIONS, COUCHES
 3. ✅ **Résultat attendu** : Interface complète et réactive
 
@@ -249,7 +249,7 @@ https://github.com/papadembasene97-sudo/qgis_plugin/issues
 ✅ Support assuré via GitHub Issues  
 
 ### Résultat final
-🎉 **Plugin CheminerIndus v1.1.1 prêt pour production**
+🎉 **Plugin TRACK-EAU-POLL v1.1.1 prêt pour production**
 - ✅ Installation fonctionnelle via ZIP
 - ✅ Installation via dépôt personnalisé
 - ✅ Optimisations de performance intégrées (85-92% plus rapide)
@@ -287,14 +287,14 @@ https://github.com/papadembasene97-sudo/qgis_plugin/issues
 
 ## ✨ Conclusion
 
-Le plugin **CheminerIndus v1.1.1** est maintenant :
+Le plugin **TRACK-EAU-POLL v1.1.1** est maintenant :
 - ✅ **Fonctionnel** : Installation sans erreur
 - ✅ **Optimisé** : 85-92% plus rapide
 - ✅ **Documenté** : 7 guides complets
 - ✅ **Supporté** : GitHub Issues actif
 - ✅ **Prêt** : Production-ready
 
-**Merci d'avoir utilisé CheminerIndus !** 🚀
+**Merci d'avoir utilisé TRACK-EAU-POLL !** 🚀
 
 ---
 
