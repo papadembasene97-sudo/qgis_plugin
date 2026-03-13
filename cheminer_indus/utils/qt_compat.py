@@ -2,7 +2,7 @@
 """Compatibilité Qt entre QGIS 3 (PyQt5) et QGIS 4 (PyQt6)."""
 
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QFrame
+from qgis.PyQt.QtWidgets import QFrame, QSizePolicy
 
 
 def _value(name: str, enum_name: str, member_name: str):
@@ -44,6 +44,18 @@ if QT_NO_FRAME is None and hasattr(QFrame, "Shape"):
     QT_NO_FRAME = getattr(QFrame.Shape, "NoFrame", None)
 if QT_NO_FRAME is None:
     raise AttributeError("QFrame.NoFrame/QFrame.Shape.NoFrame introuvable")
+
+QT_SIZEPOLICY_EXPANDING = getattr(QSizePolicy, "Expanding", None)
+if QT_SIZEPOLICY_EXPANDING is None and hasattr(QSizePolicy, "Policy"):
+    QT_SIZEPOLICY_EXPANDING = getattr(QSizePolicy.Policy, "Expanding", None)
+if QT_SIZEPOLICY_EXPANDING is None:
+    raise AttributeError("QSizePolicy.Expanding/QSizePolicy.Policy.Expanding introuvable")
+
+QT_SIZEPOLICY_MAXIMUM = getattr(QSizePolicy, "Maximum", None)
+if QT_SIZEPOLICY_MAXIMUM is None and hasattr(QSizePolicy, "Policy"):
+    QT_SIZEPOLICY_MAXIMUM = getattr(QSizePolicy.Policy, "Maximum", None)
+if QT_SIZEPOLICY_MAXIMUM is None:
+    raise AttributeError("QSizePolicy.Maximum/QSizePolicy.Policy.Maximum introuvable")
 
 
 def ensure_qt_compat() -> None:

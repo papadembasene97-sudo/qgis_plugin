@@ -15,7 +15,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtCore import QUrl
 
-from ..utils.qt_compat import QT_ALIGN_CENTER, QT_USER_ROLE, QT_NO_FRAME
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_USER_ROLE, QT_NO_FRAME, QT_SIZEPOLICY_EXPANDING, QT_SIZEPOLICY_MAXIMUM
 
 
 class PVConformiteTab(QWidget):
@@ -40,7 +40,7 @@ class PVConformiteTab(QWidget):
         outer.addWidget(scroll)
 
         content = QWidget()
-        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        content.setSizePolicy(QT_SIZEPOLICY_EXPANDING, QT_SIZEPOLICY_MAXIMUM)
         scroll.setWidget(content)
 
         layout = QVBoxLayout(content)

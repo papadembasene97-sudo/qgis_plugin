@@ -13,7 +13,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QFont
 
-from ..utils.qt_compat import QT_ALIGN_CENTER, QT_NO_FRAME
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_NO_FRAME, QT_SIZEPOLICY_EXPANDING, QT_SIZEPOLICY_MAXIMUM
 
 class AITab(QWidget):
     """Onglet IA pour prédiction de pollution et visualisation 3D"""
@@ -42,7 +42,7 @@ class AITab(QWidget):
         outer.addWidget(scroll)
 
         content = QWidget()
-        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        content.setSizePolicy(QT_SIZEPOLICY_EXPANDING, QT_SIZEPOLICY_MAXIMUM)
         scroll.setWidget(content)
 
         layout = QVBoxLayout(content)
