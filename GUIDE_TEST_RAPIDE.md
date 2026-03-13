@@ -1,8 +1,8 @@
-# 🧪 Guide de test rapide - CheminerIndus v1.1.1
+# 🧪 Guide de test rapide - TRACK-EAU-POLL v1.1.1
 
 ## 🎯 Objectif
 
-Tester rapidement le plugin CheminerIndus avec la structure ZIP corrigée dans QGIS.
+Tester rapidement le plugin TRACK-EAU-POLL avec la structure ZIP corrigée dans QGIS.
 
 ---
 
@@ -32,7 +32,7 @@ https://github.com/papadembasene97-sudo/qgis_plugin/releases/download/v1.1.1/che
 
 **✅ Message attendu** :
 ```
-Installation réussie : CheminerIndus v1.1.1
+Installation réussie : TRACK-EAU-POLL v1.1.1
 ```
 
 **❌ Si vous voyez cette erreur** :
@@ -49,14 +49,14 @@ Disparition de l'extension: Le plugin semble avoir été installé mais...
 
 1. **Extensions** → **Installer/Gérer les extensions**
 2. Onglet **Installés**
-3. Chercher **CheminerIndus** dans la liste
+3. Chercher **TRACK-EAU-POLL** dans la liste
 4. **✅ Résultat attendu** : Le plugin apparaît avec la version 1.1.1
 
 ### 3.2 Vérifier l'interface
 
-1. Le dock **CheminerIndus** doit apparaître automatiquement
+1. Le dock **TRACK-EAU-POLL** doit apparaître automatiquement
 2. **Si le dock n'apparaît pas** :
-   - Menu **Extensions** → **CheminerIndus** → Cliquer pour afficher le dock
+   - Menu **Extensions** → **TRACK-EAU-POLL** → Cliquer pour afficher le dock
 
 3. **✅ Vérifier les onglets** :
    - CHEMINEMENT
@@ -72,7 +72,7 @@ Disparition de l'extension: Le plugin semble avoir été installé mais...
 ```python
 # Test 1 : Import du plugin
 try:
-    from cheminer_indus import CheminerIndusPlugin
+    from cheminer_indus import TRACK-EAU-POLLPlugin
     print("✅ Plugin principal importé avec succès")
 except Exception as e:
     print(f"❌ Erreur import plugin : {e}")
@@ -169,7 +169,7 @@ cheminer_indus/
 
 ### Test 1 : Interface
 
-1. Ouvrir le dock CheminerIndus
+1. Ouvrir le dock TRACK-EAU-POLL
 2. Vérifier que tous les onglets sont accessibles
 3. Vérifier que les combos de sélection de couches sont présents
 
@@ -191,7 +191,7 @@ cheminer_indus/
 - [ ] **Téléchargement** : ZIP téléchargé depuis la release v1.1.1
 - [ ] **Installation** : Installation réussie sans erreur "dossier non trouvé"
 - [ ] **Gestionnaire** : Plugin visible dans l'onglet "Installés"
-- [ ] **Interface** : Dock CheminerIndus visible avec tous les onglets
+- [ ] **Interface** : Dock TRACK-EAU-POLL visible avec tous les onglets
 - [ ] **Console Python** : Tous les imports réussissent
 - [ ] **Dossier** : Fichiers présents dans le dossier d'installation
 - [ ] **Fonctionnel** : Interface réactive et fonctionnelle
@@ -214,7 +214,7 @@ cheminer_indus/
 **Solution** :
 1. **Extensions** → **Installés**
 2. Activer l'option **Afficher également les extensions expérimentales**
-3. Chercher **CheminerIndus**
+3. Chercher **TRACK-EAU-POLL**
 4. Cocher la case pour activer
 
 ### Erreurs d'import dans la console
@@ -227,8 +227,8 @@ cheminer_indus/
 ### Le dock ne s'affiche pas
 
 **Solution** :
-1. Menu **Extensions** → **CheminerIndus** (cliquer pour afficher)
-2. Ou : Menu **Vue** → **Panneaux** → Chercher **CheminerIndus**
+1. Menu **Extensions** → **TRACK-EAU-POLL** (cliquer pour afficher)
+2. Ou : Menu **Vue** → **Panneaux** → Chercher **TRACK-EAU-POLL**
 
 ---
 
@@ -276,5 +276,5 @@ Après avoir testé, merci de reporter :
 
 **Version du guide** : 1.0  
 **Date** : 2026-01-15  
-**Plugin** : CheminerIndus v1.1.1  
+**Plugin** : TRACK-EAU-POLL v1.1.1  
 **Auteur** : Papa Demba SENE (papademba.sene97@gmail.com)

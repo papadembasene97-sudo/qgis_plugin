@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Onglet IA pour le plugin CheminerIndus
+Onglet IA pour le plugin TRACK-EAU-POLL
 Interface pour la prédiction de pollution et la visualisation 3D
 """
 
@@ -13,6 +13,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QFont
 
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_NO_FRAME
 
 class AITab(QWidget):
     """Onglet IA pour prédiction de pollution et visualisation 3D"""
@@ -31,7 +32,20 @@ class AITab(QWidget):
         
     def _init_ui(self):
         """Initialise l'interface utilisateur"""
-        layout = QVBoxLayout(self)
+        from qgis.PyQt.QtWidgets import QScrollArea, QSizePolicy
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QT_NO_FRAME)
+        outer.addWidget(scroll)
+
+        content = QWidget()
+        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        scroll.setWidget(content)
+
+        layout = QVBoxLayout(content)
         
         # Titre
         title = QLabel("🤖 Intelligence Artificielle")
@@ -39,7 +53,7 @@ class AITab(QWidget):
         title_font.setPointSize(12)
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(QT_ALIGN_CENTER)
         layout.addWidget(title)
         
         # Description
@@ -48,7 +62,7 @@ class AITab(QWidget):
             "des tournées de visite. Nécessite l'entraînement préalable du modèle."
         )
         desc.setWordWrap(True)
-        desc.setAlignment(Qt.AlignCenter)
+        desc.setAlignment(QT_ALIGN_CENTER)
         layout.addWidget(desc)
         
         # Groupe 1: Entraînement du modèle
@@ -490,12 +504,12 @@ class AITab(QWidget):
                 return
             
             # Créer le visualiseur
-            self.visualizer = NetworkVisualizer3D()
+            interactive = self.interactive_check.isChecked()
+            self.visualizer = NetworkVisualizer3D(use_pyvista=interactive)
             
             # Paramètres
             color_by = self.color_combo.currentText()
-            interactive = self.interactive_check.isChecked()
-            
+
             # Visualiser
             self.iface.messageBar().pushMessage(
                 "IA",
@@ -503,11 +517,21 @@ class AITab(QWidget):
                 level=Qgis.Info,
                 duration=3
             )
-            
+
+            canal_features = self._build_canal_features(canal_layer)
+            if not canal_features:
+                QMessageBox.warning(
+                    self,
+                    "Données manquantes",
+                    "Impossible de construire les données 3D depuis la couche."
+                )
+                return
+
             self.visualizer.visualize_network_3d(
-                canal_layer,
+                canal_features,
                 color_by=color_by,
-                interactive=interactive
+                show_labels=True,
+                highlight_complex=True
             )
             
             self.results_text.setText(
@@ -559,9 +583,19 @@ class AITab(QWidget):
             
             # Détecter
             threshold = self.complexity_spin.value()
+            canal_features = self._build_canal_features(canal_layer)
+            if not canal_features:
+                QMessageBox.warning(
+                    self,
+                    "Données manquantes",
+                    "Impossible de construire les données 3D depuis la couche."
+                )
+                return
+
             complex_zones = self.visualizer.detect_complex_zones(
-                canal_layer,
-                complexity_threshold=threshold
+                canal_features,
+                density_threshold=5,
+                radius=float(threshold)
             )
             
             # Afficher
@@ -570,14 +604,15 @@ class AITab(QWidget):
             results += f"Seuil de complexité : {threshold}\n"
             results += f"Zones trouvées : {len(complex_zones)}\n\n"
             
-            for zone in complex_zones:
-                results += f"\n🎯 Zone #{zone['zone_id']}\n"
+            for idx, zone in enumerate(complex_zones, 1):
+                results += f"\n🎯 Zone #{idx}\n"
                 results += "-" * 50 + "\n"
                 results += f"Centre : ({zone['center'][0]:.1f}, {zone['center'][1]:.1f})\n"
-                results += f"Canalisations : {zone['pipe_count']}\n"
-                results += f"Diamètres : {zone['diameter_range']}\n"
-                results += f"Dénivelé : {zone['elevation_range']:.1f}m\n"
-                results += f"Score : {zone['complexity_score']} → {zone['risk_level']}\n"
+                results += f"Rayon : {zone['radius']:.1f} m\n"
+                results += f"Canalisations : {zone['nb_canals']}\n"
+                results += f"Diamètre moyen : {zone.get('avg_diameter', 0):.1f} mm\n"
+                results += f"Amplitude Z : {zone.get('z_range', 0):.1f} m\n"
+                results += f"Score : {zone.get('complexity_score', 0):.1f}\n"
             
             self.results_text.setText(results)
             
@@ -618,8 +653,56 @@ class AITab(QWidget):
                 )
                 
         except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Erreur",
-                f"Erreur lors de l'export:\n{str(e)}"
-            )
+                QMessageBox.critical(
+                    self,
+                    "Erreur",
+                    f"Erreur lors de l'export:\n{str(e)}"
+                )
+
+    def _build_canal_features(self, canal_layer):
+        """Convertit une couche de canalisations en liste de features pour l'IA/3D."""
+        features = []
+        if not canal_layer or not canal_layer.isValid():
+            return features
+
+        for feat in canal_layer.getFeatures():
+            geom = feat.geometry()
+            if not geom or geom.isEmpty():
+                continue
+
+            if geom.isMultipart():
+                lines = geom.asMultiPolyline()
+                coords = [(pt.x(), pt.y()) for line in lines for pt in line]
+            else:
+                line = geom.asPolyline()
+                coords = [(pt.x(), pt.y()) for pt in line]
+
+            if len(coords) < 2:
+                continue
+
+            idnini = feat.attribute("idnini") or ""
+            idnterm = feat.attribute("idnterm") or ""
+            z_amont = feat.attribute("zmont")
+            if z_amont is None or z_amont == "":
+                z_amont = feat.attribute("zamont")
+            z_aval = feat.attribute("zaval")
+            if z_aval is None or z_aval == "":
+                z_aval = feat.attribute("zaval")
+
+            if z_amont in (None, "") and hasattr(self.main_dock, "_get_ouvrage_z_by_id"):
+                z_amont = self.main_dock._get_ouvrage_z_by_id(str(idnini))
+            if z_aval in (None, "") and hasattr(self.main_dock, "_get_ouvrage_z_by_id"):
+                z_aval = self.main_dock._get_ouvrage_z_by_id(str(idnterm))
+
+            feature = {
+                "id": feat.id(),
+                "geometry": {"coordinates": coords},
+                "diametre": feat.attribute("diametre") or feat.attribute("diam") or 0,
+                "_pente": feat.attribute("_pente") or feat.attribute("pente") or 0,
+                "zmont": z_amont if z_amont not in (None, "") else 0,
+                "zaval": z_aval if z_aval not in (None, "") else 0,
+                "type_reseau": feat.attribute("typreseau") or feat.attribute("type_reseau") or ""
+            }
+            features.append(feature)
+
+        return features
