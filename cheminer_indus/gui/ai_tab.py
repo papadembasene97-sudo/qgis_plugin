@@ -13,6 +13,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QFont
 
+from ..utils.qt_compat import QT_ALIGN_CENTER
 
 class AITab(QWidget):
     """Onglet IA pour prédiction de pollution et visualisation 3D"""
@@ -52,7 +53,7 @@ class AITab(QWidget):
         title_font.setPointSize(12)
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(QT_ALIGN_CENTER)
         layout.addWidget(title)
         
         # Description
@@ -61,7 +62,7 @@ class AITab(QWidget):
             "des tournées de visite. Nécessite l'entraînement préalable du modèle."
         )
         desc.setWordWrap(True)
-        desc.setAlignment(Qt.AlignCenter)
+        desc.setAlignment(QT_ALIGN_CENTER)
         layout.addWidget(desc)
         
         # Groupe 1: Entraînement du modèle

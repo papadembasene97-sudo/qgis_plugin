@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from ..utils.qt_compat import QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA, QT_USER_ROLE, QT_MOVE_ACTION
+
 from typing import Dict, Callable, Optional, List
 
 from qgis.PyQt.QtCore import Qt
@@ -28,7 +30,7 @@ class _FieldList(QListWidget):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
-        self.setDefaultDropAction(Qt.MoveAction)
+        self.setDefaultDropAction(QT_MOVE_ACTION)
         self.setDragDropMode(QAbstractItemView.DragDrop)
 
     def dropEvent(self, event):
@@ -72,7 +74,7 @@ class IndustrialDock(QDockWidget):
 
     def __init__(self, parent=None):
         super().__init__("Industriels connectés", parent)
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(QT_LEFT_DOCK_WIDGET_AREA | QT_RIGHT_DOCK_WIDGET_AREA)
 
         base = QWidget(self)
         base.setObjectName("IndustrialBase")
@@ -366,7 +368,7 @@ class IndustrialDock(QDockWidget):
                 # On stocke l'ID industriel dans la première colonne (UserRole),
                 # même si le champ 'id' n'est pas la première colonne logique.
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, ind_id)
+                    item.setData(QT_USER_ROLE, ind_id)
                 if risk_color:
                     item.setBackground(risk_color)
                 self.table.setItem(row_idx, col_idx, item)
@@ -404,7 +406,7 @@ class IndustrialDock(QDockWidget):
         first_item = self.table.item(row, 0)
         if not first_item:
             return None
-        ind_id = first_item.data(Qt.UserRole)
+        ind_id = first_item.data(QT_USER_ROLE)
         return str(ind_id) if ind_id is not None else None
 
     # ----------------------------------------------------------------------

@@ -15,6 +15,8 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtCore import QUrl
 
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_USER_ROLE
+
 
 class PVConformiteTab(QWidget):
     """Onglet PV Conformité avec analyse PV."""
@@ -44,7 +46,7 @@ class PVConformiteTab(QWidget):
         layout = QVBoxLayout(content)
 
         self.title_label = QLabel("🏠 Analyse Conformité PV")
-        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setAlignment(QT_ALIGN_CENTER)
         self.title_label.setStyleSheet("font-weight: bold; font-size: 13px;")
         layout.addWidget(self.title_label)
 
@@ -52,7 +54,7 @@ class PVConformiteTab(QWidget):
             "Analysez les PV conformes et non conformes\n"
             "sur un cheminement de réseau EU/EP."
         )
-        self.desc_label.setAlignment(Qt.AlignCenter)
+        self.desc_label.setAlignment(QT_ALIGN_CENTER)
         self.desc_label.setWordWrap(True)
         layout.addWidget(self.desc_label)
 
@@ -249,7 +251,7 @@ class PVConformiteTab(QWidget):
                 val = str(pv.get(key, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, pv_id)
+                    item.setData(QT_USER_ROLE, pv_id)
                 table.setItem(row_idx, col_idx, item)
                 self._apply_pv_cell_style(item, key)
 
@@ -416,7 +418,7 @@ class PVConformiteTab(QWidget):
             return None
         item = table.item(row, 0)
         if item:
-            return str(item.data(Qt.UserRole) or item.text()).strip()
+            return str(item.data(QT_USER_ROLE) or item.text()).strip()
         return None
 
     def _on_zoom(self, table: QTableWidget):

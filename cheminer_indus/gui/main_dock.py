@@ -21,6 +21,11 @@ from qgis.core import (
     QgsSpatialIndex
 )
 
+from ..utils.qt_compat import (
+    QT_ALIGN_CENTER, QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA,
+    QT_FRAMELESS_WINDOW_HINT, QT_WA_TRANSLUCENT_BACKGROUND,
+    QT_SMOOTH_TRANSFORMATION, QT_WAIT_CURSOR, QT_CHECKED
+)
 from ..utils.config             import ICONS_DIR
 from ..core.selection           import MapSelectionTool, AstreintSelectionTool
 from ..core.tracer              import NetworkTracer
@@ -274,13 +279,13 @@ class MainDock:
         from qgis.PyQt.QtWidgets import QDialog
         splash = QDialog(parent)
         splash.setModal(False)
-        splash.setWindowFlag(Qt.FramelessWindowHint)
-        splash.setAttribute(Qt.WA_TranslucentBackground, True)
+        splash.setWindowFlag(QT_FRAMELESS_WINDOW_HINT)
+        splash.setAttribute(QT_WA_TRANSLUCENT_BACKGROUND, True)
 
         v = QVBoxLayout(splash)
         v.setContentsMargins(0, 0, 0, 0)
         lbl = QLabel()
-        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setAlignment(QT_ALIGN_CENTER)
         v.addWidget(lbl)
 
         gif_path = os.path.join(ICONS_DIR, "splash.gif")
@@ -310,7 +315,7 @@ class MainDock:
             self.iface.removeDockWidget(self.dock)
 
         self.dock = QDockWidget(PLUGIN_DISPLAY_NAME, self.iface.mainWindow())
-        self.dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.dock.setAllowedAreas(QT_LEFT_DOCK_WIDGET_AREA | QT_RIGHT_DOCK_WIDGET_AREA)
         
         # Charger les paramètres personnalisés au démarrage
         self._load_settings_on_startup()
@@ -336,12 +341,12 @@ class MainDock:
         icon = QLabel()
         icon_path = self.get_icon_path() if hasattr(self, 'get_icon_path') else os.path.join(ICONS_DIR, 'icon.png')
         icon_pix = QPixmap(icon_path)
-        icon_scaled = icon_pix.scaledToHeight(64, Qt.SmoothTransformation)
+        icon_scaled = icon_pix.scaledToHeight(64, QT_SMOOTH_TRANSFORMATION)
         icon.setPixmap(icon_scaled)
-        icon.setAlignment(Qt.AlignCenter)
+        icon.setAlignment(QT_ALIGN_CENTER)
 
         title = QLabel(PLUGIN_DISPLAY_NAME)
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(QT_ALIGN_CENTER)
         title.setObjectName("trackHeaderTitle")
 
         header_block_layout.addWidget(icon)
@@ -380,7 +385,7 @@ class MainDock:
             tabs.addTab(self._tab_settings(),    self._t("tab_settings"))
 
         self.dock.setWidget(main)
-        self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
+        self.iface.addDockWidget(QT_LEFT_DOCK_WIDGET_AREA, self.dock)
 
         self._populate_layers()
         self._init_autosave()
@@ -621,7 +626,7 @@ class MainDock:
         elapsed.start()
         try:
             self._autosave_suspended = True
-            QApplication.setOverrideCursor(Qt.WaitCursor)
+            QApplication.setOverrideCursor(QT_WAIT_CURSOR)
             QApplication.processEvents()
             return func(*args, **kwargs)
         finally:
@@ -1109,7 +1114,7 @@ class MainDock:
             self.logo_preview_label.setScaledContents(True)
             self.logo_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
             self._update_logo_preview()
-            grp_logo_lay.addWidget(self.logo_preview_label, alignment=Qt.AlignCenter)
+            grp_logo_lay.addWidget(self.logo_preview_label, alignment=QT_ALIGN_CENTER)
 
             logo_path_lay = QHBoxLayout()
             logo_path_lay.addWidget(QLabel("Chemin du logo :"))
@@ -1139,7 +1144,7 @@ class MainDock:
             self.icon_preview_label.setScaledContents(True)
             self.icon_preview_label.setStyleSheet("border: 1px solid #ccc; background: white;")
             self._update_icon_preview()
-            grp_icon_lay.addWidget(self.icon_preview_label, alignment=Qt.AlignCenter)
+            grp_icon_lay.addWidget(self.icon_preview_label, alignment=QT_ALIGN_CENTER)
 
             icon_path_lay = QHBoxLayout()
             icon_path_lay.addWidget(QLabel("Chemin de l'icône :"))
@@ -2115,7 +2120,7 @@ class MainDock:
         self.highlight_mgr.show_polygon(poly)
 
     def _toggle_catchment(self, state: int):
-        if state == Qt.Checked:
+        if state == QT_CHECKED:
             self._generate_catchment()
         else:
             self.highlight_mgr.clear()
@@ -2264,7 +2269,7 @@ class MainDock:
             self.industrial_dock.on_designate_pv_request(self._designate_pv)
             # Callback refresh
             self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
+            self.iface.addDockWidget(QT_RIGHT_DOCK_WIDGET_AREA, self.industrial_dock)
 
         self.industrial_dock.set_data(data)
         
@@ -2808,7 +2813,7 @@ class MainDock:
             self.diag_dock = DiagnosticsDock(self.iface.mainWindow())
             self.diag_dock.on_zoom_request(self._zoom_to_feature_from_diag)
             self.diag_dock.on_refresh_request(self._open_diagnostic_with_wait)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.diag_dock)
+            self.iface.addDockWidget(QT_RIGHT_DOCK_WIDGET_AREA, self.diag_dock)
 
         self.diag_dock.set_results(results, canal_layer=self.canal_layer, ouvr_layer=self.ouvr_layer)
         self.diag_dock.show(); self.diag_dock.raise_()
@@ -3355,7 +3360,7 @@ class MainDock:
                     self.industrial_dock.on_designate_pv_request(self._designate_pv)
                     # Callback refresh
                     self.industrial_dock.on_refresh_request(self._refresh_industrial_dock_data)
-                    self.iface.addDockWidget(Qt.RightDockWidgetArea, self.industrial_dock)
+                    self.iface.addDockWidget(QT_RIGHT_DOCK_WIDGET_AREA, self.industrial_dock)
 
                 # Appliquer l'état au dock
                 try:

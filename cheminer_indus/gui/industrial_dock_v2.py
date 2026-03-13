@@ -8,6 +8,8 @@ Version 2.0 avec QTabWidget
 
 from __future__ import annotations
 
+from ..utils.qt_compat import QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA, QT_USER_ROLE
+
 from typing import Dict, Callable, Optional, List
 
 from qgis.PyQt.QtCore import Qt
@@ -28,7 +30,7 @@ class IndustrialDockV2(QDockWidget):
 
     def __init__(self, parent=None):
         super().__init__("Analyses", parent)
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(QT_LEFT_DOCK_WIDGET_AREA | QT_RIGHT_DOCK_WIDGET_AREA)
 
         # Widget de base
         base = QWidget(self)
@@ -286,7 +288,7 @@ class IndustrialDockV2(QDockWidget):
                 val = str(row.get(field, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, ind_id)
+                    item.setData(QT_USER_ROLE, ind_id)
                 if risk_color:
                     item.setBackground(risk_color)
                 self.indus_table.setItem(row_idx, col_idx, item)
@@ -372,7 +374,7 @@ class IndustrialDockV2(QDockWidget):
                 val = str(pv.get(col, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, pv_id)
+                    item.setData(QT_USER_ROLE, pv_id)
                 self.pv_table.setItem(row_idx, col_idx, item)
 
         self.pv_table.resizeColumnsToContents()
@@ -400,7 +402,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.indus_table.item(row, 0)
         if item and self._cb_zoom_indus:
-            ind_id = item.data(Qt.UserRole)
+            ind_id = item.data(QT_USER_ROLE)
             self._cb_zoom_indus(ind_id)
 
     def _on_designate_indus(self):
@@ -410,7 +412,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.indus_table.item(row, 0)
         if item and self._cb_designate_indus:
-            ind_id = item.data(Qt.UserRole)
+            ind_id = item.data(QT_USER_ROLE)
             self._cb_designate_indus(ind_id)
 
     def _on_zoom_pv(self):
@@ -420,7 +422,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item and self._cb_zoom_pv:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             self._cb_zoom_pv(pv_id)
 
     def _on_designate_pv(self):
@@ -430,7 +432,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item and self._cb_designate_pv:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             self._cb_designate_pv(pv_id)
 
     def _open_osmose(self):
@@ -440,7 +442,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             pv = self._visible_pv_data.get(pv_id)
             if pv:
                 lien = pv.get('lien_osmose', '')
