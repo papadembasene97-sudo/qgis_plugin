@@ -1,5 +1,5 @@
 """
-Module de connexion automatique PostgreSQL pour CheminerIndus
+Module de connexion automatique PostgreSQL pour TRACK-EAU-POLL
 Charge automatiquement les couches nécessaires depuis PostgreSQL
 """
 
@@ -12,7 +12,7 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QSettings
 
 class PostgreSQLConnector:
-    """Gestionnaire de connexion PostgreSQL pour CheminerIndus"""
+    """Gestionnaire de connexion PostgreSQL pour TRACK-EAU-POLL"""
     
     def __init__(self):
         self.settings = QSettings()
@@ -116,7 +116,7 @@ class PostgreSQLConnector:
         return layer
     
     def load_cheminer_indus_layers(self):
-        """Charge toutes les couches nécessaires pour CheminerIndus"""
+        """Charge toutes les couches nécessaires pour TRACK-EAU-POLL"""
         
         layers = {}
         
@@ -260,7 +260,7 @@ class PostgreSQLConnector:
         if not connections:
             raise ValueError("❌ Aucune connexion PostgreSQL configurée dans QGIS")
         
-        # Chercher une connexion qui contient les tables CheminerIndus
+        # Chercher une connexion qui contient les tables TRACK-EAU-POLL
         for conn_name in connections:
             self.load_connection_params(conn_name)
             
@@ -286,7 +286,7 @@ class PostgreSQLConnector:
 # ============================================================================
 
 def load_cheminer_indus_data():
-    """Fonction helper pour charger toutes les données CheminerIndus"""
+    """Fonction helper pour charger toutes les données TRACK-EAU-POLL"""
     
     connector = PostgreSQLConnector()
     

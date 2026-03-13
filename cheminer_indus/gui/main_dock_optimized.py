@@ -3,7 +3,7 @@
 # Ce module contient les fonctions optimisées à intégrer dans MainDock
 
 from typing import Dict, List, Optional, Set, Tuple
-from qgis.core import QgsFeature, QgsFeatureRequest, QgsVectorLayer, QgsExpression
+from qgis.core import QgsFeature, QgsVectorLayer
 
 
 class OptimizedNodeOps:
@@ -22,14 +22,32 @@ class OptimizedNodeOps:
         self._incoming_cache: Optional[Dict[str, List[Tuple[str, QgsVectorLayer, QgsFeature]]]] = None
         self._outgoing_cache: Optional[Dict[str, List[Tuple[str, QgsVectorLayer, QgsFeature]]]] = None
         self._liaison_by_node: Optional[Dict[str, List[QgsFeature]]] = None
-        self._indus_feat_cache: Optional[Dict[str, QgsFeature]] = None
+        self._indus_fid_by_id: Optional[Dict[str, int]] = None
     
     def invalidate_caches(self):
         """Invalide tous les caches."""
         self._incoming_cache = None
         self._outgoing_cache = None
         self._liaison_by_node = None
-        self._indus_feat_cache = None
+        self._indus_fid_by_id = None
+
+    def build_indus_id_cache(self) -> Dict[str, int]:
+        """Construit un cache id_industriel -> feature id pour les désélections en lot."""
+        if self._indus_fid_by_id is not None:
+            return self._indus_fid_by_id
+
+        cache: Dict[str, int] = {}
+        if self.indus_layer and self.indus_layer.isValid():
+            for f in self.indus_layer.getFeatures():
+                try:
+                    iid = (f['id'] or "").strip()
+                    if iid and iid.upper() != 'INCONNU':
+                        cache[iid] = f.id()
+                except Exception:
+                    continue
+
+        self._indus_fid_by_id = cache
+        return cache
     
     def build_incoming_cache(self) -> Dict[str, List[Tuple[str, QgsVectorLayer, QgsFeature]]]:
         """Construit un cache des arêtes entrantes pour tous les nœuds (amont)."""
@@ -299,7 +317,7 @@ class OptimizedNodeOps:
         # Construire le cache des liaisons si pas déjà fait
         liaison_cache = self.build_liaison_cache()
         
-        lids_to_deselect: List[int] = []
+        lids_to_deselect: Set[int] = set()
         
         # Parcourir les nœuds et collecter les liaisons + indus
         for node in nodes:
@@ -309,7 +327,7 @@ class OptimizedNodeOps:
             
             liaisons = liaison_cache.get(node, [])
             for lf in liaisons:
-                lids_to_deselect.append(lf.id())
+                lids_to_deselect.add(lf.id())
                 try:
                     iid = lf['id_industriel']
                     if iid and str(iid).upper() != 'INCONNU':
@@ -319,18 +337,14 @@ class OptimizedNodeOps:
         
         # Désélectionner les liaisons en une seule fois
         if lids_to_deselect:
-            self.liaison_layer.deselect(lids_to_deselect)
+            self.liaison_layer.deselect(list(lids_to_deselect))
         
         # Désélectionner les industriels en batch
         if self.indus_layer and removed_indus:
-            esc = lambda s: (s or "").replace("'", "''")
-            values = ",".join("'{}'".format(esc(i)) for i in removed_indus if i)
-            if values:
-                exprI = QgsExpression("trim(\"id\") IN ({})".format(values))
-                reqI = QgsFeatureRequest(exprI)
-                rem_ids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
-                if rem_ids:
-                    self.indus_layer.deselect(rem_ids)
+            indus_cache = self.build_indus_id_cache()
+            rem_ids = [indus_cache[i] for i in removed_indus if i in indus_cache]
+            if rem_ids:
+                self.indus_layer.deselect(rem_ids)
         
         return removed_indus
     
@@ -381,7 +395,7 @@ class OptimizedNodeOps:
             self.fosse_layer.deselect(list(removed_fids))
         
         # Liaisons amont + indus (depuis tous les nœuds collectés) - VERSION OPTIMISÉE
-        ids_to_unselect = list(removed_lids)
+        ids_to_unselect = set(removed_lids)
         
         # Utiliser le cache pour les liaisons
         for node in removed_nodes:
@@ -391,8 +405,7 @@ class OptimizedNodeOps:
             liaisons = liaison_cache.get(node, [])
             for lf in liaisons:
                 lid = lf.id()
-                if lid not in ids_to_unselect:
-                    ids_to_unselect.append(lid)
+                ids_to_unselect.add(lid)
                 try:
                     iid = lf['id_industriel']
                     if iid and str(iid).upper() != 'INCONNU':
@@ -402,17 +415,13 @@ class OptimizedNodeOps:
         
         # Désélectionner toutes les liaisons en une fois
         if self.liaison_layer and ids_to_unselect:
-            self.liaison_layer.deselect(ids_to_unselect)
+            self.liaison_layer.deselect(list(ids_to_unselect))
         
         # Désélectionner les industriels en batch
         if self.indus_layer and removed_indus:
-            esc = lambda s: (s or "").replace("'", "''")
-            values = ",".join("'{}'".format(esc(i)) for i in removed_indus if i)
-            if values:
-                exprI = QgsExpression("trim(\"id\") IN ({})".format(values))
-                reqI = QgsFeatureRequest(exprI)
-                rem_ids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
-                if rem_ids:
-                    self.indus_layer.deselect(rem_ids)
+            indus_cache = self.build_indus_id_cache()
+            rem_ids = [indus_cache[i] for i in removed_indus if i in indus_cache]
+            if rem_ids:
+                self.indus_layer.deselect(rem_ids)
         
         return removed_indus

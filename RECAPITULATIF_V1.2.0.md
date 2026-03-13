@@ -1,4 +1,4 @@
-# 🎉 CheminerIndus v1.2.0 - RÉCAPITULATIF COMPLET
+# 🎉 TRACK-EAU-POLL v1.2.0 - RÉCAPITULATIF COMPLET
 
 ## ✅ Ce qui a été fait
 
@@ -92,9 +92,9 @@
 ```
 1. QGIS → Extensions → Installer/Gérer les extensions
 2. Paramètres → Dépôts de plugins → Ajouter
-3. Nom: CheminerIndus
+3. Nom: TRACK-EAU-POLL
 4. URL: https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
-5. OK → Onglet "Tous" → Rechercher "CheminerIndus" → Installer
+5. OK → Onglet "Tous" → Rechercher "TRACK-EAU-POLL" → Installer
 ```
 
 #### Méthode 2 : Téléchargement direct
@@ -320,4 +320,4 @@ pyvista >= 0.38.0 (optionnel, pour 3D interactif)
 **Version** : 1.2.0  
 **Statut** : ✅ PRODUCTION-READY  
 
-🎉 **Le plugin CheminerIndus v1.2.0 avec module IA est maintenant disponible !** 🚀🤖
+🎉 **Le plugin TRACK-EAU-POLL v1.2.0 avec module IA est maintenant disponible !** 🚀🤖
