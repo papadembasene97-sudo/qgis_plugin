@@ -2,6 +2,7 @@
 """Compatibilité Qt entre QGIS 3 (PyQt5) et QGIS 4 (PyQt6)."""
 
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QFrame
 
 
 def _value(name: str, enum_name: str, member_name: str):
@@ -38,6 +39,11 @@ QT_WAIT_CURSOR = _value("WaitCursor", "CursorShape", "WaitCursor")
 QT_CHECKED = _value("Checked", "CheckState", "Checked")
 QT_USER_ROLE = _value("UserRole", "ItemDataRole", "UserRole")
 QT_MOVE_ACTION = _value("MoveAction", "DropAction", "MoveAction")
+QT_NO_FRAME = getattr(QFrame, "NoFrame", None)
+if QT_NO_FRAME is None and hasattr(QFrame, "Shape"):
+    QT_NO_FRAME = getattr(QFrame.Shape, "NoFrame", None)
+if QT_NO_FRAME is None:
+    raise AttributeError("QFrame.NoFrame/QFrame.Shape.NoFrame introuvable")
 
 
 def ensure_qt_compat() -> None:

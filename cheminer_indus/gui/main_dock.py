@@ -24,7 +24,7 @@ from qgis.core import (
 from ..utils.qt_compat import (
     QT_ALIGN_CENTER, QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA,
     QT_FRAMELESS_WINDOW_HINT, QT_WA_TRANSLUCENT_BACKGROUND,
-    QT_SMOOTH_TRANSFORMATION, QT_WAIT_CURSOR, QT_CHECKED
+    QT_SMOOTH_TRANSFORMATION, QT_WAIT_CURSOR, QT_CHECKED, QT_NO_FRAME
 )
 from ..utils.config             import ICONS_DIR
 from ..core.selection           import MapSelectionTool, AstreintSelectionTool
@@ -1025,7 +1025,7 @@ class MainDock:
         """Crée l'onglet PARAMÉTRAGE/PARAMÈTRES selon la variante."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setFrameShape(QT_NO_FRAME)
 
         w = QWidget()
         lay = QVBoxLayout(w)

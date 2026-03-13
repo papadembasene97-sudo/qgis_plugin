@@ -15,7 +15,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtCore import QUrl
 
-from ..utils.qt_compat import QT_ALIGN_CENTER, QT_USER_ROLE
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_USER_ROLE, QT_NO_FRAME
 
 
 class PVConformiteTab(QWidget):
@@ -36,7 +36,7 @@ class PVConformiteTab(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QT_NO_FRAME)
         outer.addWidget(scroll)
 
         content = QWidget()

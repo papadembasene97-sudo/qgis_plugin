@@ -13,7 +13,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsProject, Qgis
 from qgis.PyQt.QtGui import QFont
 
-from ..utils.qt_compat import QT_ALIGN_CENTER
+from ..utils.qt_compat import QT_ALIGN_CENTER, QT_NO_FRAME
 
 class AITab(QWidget):
     """Onglet IA pour prédiction de pollution et visualisation 3D"""
@@ -38,7 +38,7 @@ class AITab(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QT_NO_FRAME)
         outer.addWidget(scroll)
 
         content = QWidget()
