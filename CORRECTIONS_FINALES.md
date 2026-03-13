@@ -1,4 +1,4 @@
-# 🔧 Corrections Finales - CheminerIndus Plugin
+# 🔧 Corrections Finales - TRACK-EAU-POLL Plugin
 
 **Date:** 2026-01-19  
 **Version:** 1.3.0  
@@ -104,7 +104,7 @@ from qgis.PyQt.QtWidgets import (..., QScrollArea, QFrame)
 ## 🧪 Tests à Effectuer
 
 ### Test 1: Sélection PV_CONFORMITE
-1. ✅ Ouvrir QGIS avec le plugin CheminerIndus
+1. ✅ Ouvrir QGIS avec le plugin TRACK-EAU-POLL
 2. ✅ Charger la couche `osmose.PV_CONFORMITE` dans QGIS
 3. ✅ Ouvrir le plugin → Onglet **⚙️ PARAMÈTRES**
 4. ✅ Vérifier que le combo "🏠 PV Conformité" contient la couche
@@ -115,7 +115,7 @@ from qgis.PyQt.QtWidgets import (..., QScrollArea, QFrame)
 9. ✅ **Résultat attendu:** L'analyse démarre sans erreur "Couche PV_CONFORMITE non trouvée"
 
 ### Test 2: Interface Redimensionnable
-1. ✅ Ouvrir le plugin CheminerIndus
+1. ✅ Ouvrir le plugin TRACK-EAU-POLL
 2. ✅ Aller dans l'onglet **⚙️ PARAMÈTRES**
 3. ✅ **Résultat attendu:** 
    - Barre de défilement visible à droite
@@ -124,7 +124,7 @@ from qgis.PyQt.QtWidgets import (..., QScrollArea, QFrame)
    - Interface ne déborde plus en bas
 
 ### Test 3: Redimensionnement du Dock
-1. ✅ Ouvrir le plugin CheminerIndus
+1. ✅ Ouvrir le plugin TRACK-EAU-POLL
 2. ✅ Essayer de redimensionner le dock en hauteur
 3. ✅ **Résultat attendu:**
    - Dock redimensionnable librement
@@ -197,7 +197,7 @@ Si vous avez déjà le plugin installé, copiez uniquement :
 ### Option A: Plugin Reloader (Recommandé)
 1. Installer Plugin Reloader (Extensions → Installer/Gérer les extensions)
 2. Cliquer sur l'icône Plugin Reloader
-3. Sélectionner "CheminerIndus"
+3. Sélectionner "TRACK-EAU-POLL"
 4. Cliquer sur "Recharger le plugin"
 
 ### Option B: Redémarrage de QGIS
@@ -256,4 +256,4 @@ Pour toute question ou problème :
 
 ---
 
-**Plugin CheminerIndus v1.3.0** - Corrections finales appliquées avec succès ✅
+**Plugin TRACK-EAU-POLL v1.3.0** - Corrections finales appliquées avec succès ✅

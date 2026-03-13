@@ -1,8 +1,8 @@
-# 🎉 MISSION ACCOMPLIE - CheminerIndus v1.2.0 avec IA
+# 🎉 MISSION ACCOMPLIE - TRACK-EAU-POLL v1.2.0 avec IA
 
 ## ✅ RÉSUMÉ EXÉCUTIF
 
-Le **plugin CheminerIndus v1.2.0** avec **Intelligence Artificielle** est maintenant **déployé et opérationnel** !
+Le **plugin TRACK-EAU-POLL v1.2.0** avec **Intelligence Artificielle** est maintenant **déployé et opérationnel** !
 
 ---
 
@@ -78,9 +78,9 @@ Le **plugin CheminerIndus v1.2.0** avec **Intelligence Artificielle** est mainte
 1. Ouvrir QGIS
 2. Extensions → Installer/Gérer les extensions
 3. Paramètres → Dépôts de plugins → Ajouter
-4. Nom: CheminerIndus
+4. Nom: TRACK-EAU-POLL
 5. URL: https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
-6. OK → Onglet "Tous" → Rechercher "CheminerIndus" → Installer
+6. OK → Onglet "Tous" → Rechercher "TRACK-EAU-POLL" → Installer
 ```
 
 ### Étape 2 : Installer les dépendances IA
@@ -223,7 +223,7 @@ Zone #3 - Secteur industriel Nord
 ## 🎉 MESSAGE FINAL
 
 ### Pour les utilisateurs
-Le plugin **CheminerIndus v1.2.0** est maintenant disponible avec **Intelligence Artificielle** !
+Le plugin **TRACK-EAU-POLL v1.2.0** est maintenant disponible avec **Intelligence Artificielle** !
 
 **Installez-le en 2 minutes via le dépôt QGIS** :
 ```
@@ -259,8 +259,8 @@ Le code source et la documentation technique sont disponibles sur **GitHub**.
 
 ---
 
-**🎉 BRAVO ! CheminerIndus v1.2.0 avec IA est déployé et prêt à l'emploi ! 🚀🤖**
+**🎉 BRAVO ! TRACK-EAU-POLL v1.2.0 avec IA est déployé et prêt à l'emploi ! 🚀🤖**
 
 ---
 
-*Document généré le 2026-01-15 - CheminerIndus v1.2.0*
+*Document généré le 2026-01-15 - TRACK-EAU-POLL v1.2.0*

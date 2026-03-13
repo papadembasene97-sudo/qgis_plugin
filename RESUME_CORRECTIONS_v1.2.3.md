@@ -1,4 +1,4 @@
-# ✅ RÉSUMÉ DES CORRECTIONS - CheminerIndus v1.2.3
+# ✅ RÉSUMÉ DES CORRECTIONS - TRACK-EAU-POLL v1.2.3
 
 **Date** : 2026-01-16  
 **Problèmes traités** : 4  
@@ -318,4 +318,4 @@ def _exclude_pv_from_node_visit(self, node_id: str):
 ---
 
 *Document généré le 2026-01-16*  
-*CheminerIndus v1.2.3 - Corrections interface*
+*TRACK-EAU-POLL v1.2.3 - Corrections interface*

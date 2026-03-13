@@ -1,6 +1,6 @@
 """
 Script de conversion CSV vers PKL (Pickle)
-CheminerIndus - Version 1.2.2
+TRACK-EAU-POLL - Version 1.2.2
 """
 
 import pandas as pd
