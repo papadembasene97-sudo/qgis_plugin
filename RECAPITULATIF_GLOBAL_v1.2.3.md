@@ -1,4 +1,4 @@
-# 🎉 RÉCAPITULATIF GLOBAL - CheminerIndus v1.2.3
+# 🎉 RÉCAPITULATIF GLOBAL - TRACK-EAU-POLL v1.2.3
 
 ## ✅ CE QUI A ÉTÉ RÉALISÉ AUJOURD'HUI
 
@@ -483,7 +483,7 @@ feat(pv): Ajout du module PV Conformité v1.2.3
 
 ---
 
-**CheminerIndus v1.2.3** - Module PV de Conformité  
+**TRACK-EAU-POLL v1.2.3** - Module PV de Conformité  
 *Détection intelligente des non-conformités domestiques*
 
 **Date de développement :** 2026-01-16  

@@ -1,4 +1,4 @@
-# Optimisations de Performance - Plugin CheminerIndus
+# Optimisations de Performance - Plugin TRACK-EAU-POLL
 
 ## 📊 Résumé des optimisations appliquées
 
