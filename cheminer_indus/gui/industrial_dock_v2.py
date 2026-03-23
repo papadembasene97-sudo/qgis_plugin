@@ -8,9 +8,12 @@ Version 2.0 avec QTabWidget
 
 from __future__ import annotations
 
+from ..utils.qt_compat import QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA, QT_USER_ROLE
+
 from typing import Dict, Callable, Optional, List
 
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QPushButton, QLabel,
@@ -27,7 +30,7 @@ class IndustrialDockV2(QDockWidget):
 
     def __init__(self, parent=None):
         super().__init__("Analyses", parent)
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(QT_LEFT_DOCK_WIDGET_AREA | QT_RIGHT_DOCK_WIDGET_AREA)
 
         # Widget de base
         base = QWidget(self)
@@ -280,14 +283,32 @@ class IndustrialDockV2(QDockWidget):
         # Remplir les lignes
         for row_idx, (ind_id, row) in enumerate(self._visible_indus_data.items()):
             self.indus_table.insertRow(row_idx)
+            risk_color = self._risk_color_for_row(row)
             for col_idx, field in enumerate(ordered_fields):
                 val = str(row.get(field, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, ind_id)
+                    item.setData(QT_USER_ROLE, ind_id)
+                if risk_color:
+                    item.setBackground(risk_color)
                 self.indus_table.setItem(row_idx, col_idx, item)
 
         self.indus_table.resizeColumnsToContents()
+
+    def _risk_color_for_row(self, row: Dict[str, str]) -> Optional[QColor]:
+        risques = str(row.get("Risques", row.get("risques", "")) or "").lower()
+        if not risques.strip():
+            return None
+
+        if any(token in risques for token in ("pollution", "déversement", "deversement", "rejet")):
+            return QColor("#f5b7b1")
+        if any(token in risques for token in ("hydrocarbure", "huile")):
+            return QColor("#f9e79f")
+        if "graisse" in risques:
+            return QColor("#fcf3cf")
+        if any(token in risques for token in ("chimique", "solvant")):
+            return QColor("#d7bde2")
+        return QColor("#fadbd8")
 
     def _filter_indus(self):
         """Filtre les industriels selon la recherche"""
@@ -353,7 +374,7 @@ class IndustrialDockV2(QDockWidget):
                 val = str(pv.get(col, "") or "")
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
-                    item.setData(Qt.UserRole, pv_id)
+                    item.setData(QT_USER_ROLE, pv_id)
                 self.pv_table.setItem(row_idx, col_idx, item)
 
         self.pv_table.resizeColumnsToContents()
@@ -381,7 +402,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.indus_table.item(row, 0)
         if item and self._cb_zoom_indus:
-            ind_id = item.data(Qt.UserRole)
+            ind_id = item.data(QT_USER_ROLE)
             self._cb_zoom_indus(ind_id)
 
     def _on_designate_indus(self):
@@ -391,7 +412,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.indus_table.item(row, 0)
         if item and self._cb_designate_indus:
-            ind_id = item.data(Qt.UserRole)
+            ind_id = item.data(QT_USER_ROLE)
             self._cb_designate_indus(ind_id)
 
     def _on_zoom_pv(self):
@@ -401,7 +422,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item and self._cb_zoom_pv:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             self._cb_zoom_pv(pv_id)
 
     def _on_designate_pv(self):
@@ -411,7 +432,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item and self._cb_designate_pv:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             self._cb_designate_pv(pv_id)
 
     def _open_osmose(self):
@@ -421,7 +442,7 @@ class IndustrialDockV2(QDockWidget):
             return
         item = self.pv_table.item(row, 0)
         if item:
-            pv_id = item.data(Qt.UserRole)
+            pv_id = item.data(QT_USER_ROLE)
             pv = self._visible_pv_data.get(pv_id)
             if pv:
                 lien = pv.get('lien_osmose', '')
@@ -493,6 +514,56 @@ class IndustrialDockV2(QDockWidget):
         nb_pv = len(self._visible_pv_data)
         self.tab_widget.setTabText(0, f"🏭 Industriels ({nb_indus})")
         self.tab_widget.setTabText(1, f"🏠 PV non conformes ({nb_pv})")
+
+
+    def get_state(self) -> Dict[str, object]:
+        """Retourne l'état complet du dock (tables + filtres + UI)."""
+        return {
+            "raw_indus_data": dict(self._raw_indus_data),
+            "visible_indus_data": dict(self._visible_indus_data),
+            "raw_pv_data": dict(self._raw_pv_data),
+            "visible_pv_data": dict(self._visible_pv_data),
+            "indus_search": self.indus_search.text() if self.indus_search else "",
+            "pv_search": self.pv_search.text() if self.pv_search else "",
+            "current_tab": int(self.tab_widget.currentIndex()) if self.tab_widget else 0,
+            "is_open": self.isVisible(),
+        }
+
+    def apply_state(self, state: Dict[str, object]):
+        """Restaure l'état du dock (données visibles comprises)."""
+        state = state or {}
+
+        raw_indus = state.get("raw_indus_data") or state.get("raw_data") or {}
+        visible_indus = state.get("visible_indus_data") or raw_indus
+        raw_pv = state.get("raw_pv_data") or {}
+        visible_pv = state.get("visible_pv_data") or raw_pv
+
+        self._raw_indus_data = dict(raw_indus)
+        self._visible_indus_data = dict(visible_indus)
+        self._raw_pv_data = dict(raw_pv)
+        self._visible_pv_data = dict(visible_pv)
+
+        self._refresh_indus_table()
+        self._refresh_pv_table()
+        self._update_tab_titles()
+
+        if self.indus_search:
+            self.indus_search.blockSignals(True)
+            self.indus_search.setText(str(state.get("indus_search", "") or ""))
+            self.indus_search.blockSignals(False)
+
+        if self.pv_search:
+            self.pv_search.blockSignals(True)
+            self.pv_search.setText(str(state.get("pv_search", "") or ""))
+            self.pv_search.blockSignals(False)
+
+        if self.tab_widget:
+            try:
+                idx = int(state.get("current_tab", 0) or 0)
+            except Exception:
+                idx = 0
+            idx = max(0, min(idx, self.tab_widget.count() - 1))
+            self.tab_widget.setCurrentIndex(idx)
 
     # ------------------------------------------------------------------
     # Compatibilité avec l'ancien IndustrialDock
