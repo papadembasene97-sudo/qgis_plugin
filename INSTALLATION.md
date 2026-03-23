@@ -1,4 +1,4 @@
-# 📥 Guide d'Installation - CheminerIndus via QGIS
+# 📥 Guide d'Installation - TRACK-EAU-POLL via QGIS
 
 ## 🎯 Méthode 1 : Installation directe via dépôt QGIS (RECOMMANDÉ)
 
@@ -23,7 +23,7 @@ Dans la section "Dépôts de plugins" :
 - Remplir les champs :
 
 ```
-Nom : CheminerIndus
+Nom : TRACK-EAU-POLL
 URL  : https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
 ```
 
@@ -33,14 +33,14 @@ URL  : https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/p
 #### 4️⃣ Installer le plugin
 
 - Retourner sur l'onglet **Tous** (en haut)
-- Dans la barre de recherche, taper : `CheminerIndus`
-- Sélectionner le plugin **CheminerIndus**
+- Dans la barre de recherche, taper : `TRACK-EAU-POLL`
+- Sélectionner le plugin **TRACK-EAU-POLL**
 - Cliquer sur **Installer le plugin**
 
 #### 5️⃣ Vérification
 
 - Une fois installé, le plugin apparaît dans :
-  - Menu **Extensions** → **CheminerIndus**
+  - Menu **Extensions** → **TRACK-EAU-POLL**
   - Barre d'outils (icône du plugin)
 
 ---
@@ -115,10 +115,10 @@ C:\Users\[VOTRE_UTILISATEUR]\AppData\Roaming\QGIS\QGIS3\profiles\default\python\
 ### Après installation réussie, vous devriez voir :
 
 1. **Dans le menu** :
-   - Extensions → CheminerIndus
+   - Extensions → TRACK-EAU-POLL
 
 2. **Dans la barre d'outils** :
-   - Icône du plugin (logo CheminerIndus)
+   - Icône du plugin (logo TRACK-EAU-POLL)
 
 3. **En cliquant sur l'icône** :
    - Ouverture du dock "CHEMINEMENT RESEAUX"
@@ -126,7 +126,7 @@ C:\Users\[VOTRE_UTILISATEUR]\AppData\Roaming\QGIS\QGIS3\profiles\default\python\
 
 ### Test rapide
 
-1. Cliquer sur l'icône CheminerIndus
+1. Cliquer sur l'icône TRACK-EAU-POLL
 2. Le dock principal doit s'ouvrir avec 4 onglets :
    - CHEMINEMENT
    - VISITE-INDUS
@@ -169,7 +169,7 @@ Les mises à jour sont automatiques !
 
 1. Vérifier que le plugin est activé :
    - **Extensions** → **Installer/Gérer les extensions** → **Installées**
-   - Cocher **CheminerIndus**
+   - Cocher **TRACK-EAU-POLL**
 
 2. Redémarrer QGIS
 

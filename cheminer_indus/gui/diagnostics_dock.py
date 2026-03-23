@@ -2,6 +2,8 @@
 # cheminer_indus/gui/diagnostics_dock.py
 
 from __future__ import annotations
+
+from ..utils.qt_compat import QT_LEFT_DOCK_WIDGET_AREA, QT_RIGHT_DOCK_WIDGET_AREA, QT_USER_ROLE
 from typing import Dict, List, Tuple
 
 from qgis.PyQt.QtCore import Qt
@@ -23,7 +25,7 @@ class DiagnosticsDock(QDockWidget):
 
     def __init__(self, parent=None):
         super().__init__("Diagnostics réseau", parent)
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(QT_LEFT_DOCK_WIDGET_AREA | QT_RIGHT_DOCK_WIDGET_AREA)
 
         base = QWidget()
         self.setWidget(base)
@@ -83,7 +85,7 @@ class DiagnosticsDock(QDockWidget):
             self.table.setItem(r, 1, QTableWidgetItem(info))
 
             ent = QTableWidgetItem(f"{self._layers.get('canal', '')}:{fid_c}")
-            ent.setData(Qt.UserRole, (self._layers.get("canal", ""), fid_c))
+            ent.setData(QT_USER_ROLE, (self._layers.get("canal", ""), fid_c))
             self.table.setItem(r, 2, ent)
 
         # ---- RÉDUCTIONS ----
@@ -95,7 +97,7 @@ class DiagnosticsDock(QDockWidget):
             self.table.setItem(r, 1, QTableWidgetItem(info))
 
             ent = QTableWidgetItem(f"{self._layers.get('canal', '')}:{fid_c}")
-            ent.setData(Qt.UserRole, (self._layers.get("canal", ""), fid_c))
+            ent.setData(QT_USER_ROLE, (self._layers.get("canal", ""), fid_c))
             self.table.setItem(r, 2, ent)
 
         self.table.resizeColumnsToContents()
@@ -108,7 +110,7 @@ class DiagnosticsDock(QDockWidget):
         if row < 0:
             return None
         ent = self.table.item(row, 2)
-        return ent.data(Qt.UserRole) if ent else None
+        return ent.data(QT_USER_ROLE) if ent else None
 
     def _on_zoom(self):
         sel = self._selected()

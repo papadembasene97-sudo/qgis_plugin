@@ -1,6 +1,6 @@
 """
 Gestionnaire de conversions CSV ↔ PKL
-CheminerIndus - Version 1.2.2
+TRACK-EAU-POLL - Version 1.2.2
 Menu interactif pour toutes les conversions
 """
 
@@ -108,7 +108,7 @@ def menu_principal():
     """Affiche le menu principal"""
     
     print("\n" + "="*60)
-    print("🔄 GESTIONNAIRE CSV ↔ PKL - CheminerIndus v1.2.2")
+    print("🔄 GESTIONNAIRE CSV ↔ PKL - TRACK-EAU-POLL v1.2.2")
     print("="*60)
     print("\n📋 MENU :")
     print("   1. Convertir CSV → PKL")
