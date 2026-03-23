@@ -50,6 +50,16 @@ CAT_VISITE_OUI   = "Pollué"
 CAT_VISITE_NON   = "Non_Pollué"
 CAT_ASTREINTE    = "Astreinte"
 CAT_INDUS_DES    = "Origine_Pollution"
+CAT_POLL_DIVERS  = "Pollution_Divers"
+
+PLUGIN_BASE_NAME = "TRACK-EAU-POLL"
+PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
+PLUGIN_DISPLAY_NAME = PLUGIN_BASE_NAME if PLUGIN_VARIANT == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
+
+
+def _display_name_for_variant(variant: str) -> str:
+    v = str(variant or "LITE").strip().upper()
+    return PLUGIN_BASE_NAME if v == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
 
 PLUGIN_BASE_NAME = "TRACK-EAU-POLL"
 PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
@@ -99,6 +109,7 @@ class MainDock:
         self.liaison_layer : Optional[QgsVectorLayer] = None
         self.astreint_layer : Optional[QgsVectorLayer] = None
         self.pv_layer      : Optional[QgsVectorLayer] = None  # PV_CONFORMITE
+        self.pollution_divers_layer: Optional[QgsVectorLayer] = None
         self.label_layer   : Optional[QgsVectorLayer] = None  # LABEL_CI
 
         # services / managers
@@ -152,8 +163,10 @@ class MainDock:
         self.id_input = self.search_input = None
         self.trace_btn = self.flux_btn = None
         self.direction_combo = self.cat_combo = self.func_combo = None
+        self.radius_combo = None
         self.visit_input = None
         self.btn_show_indus = None
+        self.btn_designate_ouvrage = None
         self.note_text = None
         self.catchment_chk = None
         self.color_btn = None  # bouton Couleurs
@@ -734,6 +747,8 @@ class MainDock:
                 self.cat_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             if self.func_combo:
                 self.func_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
+            if self.radius_combo:
+                self.radius_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             for combo in (self.canal_combo, self.ouvr_combo, self.fosse_combo, self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
                 if combo:
                     combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
@@ -904,17 +919,25 @@ class MainDock:
         self.lbl_type = QLabel("Type :")
         g.addWidget(self.lbl_type, 3, 0); g.addWidget(self.direction_combo, 3, 1)
 
+        self.radius_combo = QComboBox()
+        self.radius_combo.addItem("Tout le réseau", None)
+        for txt, meters in [("500 m", 500.0), ("1 km", 1000.0), ("2 km", 2000.0),
+                            ("3 km", 3000.0), ("4 km", 4000.0), ("5 km", 5000.0)]:
+            self.radius_combo.addItem(txt, meters)
+        self.lbl_radius = QLabel("Rayon limite :")
+        g.addWidget(self.lbl_radius, 4, 0); g.addWidget(self.radius_combo, 4, 1)
+
         self.cat_combo = QComboBox()
         for txt,val in [("",""),("Eaux Pluviales","01"),("Eaux Usées","02"),("Unitaire","03")]:
             self.cat_combo.addItem(txt,val)
         self.lbl_category = QLabel("Catégorie :")
-        g.addWidget(self.lbl_category, 4, 0); g.addWidget(self.cat_combo, 4, 1)
+        g.addWidget(self.lbl_category, 5, 0); g.addWidget(self.cat_combo, 5, 1)
 
         self.func_combo = QComboBox()
         for txt,val in [("",""),("Transport","01"),("Collecte","02")]:
             self.func_combo.addItem(txt,val)
         self.lbl_function = QLabel("Fonction :")
-        g.addWidget(self.lbl_function, 5, 0); g.addWidget(self.func_combo, 5, 1)
+        g.addWidget(self.lbl_function, 6, 0); g.addWidget(self.func_combo, 6, 1)
         
         # buttons
         self.trace_btn = QPushButton("Cheminer"); self.trace_btn.setIcon(QIcon(os.path.join(ICONS_DIR,'trace.png')))
@@ -931,7 +954,7 @@ class MainDock:
         self.color_btn.clicked.connect(self._open_flux_colors)
 
         hb2 = QHBoxLayout(); hb2.addWidget(self.trace_btn); hb2.addWidget(self.flux_btn); hb2.addWidget(self.color_btn)
-        g.addLayout(hb2, 7, 0, 1, 2)
+        g.addLayout(hb2, 8, 0, 1, 2)
 
         return w
 
@@ -964,6 +987,10 @@ class MainDock:
         # note pollution (grande zone)
         self.note_text = QTextEdit(); self.note_text.setPlaceholderText("Note de pollution (si désignation)…")
         li.addWidget(self.note_text)
+
+        self.btn_designate_ouvrage = QPushButton("Désigner Ouvrage / Pollution Divers")
+        self.btn_designate_ouvrage.clicked.connect(self._designate_ouvrage_or_divers)
+        li.addWidget(self.btn_designate_ouvrage)
 
         # rattacher astreinte
         self.btn_att = QPushButton("Rattacher Astreinte"); self.btn_att.setIcon(QIcon(os.path.join(ICONS_DIR,'attach.png')))
@@ -1291,6 +1318,17 @@ class MainDock:
     # ---------------------------------------------------------
     # Traçage
     # ---------------------------------------------------------
+
+    def _selected_trace_radius_m(self) -> Optional[float]:
+        """Rayon maximal de cheminement en mètres (None = tout le réseau)."""
+        if not self.radius_combo:
+            return None
+        try:
+            val = self.radius_combo.currentData()
+            return float(val) if val not in (None, "", 0) else None
+        except Exception:
+            return None
+
     def _do_trace(self):
         start_id = (self.id_input.text() or "").strip()
         if not start_id:
@@ -1325,7 +1363,7 @@ class MainDock:
             filters=filters
         )
         downstream = (mode == "Amont vers Aval")
-        canal_ids, fosse_ids = self.tracer.trace(start_id, downstream=downstream)
+        canal_ids, fosse_ids = self.tracer.trace(start_id, downstream=downstream, max_distance=self._selected_trace_radius_m())
 
         # sélection
         self.canal_layer.removeSelection()
@@ -1403,7 +1441,7 @@ class MainDock:
             filters=filters
         )
         # amont
-        canal_ids, fosse_ids = self.tracer.trace(start_id, downstream=False)
+        canal_ids, fosse_ids = self.tracer.trace(start_id, downstream=False, max_distance=self._selected_trace_radius_m())
 
         # sélection réseau
         self.canal_layer.removeSelection()
@@ -2321,6 +2359,110 @@ class MainDock:
                         self.canvas.refresh()
                         return
 
+    def _ensure_pollution_divers_layer(self) -> Optional[QgsVectorLayer]:
+        """Retourne une couche point de pollution divers (existante ou mémoire)."""
+        if self.pollution_divers_layer and self.pollution_divers_layer.isValid():
+            return self.pollution_divers_layer
+
+        for lyr in QgsProject.instance().mapLayers().values():
+            try:
+                if isinstance(lyr, QgsVectorLayer) and lyr.isValid() and lyr.name() == "POINT_POLLUTION_DIVERS":
+                    self.pollution_divers_layer = lyr
+                    return lyr
+            except Exception:
+                continue
+
+        vdef = (
+            "Point?crs=EPSG:2154"
+            "&field=source_type:string"
+            "&field=idouvrage:string"
+            "&field=categorie:string"
+            "&field=details:string"
+            "&field=date_saisie:string"
+        )
+        lyr = QgsVectorLayer(vdef, "POINT_POLLUTION_DIVERS", "memory")
+        QgsProject.instance().addMapLayer(lyr)
+        self.pollution_divers_layer = lyr
+        return lyr
+
+    def _designate_ouvrage_or_divers(self):
+        """Désigne un ouvrage comme origine ou crée un point de pollution divers."""
+        if not self.ouvr_layer or not self.ouvr_layer.isValid():
+            self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
+
+        oid = (self.visit_input.text() if self.visit_input else "") or (self.id_input.text() if self.id_input else "")
+        oid = str(oid).strip()
+
+        feat = None
+        if self.ouvr_layer and self.ouvr_layer.isValid() and oid:
+            expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(oid.replace("'", "''")))
+            for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
+                feat = f
+                break
+
+        category_options = [
+            "Dépôt sauvage",
+            "Hydrocarbure (engins / débroussaillage)",
+            "Déversement accidentel",
+            "Eaux usées hors réseau",
+            "Rejet artisanal",
+            "Autre"
+        ]
+
+        dlg = QDialog(self.iface.mainWindow())
+        dlg.setWindowTitle("Désignation pollution divers")
+        lv = QVBoxLayout(dlg)
+        lv.addWidget(QLabel("Catégorie de pollution :"))
+        cb_cat = QComboBox(); [cb_cat.addItem(c) for c in category_options]
+        lv.addWidget(cb_cat)
+        lv.addWidget(QLabel("Détails / commentaire :"))
+        txt = QTextEdit(); txt.setPlaceholderText("Décrivez l'origine constatée, odeur, couleur, contexte…")
+        lv.addWidget(txt)
+        hb = QHBoxLayout(); b_ok = QPushButton("Valider"); b_cancel = QPushButton("Annuler")
+        hb.addWidget(b_ok); hb.addWidget(b_cancel); lv.addLayout(hb)
+        b_ok.clicked.connect(dlg.accept); b_cancel.clicked.connect(dlg.reject)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+
+        geom = None
+        if feat is not None and feat.geometry():
+            g = feat.geometry()
+            try:
+                pt = g.asPoint()
+            except Exception:
+                pt = g.centroid().asPoint() if g else None
+            if pt:
+                geom = QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y()))
+        else:
+            center = self.canvas.extent().center()
+            geom = QgsGeometry.fromPointXY(QgsPointXY(center.x(), center.y()))
+
+        layer = self._ensure_pollution_divers_layer()
+        if not layer or not layer.isValid() or not geom:
+            return
+
+        ff = QgsFeature(layer.fields())
+        ff.setGeometry(geom)
+        ff.setAttribute("source_type", "OUVRAGE" if feat is not None else "POINT_LIBRE")
+        ff.setAttribute("idouvrage", oid)
+        ff.setAttribute("categorie", cb_cat.currentText())
+        ff.setAttribute("details", (txt.toPlainText() or "").strip())
+        ff.setAttribute("date_saisie", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        layer.dataProvider().addFeatures([ff])
+        layer.triggerRepaint()
+
+        self.polluter_id = oid or "POINT_DIVERS"
+        self.polluter_type = "OUVRAGE"
+        self.polluter_note = (txt.toPlainText() or "").strip()
+        if self.label_layer:
+            self._toggle_mask_labels(True)
+
+        QMessageBox.information(
+            self.iface.mainWindow(),
+            "Pollution divers",
+            "Point de pollution divers enregistré et désigné comme origine."
+        )
+
     def _designate_pv(self, pv_id: str):
         """Désigne un PV comme pollueur."""
         self.polluter_id = str(pv_id)
@@ -2497,7 +2639,7 @@ class MainDock:
         canal_ids_all = set()
         fosse_ids_all = set()
         for node_id in start_nodes:
-            canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True)
+            canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True, max_distance=self._selected_trace_radius_m())
             canal_ids_all.update(canal_ids)
             fosse_ids_all.update(fosse_ids)
 
@@ -2951,6 +3093,52 @@ class MainDock:
                         ff.setAttribute("label", nom)
                         feats.append(ff)
 
+            # OUVRAGE / POINT DIVERS DÉSIGNÉ
+            if self.polluter_id and self.polluter_type.upper() == "OUVRAGE":
+                if self.ouvr_layer and self.ouvr_layer.isValid() and self.polluter_id:
+                    expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(self.polluter_id.replace("'", "''")))
+                    for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
+                        g = f.geometry()
+                        pt = None
+                        if g:
+                            try:
+                                pt = g.asPoint()
+                            except Exception:
+                                try:
+                                    pt = g.centroid().asPoint()
+                                except Exception:
+                                    pt = None
+                        if pt:
+                            pt = _point_to_label_crs(pt, self.ouvr_layer)
+                            ff = QgsFeature(self.label_layer.fields())
+                            ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                            ff.setAttribute("categorie", CAT_POLL_DIVERS)
+                            ff.setAttribute("label", str(self.polluter_id))
+                            feats.append(ff)
+                            break
+
+                layer_div = self._ensure_pollution_divers_layer()
+                if layer_div and layer_div.isValid() and not feats:
+                    for f in layer_div.getFeatures():
+                        g = f.geometry()
+                        pt = None
+                        if g:
+                            try:
+                                pt = g.asPoint()
+                            except Exception:
+                                try:
+                                    pt = g.centroid().asPoint()
+                                except Exception:
+                                    pt = None
+                        if pt:
+                            pt = _point_to_label_crs(pt, layer_div)
+                            ff = QgsFeature(self.label_layer.fields())
+                            ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                            ff.setAttribute("categorie", CAT_POLL_DIVERS)
+                            ff.setAttribute("label", str(f.attribute("categorie") or "Pollution divers"))
+                            feats.append(ff)
+                            break
+
             # PV DÉSIGNÉ
             if not self.pv_layer or not self.pv_layer.isValid():
                 self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
@@ -3192,6 +3380,7 @@ class MainDock:
             "mode": self.direction_combo.currentText() if self.direction_combo else "",
             "category": self.cat_combo.currentData() if self.cat_combo else '',
             "function": self.func_combo.currentData() if self.func_combo else '',
+            "trace_radius": self.radius_combo.currentData() if self.radius_combo else None,
             "visited": self.visited,
             "polluter_id": self.polluter_id,
             "polluter_note": self.polluter_note,
@@ -3239,6 +3428,11 @@ class MainDock:
                 for i in range(self.func_combo.count()):
                     if self.func_combo.itemData(i) == fun:
                         self.func_combo.setCurrentIndex(i); break
+            if self.radius_combo:
+                rad = st.get("trace_radius", None)
+                for i in range(self.radius_combo.count()):
+                    if self.radius_combo.itemData(i) == rad:
+                        self.radius_combo.setCurrentIndex(i); break
 
             self.visited = st.get("visited",[])
             self.theme_name = st.get("theme", self.theme_name)

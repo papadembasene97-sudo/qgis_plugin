@@ -152,38 +152,51 @@ class NetworkTracer:
         self._graph_out = out
         self._graph_in = inn
 
-    def trace(self, start_id: str, downstream: bool = True) -> Tuple[List[int], List[int]]:
+    def trace(
+        self,
+        start_id: str,
+        downstream: bool = True,
+        max_distance: Optional[float] = None,
+    ) -> Tuple[List[int], List[int]]:
         self.total_length = 0.0
         self.flux_types.clear()
 
         self._ensure_graph_cache()
         graph = self._graph_out if downstream else self._graph_in
 
-        visited_nodes: Set[str] = set()
+        import heapq
+
+        best_dist: Dict[str, float] = {start_id: 0.0}
+        queue: List[Tuple[float, str]] = [(0.0, start_id)]
+
         seen_edge_ids: Set[int] = set()
         canal_ids: List[int] = []
         fosse_ids: List[int] = []
-        stack: List[str] = [start_id]
 
-        while stack:
-            cur = stack.pop()
-            if cur in visited_nodes:
+        while queue:
+            cur_dist, cur = heapq.heappop(queue)
+            if cur_dist > best_dist.get(cur, float("inf")):
                 continue
-            visited_nodes.add(cur)
 
             for is_canal, fid, nxt, length, flux_type in graph.get(cur, []) if graph else []:
+                next_dist = cur_dist + float(length or 0.0)
+                if max_distance is not None and next_dist > float(max_distance):
+                    continue
+
                 if fid not in seen_edge_ids:
                     seen_edge_ids.add(fid)
                     if is_canal:
                         canal_ids.append(fid)
                     else:
                         fosse_ids.append(fid)
-                    self.total_length += length
+                    self.total_length += float(length or 0.0)
                     if flux_type:
                         self.flux_types.add(flux_type)
 
-                if nxt and nxt not in visited_nodes and nxt != "INCONNU":
-                    stack.append(nxt)
+                if nxt and nxt != "INCONNU":
+                    if next_dist < best_dist.get(nxt, float("inf")):
+                        best_dist[nxt] = next_dist
+                        heapq.heappush(queue, (next_dist, nxt))
 
         self.canal_ids = canal_ids
         self.fosse_ids = fosse_ids
