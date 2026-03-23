@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QProgressDialog
 )
 
 from qgis.core import (
@@ -51,6 +51,15 @@ CAT_VISITE_NON   = "Non_Pollué"
 CAT_ASTREINTE    = "Astreinte"
 CAT_INDUS_DES    = "Origine_Pollution"
 CAT_POLL_DIVERS  = "Pollution_Divers"
+
+PLUGIN_BASE_NAME = "TRACK-EAU-POLL"
+PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
+PLUGIN_DISPLAY_NAME = PLUGIN_BASE_NAME if PLUGIN_VARIANT == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
+
+
+def _display_name_for_variant(variant: str) -> str:
+    v = str(variant or "LITE").strip().upper()
+    return PLUGIN_BASE_NAME if v == "FULL" else f"{PLUGIN_BASE_NAME}-LITE"
 
 PLUGIN_BASE_NAME = "TRACK-EAU-POLL"
 PLUGIN_VARIANT = os.environ.get("TRACK_EAU_VARIANT", "LITE").strip().upper()
@@ -145,6 +154,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
