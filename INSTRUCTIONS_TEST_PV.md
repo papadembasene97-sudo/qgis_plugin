@@ -5,7 +5,7 @@
 ### Pré-requis
 
 ✅ QGIS 3.x installé  
-✅ Plugin CheminerIndus chargé  
+✅ Plugin TRACK-EAU-POLL chargé  
 ✅ Connexion PostgreSQL configurée dans QGIS  
 ✅ Base de données avec la table `exploit.PV_CONFORMITE`  
 
@@ -346,7 +346,7 @@ Si un test échoue, vérifier :
 1. **Connexion PostgreSQL** configurée dans QGIS
 2. **Table `exploit.PV_CONFORMITE`** existe dans la base
 3. **Colonnes `lat` et `lon`** présentes et non NULL
-4. **Plugin CheminerIndus** chargé et activé
+4. **Plugin TRACK-EAU-POLL** chargé et activé
 5. **Version QGIS** : 3.16+
 
 **Email :** papademba.sene97@gmail.com  

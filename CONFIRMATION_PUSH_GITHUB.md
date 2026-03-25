@@ -1,6 +1,6 @@
 # ✅ CONFIRMATION PUSH GITHUB
 
-## 🎉 CheminerIndus v1.2.3 - Mise à jour poussée avec succès !
+## 🎉 TRACK-EAU-POLL v1.2.3 - Mise à jour poussée avec succès !
 
 **Date** : 2026-01-16  
 **Heure** : $(date '+%H:%M:%S')  
@@ -12,7 +12,7 @@
 ## 📦 COMMIT DÉTAILS
 
 ### Commit Hash
-**192cc3f** → `release: CheminerIndus v1.2.3 - Module PV Conformité + corrections SQL + IA 59 features`
+**192cc3f** → `release: TRACK-EAU-POLL v1.2.3 - Module PV Conformité + corrections SQL + IA 59 features`
 
 ### Fichiers modifiés (4)
 1. ✅ `CHANGELOG.md` (NOUVEAU - 402 lignes)
@@ -35,7 +35,7 @@
 
 | # | Hash | Message |
 |---|------|---------|
-| 9 | **192cc3f** | release: CheminerIndus v1.2.3 (ACTUEL) |
+| 9 | **192cc3f** | release: TRACK-EAU-POLL v1.2.3 (ACTUEL) |
 | 8 | 6fc0df8 | docs: Vérification compatibilité IA |
 | 7 | 9b04967 | docs: Résumé correctif SQL |
 | 6 | 54a9bfe | fix(sql): Corrections SQL |
@@ -192,7 +192,7 @@ https://github.com/papadembasene97-sudo/qgis_plugin/releases
 
 ### ✅ MISSION ACCOMPLIE !
 
-**CheminerIndus v1.2.3** a été poussé avec succès sur GitHub !
+**TRACK-EAU-POLL v1.2.3** a été poussé avec succès sur GitHub !
 
 **Résumé ultra-compact** :
 - ✅ 9 commits aujourd'hui

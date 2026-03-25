@@ -90,10 +90,10 @@ sha256sum cheminer_indus.zip
 2. Onglet **Paramètres**
 3. Section **Dépôts de plugins** → **Ajouter...**
 4. Remplir :
-   - **Nom** : `CheminerIndus`
+   - **Nom** : `TRACK-EAU-POLL`
    - **URL** : `https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml`
 5. Cliquer sur **OK**
-6. Onglet **Tous** → Chercher **CheminerIndus**
+6. Onglet **Tous** → Chercher **TRACK-EAU-POLL**
 7. Cliquer sur **Installer le plugin**
 
 ### Méthode 2 : Installation depuis le ZIP
@@ -113,7 +113,7 @@ sha256sum cheminer_indus.zip
 
 6. **✅ Résultat attendu** :
    ```
-   Installation réussie : CheminerIndus v1.1.1
+   Installation réussie : TRACK-EAU-POLL v1.1.1
    Le plugin a été installé dans :
    C:/Users/[votre_nom]/AppData/Roaming/QGIS/QGIS3/profiles/default/python/plugins/cheminer_indus/
    ```
@@ -131,7 +131,7 @@ sha256sum cheminer_indus.zip
 
 4. **Extensions** → **Installer/Gérer les extensions** → Onglet **Installés**
 
-5. Cocher **CheminerIndus**
+5. Cocher **TRACK-EAU-POLL**
 
 ## 🧪 Vérification post-installation
 
@@ -168,7 +168,7 @@ cheminer_indus/
 ### 2. Vérifier dans la console Python QGIS
 
 ```python
-from cheminer_indus import CheminerIndusPlugin
+from cheminer_indus import TRACK-EAU-POLLPlugin
 print("✅ Plugin chargé avec succès!")
 
 from cheminer_indus.gui.main_dock import MainDock
@@ -180,7 +180,7 @@ print("✅ Optimisations chargées!")
 
 ### 3. Vérifier l'interface
 
-- Le dock **CheminerIndus** doit apparaître
+- Le dock **TRACK-EAU-POLL** doit apparaître
 - Icône visible dans la barre d'outils
 - Onglets **CHEMINEMENT**, **VISITE-INDUS**, **ACTIONS**, **COUCHES** accessibles
 

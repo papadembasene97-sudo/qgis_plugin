@@ -1,4 +1,4 @@
-# 🔄 Gestion des inversions et trop-pleins - CheminerIndus v1.2.2
+# 🔄 Gestion des inversions et trop-pleins - TRACK-EAU-POLL v1.2.2
 
 ## 📋 Codification de la colonne `inversion`
 

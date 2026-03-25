@@ -1,4 +1,4 @@
-# 📊 Statut final : CheminerIndus v1.1.1
+# 📊 Statut final : TRACK-EAU-POLL v1.1.1
 
 ## ✅ Mission accomplie
 
@@ -165,7 +165,7 @@
 
 ### Fonctionnel
 - [x] Plugin apparaît dans "Installés"
-- [x] Dock CheminerIndus affiché
+- [x] Dock TRACK-EAU-POLL affiché
 - [x] Tous les onglets accessibles
 - [x] Interface réactive
 - [x] Splash screen fonctionnel
@@ -272,7 +272,7 @@ https://github.com/papadembasene97-sudo/qgis_plugin/issues
 
 ## 🎉 Conclusion
 
-**Le plugin CheminerIndus v1.1.1 est maintenant :**
+**Le plugin TRACK-EAU-POLL v1.1.1 est maintenant :**
 
 - ✅ **Fonctionnel** : Installation sans erreur
 - ✅ **Optimisé** : 85-92% plus rapide

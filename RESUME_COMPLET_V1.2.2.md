@@ -1,8 +1,8 @@
-# 🎉 RÉSUMÉ COMPLET - CheminerIndus IA v1.2.2
+# 🎉 RÉSUMÉ COMPLET - TRACK-EAU-POLL IA v1.2.2
 
 ## 📌 Vue d'ensemble
 
-**CheminerIndus** est un plugin QGIS avec **Intelligence Artificielle intégrée** pour la prédiction de pollution dans les réseaux d'assainissement.
+**TRACK-EAU-POLL** est un plugin QGIS avec **Intelligence Artificielle intégrée** pour la prédiction de pollution dans les réseaux d'assainissement.
 
 ### 🎯 Versions disponibles
 
@@ -21,10 +21,10 @@
 ```
 📍 QGIS → Extensions → Paramètres → Dépôts → Ajouter
 
-Nom : CheminerIndus
+Nom : TRACK-EAU-POLL
 URL : https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
 
-→ Onglet "Installer depuis un dépôt" → Chercher "CheminerIndus" → Installer
+→ Onglet "Installer depuis un dépôt" → Chercher "TRACK-EAU-POLL" → Installer
 ```
 
 ### 2️⃣ **Installation des dépendances Python**
@@ -47,7 +47,7 @@ pip install -r requirements_ia.txt
 
 #### **Option A : Via l'interface QGIS (⭐ RECOMMANDÉ)**
 
-1. Ouvrir **CheminerIndus** → Onglet **"IA"**
+1. Ouvrir **TRACK-EAU-POLL** → Onglet **"IA"**
 2. Sélectionner la couche **`donnees_entrainement_ia`**
 3. Cliquer **"Entraîner le modèle"**
 4. Sauvegarder : `modele_pollution_2026.pkl`
@@ -234,7 +234,7 @@ Pollution détectée (1)    0.85      0.82      0.84        57
 **Via l'interface QGIS** :
 
 ```
-CheminerIndus → Onglet "IA" → Section PRÉDICTION
+TRACK-EAU-POLL → Onglet "IA" → Section PRÉDICTION
 
 1. Couche à analyser : raepa_ouvrass_p
 2. Modèle : modele_pollution_2026.pkl
@@ -246,7 +246,7 @@ CheminerIndus → Onglet "IA" → Section PRÉDICTION
 ### **2️⃣ Optimiser un parcours de visite**
 
 ```
-CheminerIndus → Onglet "IA" → Section OPTIMISATION
+TRACK-EAU-POLL → Onglet "IA" → Section OPTIMISATION
 
 1. Nœud de départ : Sélectionner sur la carte
 2. Nombre de visites par jour : 20
@@ -258,7 +258,7 @@ CheminerIndus → Onglet "IA" → Section OPTIMISATION
 ### **3️⃣ Visualiser en 3D**
 
 ```
-CheminerIndus → Onglet "IA" → Section VISUALISATION 3D
+TRACK-EAU-POLL → Onglet "IA" → Section VISUALISATION 3D
 
 1. Colorer par : Risque de pollution
 2. ☑ Profil en long
@@ -287,7 +287,7 @@ CheminerIndus → Onglet "IA" → Section VISUALISATION 3D
    ```
 
 2. **Ré-entraîner** :
-   - **Via QGIS** : CheminerIndus → IA → Entraîner
+   - **Via QGIS** : TRACK-EAU-POLL → IA → Entraîner
    - **Via script** : `python entrainer_modele_ia.py`
 
 3. **Comparer** l'ancienne et la nouvelle version
@@ -347,7 +347,7 @@ CheminerIndus → Onglet "IA" → Section VISUALISATION 3D
 
 ### **Tutoriel rapide (15 min)**
 
-1. ✅ Installer CheminerIndus dans QGIS
+1. ✅ Installer TRACK-EAU-POLL dans QGIS
 2. ✅ Installer les dépendances Python
 3. ✅ Créer la vue PostgreSQL `donnees_entrainement_ia`
 4. ✅ Charger la vue dans QGIS
@@ -460,7 +460,7 @@ chemin = 'P:\\BASES_SIG\\...'         # Option 3
 
 ## 🎉 En résumé
 
-**CheminerIndus v1.2.2** offre :
+**TRACK-EAU-POLL v1.2.2** offre :
 
 ✅ **Prédiction IA** de pollution avec 85-90% de précision  
 ✅ **3 méthodes d'entraînement** (QGIS, Python standalone, Console)  
