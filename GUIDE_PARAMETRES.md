@@ -2,13 +2,13 @@
 
 ## 🎯 Objectif
 
-Personnaliser le **logo** et l'**icône** du plugin CheminerIndus pour adapter l'interface et les rapports à votre identité visuelle.
+Personnaliser le **logo** et l'**icône** du plugin TRACK-EAU-POLL pour adapter l'interface et les rapports à votre identité visuelle.
 
 ---
 
 ## 📍 Accès à l'onglet
 
-1. Ouvrir le plugin CheminerIndus dans QGIS
+1. Ouvrir le plugin TRACK-EAU-POLL dans QGIS
 2. Cliquer sur l'onglet **"⚙️ PARAMÈTRES"** (dernier onglet)
 
 ---
@@ -33,7 +33,7 @@ Personnaliser le **logo** et l'**icône** du plugin CheminerIndus pour adapter l
 
 ### Où apparaît le logo ?
 - ✅ **Dans les rapports PDF** générés par le plugin
-- ✅ **En haut de l'interface** du dock CheminerIndus
+- ✅ **En haut de l'interface** du dock TRACK-EAU-POLL
 - ✅ **Effet immédiat** (pas de redémarrage nécessaire)
 
 ### Recommandations

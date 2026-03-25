@@ -1,4 +1,4 @@
-# 🔌 Connexion automatique PostgreSQL - CheminerIndus
+# 🔌 Connexion automatique PostgreSQL - TRACK-EAU-POLL
 
 ## 📋 Comment le plugin accède aux données
 

@@ -292,7 +292,7 @@ print(f"{len(pv_list)} PV non conformes trouvés")
 
 ---
 
-**CheminerIndus v1.2.3** - Module PV de Conformité  
+**TRACK-EAU-POLL v1.2.3** - Module PV de Conformité  
 **Statut :** ✅ Module principal terminé, interface et rapports en attente  
 **Date :** 2026-01-16  
 **Version :** 1.2.3  
