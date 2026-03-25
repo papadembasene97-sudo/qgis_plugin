@@ -785,6 +785,13 @@ class MainDock:
         # rapport ne modifie pas l'état, autosave non indispensable
         return res
 
+    def _preview_report_with_wait(self):
+        return self._run_with_wait_cursor(
+            lambda: self._make_report(preview=True),
+            process_key="report_preview",
+            label="Prévisualisation du rapport..."
+        )
+
     def _visit_with_wait(self):
         return self._run_with_wait_cursor(
             self._visit,
