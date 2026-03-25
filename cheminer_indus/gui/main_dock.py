@@ -586,10 +586,13 @@ class MainDock:
                     border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 10px;
                 }
                 QTabBar::tab:selected { background: #CCEDFC; color: #0f172a; font-weight: bold; }
+                QTabBar::tab:hover { background: #dbeafe; }
+                QTabBar::tab:pressed { background: #bfdbfe; padding-top: 12px; padding-bottom: 10px; }
                 QGroupBox { border: 1px solid #cbd5f5; border-radius: 8px; margin-top: 10px; background: #ffffff; }
                 QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 6px; color: #2563eb; font-weight: bold; }
                 QPushButton { background: #DAE3F7; color: #1C1A1A; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
                 QPushButton:hover { background: #DFE5F5; }
+                QPushButton:pressed { background: #c7d2fe; padding-top: 9px; padding-bottom: 7px; }
                 QTableWidget { background: #ffffff; alternate-background-color: #f1f5f9; gridline-color: #e2e8f0; }
                 QHeaderView::section { background-color: #e2e8f0; color: #0f172a; padding: 4px; border: 1px solid #cbd5f5; }
                 QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; color: #0f172a; }
@@ -602,10 +605,13 @@ class MainDock:
                     border-top-left-radius: 8px; border-top-right-radius: 8px; font-size: 12px;
                 }
                 QTabBar::tab:selected { background: #4f46e5; color: #ffffff; font-weight: bold; }
+                QTabBar::tab:hover { background: #64748b; }
+                QTabBar::tab:pressed { background: #3730a3; padding-top: 12px; padding-bottom: 10px; }
                 QGroupBox { border: 1px solid #374151; border-radius: 8px; margin-top: 10px; background: #0f172a; }
                 QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 6px; color: #a5b4fc; font-weight: bold; }
                 QPushButton { background: #4f46e5; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 11px; }
                 QPushButton:hover { background: #6366f1; }
+                QPushButton:pressed { background: #312e81; padding-top: 9px; padding-bottom: 7px; }
                 QTableWidget { background: #0b1120; alternate-background-color: #111827; gridline-color: #374151; }
                 QHeaderView::section { background-color: #1f2937; color: #e5e7eb; padding: 4px; border: 1px solid #374151; }
                 QLabel#trackHeaderTitle { font-size: 22px; font-weight: bold; color: #e5e7eb; }
@@ -1660,6 +1666,9 @@ class MainDock:
                 else:
                     dlg = QDialog(self.iface.mainWindow()); dlg.setWindowTitle("Branches amont à CONSERVER (Noeud: {})".format(node_id))
                     v = QVBoxLayout(dlg); checks = []
+                    info = QLabel("Astuce: vous pouvez déplacer/zoomer la carte pendant cette sélection.")
+                    info.setWordWrap(True)
+                    v.addWidget(info)
                     for typ,fid,amont,indus in branches:
                         label = "Conserver {} id={}".format(typ.upper(), fid)
                         if amont: label += " (amont={})".format(amont)
@@ -1669,6 +1678,8 @@ class MainDock:
                     h = QHBoxLayout(); ok = QPushButton("OK"); cancel = QPushButton("Annuler")
                     ok.clicked.connect(dlg.accept); cancel.clicked.connect(dlg.reject)
                     h.addWidget(ok); h.addWidget(cancel); v.addLayout(h)
+                    dlg.setModal(False)
+                    dlg.setWindowModality(Qt.NonModal)
                     if dlg.exec_() == QDialog.Accepted:
                         chosen_keep = {fid for cb,_,fid,_,_ in checks if cb.isChecked()}
                     else:
