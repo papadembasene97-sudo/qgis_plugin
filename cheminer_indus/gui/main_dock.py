@@ -12,7 +12,8 @@ from qgis.PyQt.QtWidgets import (
     QAction, QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QLineEdit, QGridLayout, QMessageBox, QTabWidget,
     QFileDialog, QCheckBox, QDialog, QGroupBox, QTextEdit, QColorDialog,
-    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QInputDialog
+    QSizePolicy, QApplication, QRadioButton, QScrollArea, QFrame, QInputDialog,
+    QFormLayout, QDateEdit
 )
 from qgis.gui import QgsMapToolEmitPoint
 
@@ -2378,7 +2379,7 @@ class MainDock:
         """Enregistre un historique dans la couche POINT_POLLUTION_DIVERS (base SIG)."""
         layer = self._ensure_pollution_divers_layer()
         if not layer or not layer.isValid() or not geom:
-            return
+            return None
 
         ff = QgsFeature(layer.fields())
         ff.setGeometry(geom)
@@ -2392,8 +2393,58 @@ class MainDock:
             ff.setAttribute("details", details)
         if layer.fields().indexOf("date_saisie") >= 0:
             ff.setAttribute("date_saisie", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        layer.dataProvider().addFeatures([ff])
+        ok, feats = layer.dataProvider().addFeatures([ff])
         layer.triggerRepaint()
+        if ok and feats:
+            return feats[0].id()
+        return None
+
+    def _record_pollution_divers_entry(self, payload: Dict[str, Any], geom: Optional[QgsGeometry]):
+        """Crée une entrée POLLUTION_DIVERS avec mapping souple des champs PostGIS."""
+        layer = self._ensure_pollution_divers_layer()
+        if not layer or not layer.isValid() or not geom:
+            return None
+
+        ff = QgsFeature(layer.fields())
+        ff.setGeometry(geom)
+
+        aliases = {
+            "type_pollution": ["type_pollution", "type", "categorie"],
+            "description": ["description", "details"],
+            "date_observation": ["date_observation", "date_obs", "date_saisie"],
+            "observateur": ["observateur", "agent", "saisi_par"],
+            "gravite": ["gravite", "criticite", "niveau"],
+            "commentaire": ["commentaire", "comment", "notes"],
+            "photo": ["photo", "photo_path", "image"],
+            "source_type": ["source_type"],
+            "idouvrage": ["idouvrage", "id_ouvrage"],
+        }
+        for key, names in aliases.items():
+            value = payload.get(key, "")
+            for field_name in names:
+                if layer.fields().indexOf(field_name) >= 0:
+                    ff.setAttribute(field_name, value)
+                    break
+
+        ok, feats = layer.dataProvider().addFeatures([ff])
+        layer.triggerRepaint()
+        if ok and feats:
+            return feats[0].id()
+        return None
+
+    def _get_pollution_divers_feature_by_fid(self, fid_text: str) -> Optional[QgsFeature]:
+        layer = self._ensure_pollution_divers_layer()
+        if not layer or not layer.isValid():
+            return None
+        try:
+            fid = int(str(fid_text).strip())
+        except Exception:
+            return None
+        try:
+            feat = layer.getFeature(fid)
+            return feat if feat and feat.isValid() else None
+        except Exception:
+            return None
 
     def _choose_nearest_ouvrage_from_point(self, pt: QgsPointXY) -> Optional[str]:
         """Laisse l'utilisateur choisir l'ouvrage le plus proche d'un point."""
@@ -2425,17 +2476,25 @@ class MainDock:
 
     def _designate_ouvrage_or_divers(self):
         """Désigne un ouvrage ou crée un point pollution divers puis déclenche le traçage aval."""
+        if (self.direction_combo.currentText() or "") != "Cheminement Pollution":
+            QMessageBox.warning(
+                self.iface.mainWindow(),
+                "Mode requis",
+                "La désignation d'ouvrage/pollution divers est disponible uniquement en mode 'Cheminement Pollution'."
+            )
+            return
+        if (self.polluter_type or "").upper() in ("INDUS", "PV"):
+            QMessageBox.warning(
+                self.iface.mainWindow(),
+                "Origine déjà définie",
+                "Cette action est réservée aux pollutions non liées à un industriel ou à un PV."
+            )
+            return
         if not self.ouvr_layer or not self.ouvr_layer.isValid():
             self.ouvr_layer = self.ouvr_combo.currentData() if self.ouvr_combo else None
 
-        category_options = [
-            "Dépôt sauvage",
-            "Hydrocarbure (engins / débroussaillage)",
-            "Déversement accidentel",
-            "Eaux usées hors réseau",
-            "Rejet artisanal",
-            "Autre",
-        ]
+        category_options = ["dépôt sauvage", "hydrocarbures", "pollution accidentelle", "eaux chargées", "déchets solides", "autre"]
+        gravite_options = ["faible", "moyenne", "forte"]
 
         dlg = QDialog(self.iface.mainWindow())
         dlg.setWindowTitle("Désignation pollution divers")
@@ -2447,13 +2506,25 @@ class MainDock:
         mode_combo.addItem("Créer un point pollution (clic carte)", "POINT")
         lv.addWidget(mode_combo)
 
-        lv.addWidget(QLabel("Catégorie de pollution :"))
+        form = QFormLayout()
         cb_cat = QComboBox(); [cb_cat.addItem(c) for c in category_options]
-        lv.addWidget(cb_cat)
-
-        lv.addWidget(QLabel("Détails / commentaire :"))
-        txt = QTextEdit(); txt.setPlaceholderText("Décrivez l'origine constatée, odeur, couleur, contexte…")
-        lv.addWidget(txt)
+        form.addRow("Type de pollution*", cb_cat)
+        edit_desc = QLineEdit()
+        form.addRow("Description*", edit_desc)
+        date_obs = QDateEdit()
+        date_obs.setCalendarPopup(True)
+        date_obs.setDate(QDate.currentDate())
+        form.addRow("Date observation*", date_obs)
+        edit_observateur = QLineEdit()
+        form.addRow("Observateur*", edit_observateur)
+        cb_gravite = QComboBox(); [cb_gravite.addItem(g) for g in gravite_options]
+        form.addRow("Gravité*", cb_gravite)
+        edit_photo = QLineEdit()
+        edit_photo.setPlaceholderText("Chemin photo (optionnel)")
+        form.addRow("Photo", edit_photo)
+        txt = QTextEdit(); txt.setPlaceholderText("Commentaire / contexte opérationnel")
+        form.addRow("Commentaire", txt)
+        lv.addLayout(form)
 
         hb = QHBoxLayout(); b_ok = QPushButton("Valider"); b_cancel = QPushButton("Annuler")
         hb.addWidget(b_ok); hb.addWidget(b_cancel); lv.addLayout(hb)
@@ -2462,8 +2533,16 @@ class MainDock:
             return
 
         mode = mode_combo.currentData()
-        cat = cb_cat.currentText()
-        details = (txt.toPlainText() or "").strip()
+        type_pollution = cb_cat.currentText().strip()
+        description = (edit_desc.text() or "").strip()
+        date_observation = date_obs.date().toString("yyyy-MM-dd")
+        observateur = (edit_observateur.text() or "").strip()
+        gravite = cb_gravite.currentText().strip()
+        commentaire = (txt.toPlainText() or "").strip()
+        photo = (edit_photo.text() or "").strip()
+        if not (type_pollution and description and observateur and gravite):
+            QMessageBox.warning(self.iface.mainWindow(), "Champs obligatoires", "Veuillez renseigner tous les champs marqués *.")
+            return
 
         if mode == "OUVRAGE":
             oid = (self.visit_input.text() if self.visit_input else "") or (self.id_input.text() if self.id_input else "")
@@ -2490,10 +2569,21 @@ class MainDock:
                 return
             pgeom = QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y()))
 
-            self._record_pollution_history("OUVRAGE", oid, cat, details, pgeom)
+            payload = {
+                "source_type": "OUVRAGE",
+                "idouvrage": oid,
+                "type_pollution": type_pollution,
+                "description": description,
+                "date_observation": date_observation,
+                "observateur": observateur,
+                "gravite": gravite,
+                "commentaire": commentaire,
+                "photo": photo,
+            }
+            self._record_pollution_divers_entry(payload, pgeom)
             self.polluter_id = oid
             self.polluter_type = "OUVRAGE"
-            self.polluter_note = details
+            self.polluter_note = commentaire
             if self.label_layer:
                 self._toggle_mask_labels(True)
 
@@ -2527,15 +2617,26 @@ class MainDock:
                 QMessageBox.warning(self.iface.mainWindow(), "Point pollution", "Aucun ouvrage sélectionné.")
                 return
 
-            self._record_pollution_history("POINT", oid, cat, details, pgeom)
-            self.polluter_id = oid
-            self.polluter_type = "OUVRAGE"
-            self.polluter_note = details
+            payload = {
+                "source_type": "POINT",
+                "idouvrage": oid,
+                "type_pollution": type_pollution,
+                "description": description,
+                "date_observation": date_observation,
+                "observateur": observateur,
+                "gravite": gravite,
+                "commentaire": commentaire,
+                "photo": photo,
+            }
+            new_fid = self._record_pollution_divers_entry(payload, pgeom)
+            self.polluter_id = str(new_fid) if new_fid is not None else ""
+            self.polluter_type = "POLLUTION_DIVERS"
+            self.polluter_note = commentaire
             if self.label_layer:
                 self._toggle_mask_labels(True)
 
             self._trace_downstream_from_nodes([oid], network_choice="BOTH")
-            QMessageBox.information(self.iface.mainWindow(), "Point pollution", "Point créé, ouvrage choisi et cheminement lancé.")
+            QMessageBox.information(self.iface.mainWindow(), "Point pollution", "Point créé, enregistré et cheminement lancé.")
 
         tool.canvasClicked.connect(_on_canvas_click)
         self.canvas.setMapTool(tool)
@@ -2728,12 +2829,21 @@ class MainDock:
             filters=filters
         )
 
-        canal_ids_all = set()
-        fosse_ids_all = set()
-        for node_id in start_nodes:
-            canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True, max_distance=self._selected_trace_radius_m())
-            canal_ids_all.update(canal_ids)
-            fosse_ids_all.update(fosse_ids)
+        try:
+            canal_ids, fosse_ids = self.tracer.trace_multi_source(
+                start_ids=list(dict.fromkeys(start_nodes)),
+                downstream=True,
+                max_distance=self._selected_trace_radius_m()
+            )
+            canal_ids_all = set(canal_ids)
+            fosse_ids_all = set(fosse_ids)
+        except Exception:
+            canal_ids_all = set()
+            fosse_ids_all = set()
+            for node_id in start_nodes:
+                canal_ids, fosse_ids = self.tracer.trace(node_id, downstream=True, max_distance=self._selected_trace_radius_m())
+                canal_ids_all.update(canal_ids)
+                fosse_ids_all.update(fosse_ids)
 
         if self.canal_layer:
             self.canal_layer.removeSelection()
@@ -3198,32 +3308,40 @@ class MainDock:
                         feats.append(ff)
 
             # OUVRAGE / POINT DIVERS DÉSIGNÉ
-            if self.polluter_id and self.polluter_type.upper() == "OUVRAGE":
+            if self.polluter_id and self.polluter_type.upper() in ("OUVRAGE", "POLLUTION_DIVERS"):
                 if self.ouvr_layer and self.ouvr_layer.isValid() and self.polluter_id:
-                    expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(self.polluter_id.replace("'", "''")))
-                    for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
-                        g = f.geometry()
-                        pt = None
-                        if g:
-                            try:
-                                pt = g.asPoint()
-                            except Exception:
+                    if self.polluter_type.upper() == "OUVRAGE":
+                        expr = QgsExpression("trim(\"idouvrage\") = '{}'".format(self.polluter_id.replace("'", "''")))
+                        for f in self.ouvr_layer.getFeatures(QgsFeatureRequest(expr)):
+                            g = f.geometry()
+                            pt = None
+                            if g:
                                 try:
-                                    pt = g.centroid().asPoint()
+                                    pt = g.asPoint()
                                 except Exception:
-                                    pt = None
-                        if pt:
-                            pt = _point_to_label_crs(pt, self.ouvr_layer)
-                            ff = QgsFeature(self.label_layer.fields())
-                            ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
-                            ff.setAttribute("categorie", CAT_POLL_DIVERS)
-                            ff.setAttribute("label", str(self.polluter_id))
-                            feats.append(ff)
-                            break
+                                    try:
+                                        pt = g.centroid().asPoint()
+                                    except Exception:
+                                        pt = None
+                            if pt:
+                                pt = _point_to_label_crs(pt, self.ouvr_layer)
+                                ff = QgsFeature(self.label_layer.fields())
+                                ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                                ff.setAttribute("categorie", CAT_POLL_DIVERS)
+                                ff.setAttribute("label", str(self.polluter_id))
+                                feats.append(ff)
+                                break
 
                 layer_div = self._ensure_pollution_divers_layer()
-                if layer_div and layer_div.isValid() and not feats:
-                    for f in layer_div.getFeatures():
+                if layer_div and layer_div.isValid():
+                    if self.polluter_type.upper() == "POLLUTION_DIVERS":
+                        rec = self._get_pollution_divers_feature_by_fid(self.polluter_id)
+                        source_feats = [rec] if rec else []
+                    else:
+                        source_feats = list(layer_div.getFeatures())
+                    for f in source_feats:
+                        if not f:
+                            continue
                         g = f.geometry()
                         pt = None
                         if g:
@@ -3239,7 +3357,7 @@ class MainDock:
                             ff = QgsFeature(self.label_layer.fields())
                             ff.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                             ff.setAttribute("categorie", CAT_POLL_DIVERS)
-                            ff.setAttribute("label", str(f.attribute("categorie") or "Pollution divers"))
+                            ff.setAttribute("label", str(f.attribute("type_pollution") or f.attribute("categorie") or "Pollution divers"))
                             feats.append(ff)
                             break
 
@@ -3384,6 +3502,26 @@ class MainDock:
                     pdf.sub_section(self._tr_report("note"))
                     pdf.multi_cell(0, 5, self.polluter_note)
                     pdf.ln(2)
+            elif self.polluter_id and polluter_type == "POLLUTION_DIVERS":
+                pdf.section_title("Origine pollution divers")
+                feat = self._get_pollution_divers_feature_by_fid(self.polluter_id)
+                data = {}
+                if feat:
+                    for k in feat.fields().names():
+                        data[k] = feat[k]
+                pdf.table_pollution_divers_info(
+                    {
+                        "id": self.polluter_id,
+                        "type_pollution": data.get("type_pollution", data.get("categorie", "")),
+                        "description": data.get("description", data.get("details", "")),
+                        "date_observation": data.get("date_observation", data.get("date_saisie", "")),
+                        "observateur": data.get("observateur", data.get("agent", "")),
+                        "gravite": data.get("gravite", ""),
+                        "commentaire": data.get("commentaire", data.get("details", "")),
+                        "photo": data.get("photo", ""),
+                    },
+                    bordered=True
+                )
             elif self.polluter_id:
                 d = {}
                 if not self.indus_svc and self.indus_combo:
@@ -3479,6 +3617,32 @@ class MainDock:
         # Sauver le contenu des tableaux (dock) au moment précis de la sauvegarde
         industrial_table_data: Dict[str, Dict[str, str]] = dict(self._last_indus_data or {})
         pv_table_data: Dict[str, Dict[str, str]] = dict(self._last_pv_data or {})
+        selected_pollution_divers_ids: List[int] = []
+        pollution_divers_features: List[Dict[str, Any]] = []
+        layer_div = self.pollution_divers_layer if (self.pollution_divers_layer and self.pollution_divers_layer.isValid()) else None
+        if not layer_div:
+            for lyr in QgsProject.instance().mapLayers().values():
+                if isinstance(lyr, QgsVectorLayer) and lyr.isValid() and lyr.name() == "POINT_POLLUTION_DIVERS":
+                    layer_div = lyr
+                    self.pollution_divers_layer = lyr
+                    break
+        if layer_div and layer_div.isValid():
+            selected_pollution_divers_ids = list(layer_div.selectedFeatureIds())
+            for f in layer_div.getFeatures():
+                g = f.geometry()
+                if not g:
+                    continue
+                try:
+                    pt = g.asPoint()
+                except Exception:
+                    try:
+                        pt = g.centroid().asPoint()
+                    except Exception:
+                        continue
+                rec = {"fid": f.id(), "x": pt.x(), "y": pt.y(), "attrs": {}}
+                for nm in f.fields().names():
+                    rec["attrs"][nm] = _safe_json(f[nm])
+                pollution_divers_features.append(rec)
 
         # ---- NOUVEAU : état du dock des industriels ----
         industrial_state: Optional[Dict[str, Any]] = None
@@ -3510,6 +3674,8 @@ class MainDock:
             "selected_fosse_ids": selected_fosse_ids,
             "selected_indus_ids": selected_indus_ids,
             "selected_pv_ids": selected_pv_ids,
+            "selected_pollution_divers_ids": selected_pollution_divers_ids,
+            "pollution_divers_features": pollution_divers_features,
             "industrial_table_data": industrial_table_data,
             "pv_table_data": pv_table_data,
             "catchment_on": bool(self.catchment_chk.isChecked()) if self.catchment_chk else False,
@@ -3643,6 +3809,22 @@ class MainDock:
                     self.pv_layer.removeSelection()
                     if pids:
                         self.pv_layer.selectByIds(pids)
+                except Exception:
+                    pass
+
+            layer_div = self.pollution_divers_layer if (self.pollution_divers_layer and self.pollution_divers_layer.isValid()) else None
+            if not layer_div:
+                for lyr in QgsProject.instance().mapLayers().values():
+                    if isinstance(lyr, QgsVectorLayer) and lyr.isValid() and lyr.name() == "POINT_POLLUTION_DIVERS":
+                        layer_div = lyr
+                        self.pollution_divers_layer = lyr
+                        break
+            if layer_div and layer_div.isValid():
+                try:
+                    d_ids = list(map(int, st.get("selected_pollution_divers_ids", [])))
+                    layer_div.removeSelection()
+                    if d_ids:
+                        layer_div.selectByIds(d_ids)
                 except Exception:
                     pass
 

@@ -217,6 +217,20 @@ class PDFGenerator(FPDF):
         self._set_font_bold(10); self.cell(0, self.TABLE_LINE_H, "Action :", ln=True)
         self._set_font_base(); self.multi_cell(0, self.TABLE_LINE_H, act or "—")
 
+    def table_pollution_divers_info(self, data: Dict[str, Any], bordered: bool = True):
+        self._ensure_page()
+        rows = [
+            ("ID", data.get("id", "")),
+            ("Type pollution", data.get("type_pollution", "")),
+            ("Description", data.get("description", "")),
+            ("Date observation", data.get("date_observation", "")),
+            ("Observateur", data.get("observateur", "")),
+            ("Gravité", data.get("gravite", "")),
+            ("Commentaire", data.get("commentaire", "")),
+            ("Photo", data.get("photo", "")),
+        ]
+        self._kv_table(rows, bordered=bordered)
+
     # ------------------------------------------------------------------
     # Carte + Légende
     # ------------------------------------------------------------------
