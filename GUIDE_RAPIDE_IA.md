@@ -2,7 +2,7 @@
 
 ## 📋 Vue d'ensemble
 
-Deux nouvelles fonctionnalités majeures ajoutées à CheminerIndus :
+Deux nouvelles fonctionnalités majeures ajoutées à TRACK-EAU-POLL :
 
 ### 1. 🤖 IA de Prédiction de Pollution
 - **Prédit** où la pollution va apparaître AVANT de faire les visites
@@ -36,7 +36,7 @@ pip install scikit-learn numpy matplotlib
 
 **Option A : Avec vos données réelles**
 
-1. Dans QGIS, ouvrir CheminerIndus
+1. Dans QGIS, ouvrir TRACK-EAU-POLL
 2. Onglet **"IA"** (nouveau !)
 3. Cliquer **"📂 Charger historique des visites"**
 4. Sélectionner votre fichier JSON d'historique
