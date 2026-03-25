@@ -153,6 +153,7 @@ class MainDock:
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
         self.indus_combo = self.liaison_combo = self.astreint_combo = None
         self.pv_combo = None  # Combo PV_CONFORMITE
+        self.pollution_divers_combo = None  # Combo POINT_POLLUTION_DIVERS
         self.id_input = self.search_input = None
         self.trace_btn = self.flux_btn = None
         self.direction_combo = self.cat_combo = self.func_combo = None
@@ -748,7 +749,7 @@ class MainDock:
                 self.func_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             if self.radius_combo:
                 self.radius_combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
-            for combo in (self.canal_combo, self.ouvr_combo, self.fosse_combo, self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
+            for combo in (self.canal_combo, self.ouvr_combo, self.fosse_combo, self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo, self.pollution_divers_combo):
                 if combo:
                     combo.currentIndexChanged.connect(lambda *_: self._request_autosave())
             if self.theme_combo:
@@ -829,12 +830,13 @@ class MainDock:
 
     def _populate_layers(self):
         for c in (self.canal_combo, self.ouvr_combo, self.fosse_combo,
-                  self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo):
+                  self.indus_combo, self.liaison_combo, self.astreint_combo, self.pv_combo, self.pollution_divers_combo):
             if c:  # Vérifier que le combo existe
                 c.clear()
 
         # trouver/assurer LABEL_CI si présent
         self.label_layer = None
+        self.pollution_divers_layer = None
         
         for lyr in QgsProject.instance().mapLayers().values():
             name = lyr.name().lower()
@@ -853,6 +855,10 @@ class MainDock:
                 self.astreint_combo.addItem(lyr.name(), lyr)
             if self._is_pv_layer(lyr):
                 self.pv_combo.addItem(lyr.name(), lyr)
+            if isinstance(lyr, QgsVectorLayer) and lyr.isValid() and lyr.name().strip().upper() == "POINT_POLLUTION_DIVERS":
+                if self.pollution_divers_combo:
+                    self.pollution_divers_combo.addItem(lyr.name(), lyr)
+                self.pollution_divers_layer = lyr
             
             if lyr.name() == "LABEL_CI" and isinstance(lyr, QgsVectorLayer) and lyr.isValid():
                 self.label_layer = lyr
@@ -867,6 +873,8 @@ class MainDock:
             msg += f"Canalisations : {self.canal_combo.count()}\n"
             msg += f"Ouvrages : {self.ouvr_combo.count()}\n"
             msg += f"Industriels : {self.indus_combo.count()}\n"
+            if self.pollution_divers_combo:
+                msg += f"Pollution divers : {self.pollution_divers_combo.count()}\n"
             
             QMessageBox.information(self.iface.mainWindow(), "Actualisation des couches", msg)
 
@@ -1079,6 +1087,7 @@ class MainDock:
         self.liaison_combo  = QComboBox()
         self.astreint_combo = QComboBox()
         self.pv_combo       = QComboBox()
+        self.pollution_divers_combo = QComboBox()
 
         grp_layers_lay.addWidget(QLabel("🔵 Canalisations :"), 0, 0)
         grp_layers_lay.addWidget(self.canal_combo, 0, 1)
@@ -1094,12 +1103,14 @@ class MainDock:
         grp_layers_lay.addWidget(self.astreint_combo, 5, 1)
         grp_layers_lay.addWidget(QLabel("🏠 PV Conformité :"), 6, 0)
         grp_layers_lay.addWidget(self.pv_combo, 6, 1)
+        grp_layers_lay.addWidget(QLabel("🧪 Pollution divers :"), 7, 0)
+        grp_layers_lay.addWidget(self.pollution_divers_combo, 7, 1)
 
         btn_refresh_layers = QPushButton("🔄 Actualiser les couches")
         btn_refresh_layers.setToolTip("Recharge la liste des couches disponibles dans QGIS")
         btn_refresh_layers.clicked.connect(self._populate_layers)
         btn_refresh_layers.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 5px; font-weight: bold; }")
-        grp_layers_lay.addWidget(btn_refresh_layers, 7, 0, 1, 2)
+        grp_layers_lay.addWidget(btn_refresh_layers, 8, 0, 1, 2)
 
         lay.addWidget(grp_layers)
 
@@ -2378,6 +2389,11 @@ class MainDock:
         """Retourne une couche point de pollution divers (existante ou mémoire)."""
         if self.pollution_divers_layer and self.pollution_divers_layer.isValid():
             return self.pollution_divers_layer
+        if self.pollution_divers_combo and self.pollution_divers_combo.currentData():
+            lyr = self.pollution_divers_combo.currentData()
+            if isinstance(lyr, QgsVectorLayer) and lyr.isValid():
+                self.pollution_divers_layer = lyr
+                return lyr
 
         for lyr in QgsProject.instance().mapLayers().values():
             try:
@@ -3711,6 +3727,7 @@ class MainDock:
                 "liaison": self.liaison_combo.currentText() if self.liaison_combo else "",
                 "astreinte": self.astreint_combo.currentText() if self.astreint_combo else "",
                 "pv": self.pv_combo.currentText() if self.pv_combo else "",
+                "pollution_divers": self.pollution_divers_combo.currentText() if self.pollution_divers_combo else "",
             },
         }
 
@@ -3752,6 +3769,7 @@ class MainDock:
                 (self.liaison_combo, "liaison"),
                 (self.astreint_combo, "astreinte"),
                 (self.pv_combo, "pv"),
+                (self.pollution_divers_combo, "pollution_divers"),
             ):
                 if combo and layers_state.get(key):
                     idx = combo.findText(str(layers_state.get(key)))
