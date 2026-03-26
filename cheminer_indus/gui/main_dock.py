@@ -840,7 +840,7 @@ class MainDock:
         self.pollution_divers_layer = None
         
         for lyr in QgsProject.instance().mapLayers().values():
-            if isinstance(lyr, QgsVectorLayer) and lyr.isValid():
+            if isinstance(lyr, QgsVectorLayer):
                 all_vector_layers.append(lyr)
             name = lyr.name().lower()
             
