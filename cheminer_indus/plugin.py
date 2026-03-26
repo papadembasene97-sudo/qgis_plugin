@@ -2,7 +2,7 @@
 
 from .gui.main_dock import MainDock
 
-class CheminerIndusPlugin:
+class TrackEauPollPlugin:
     """
     Colle simple pour charger/décharger le dock.
     """
