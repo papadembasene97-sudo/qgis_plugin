@@ -1,6 +1,6 @@
-# 🎯 SYNTHÈSE MISE À JOUR CheminerIndus v1.2.3
+# 🎯 SYNTHÈSE MISE À JOUR TRACK-EAU-POLL v1.2.3
 **Date de livraison** : 2026-01-16  
-**Plugin QGIS** : CheminerIndus - Analyse avancée des réseaux d'assainissement
+**Plugin QGIS** : TRACK-EAU-POLL - Analyse avancée des réseaux d'assainissement
 
 ---
 
@@ -224,7 +224,7 @@ Pour bien comprendre le module PV, lis dans cet ordre :
 
 ## 🎉 RÉSUMÉ ULTRA-COURT
 
-**Le plugin CheminerIndus v1.2.3 est à jour sur GitHub** avec :
+**Le plugin TRACK-EAU-POLL v1.2.3 est à jour sur GitHub** avec :
 - ✅ Module PV Conformité opérationnel (10 694 PV, 3 298 non conformes)
 - ✅ 59 features pour l'IA (+24 features, précision +5-7%)
 - ✅ Corrections SQL critiques (pnm.Commune + osmose.PV_CONFORMITE)
@@ -237,4 +237,4 @@ Pour bien comprendre le module PV, lis dans cet ordre :
 
 ---
 
-*Généré automatiquement le 2026-01-16 par CheminerIndus AI Assistant*
+*Généré automatiquement le 2026-01-16 par TRACK-EAU-POLL AI Assistant*

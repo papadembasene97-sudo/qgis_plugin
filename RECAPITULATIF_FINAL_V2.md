@@ -1,4 +1,4 @@
-# 🎉 RÉCAPITULATIF COMPLET - CheminerIndus IA v1.2.2
+# 🎉 RÉCAPITULATIF COMPLET - TRACK-EAU-POLL IA v1.2.2
 
 ## ✅ Mission accomplie !
 
@@ -190,8 +190,8 @@ LIMIT 10;
 1. Charger la vue dans QGIS
    → Couche → PostgreSQL → donnees_entrainement_ia
 
-2. Ouvrir CheminerIndus
-   → Extensions → CheminerIndus → Onglet IA
+2. Ouvrir TRACK-EAU-POLL
+   → Extensions → TRACK-EAU-POLL → Onglet IA
 
 3. Entraîner
    → Section COUCHES → Sélectionner donnees_entrainement_ia

@@ -16,6 +16,81 @@ class IndustrialsService:
                  liaison_layer: Optional[QgsVectorLayer]):
         self.indus_layer = indus_layer
         self.liaison_layer = liaison_layer
+        self._id_field_cache: Optional[str] = None
+
+        # Caches performance
+        self._liaison_fids_by_node: Optional[Dict[str, List[int]]] = None
+        self._indus_fid_by_id: Optional[Dict[str, int]] = None
+
+    def invalidate_caches(self):
+        self._liaison_fids_by_node = None
+        self._indus_fid_by_id = None
+
+    def _get_indus_id_field(self) -> Optional[str]:
+        if self._id_field_cache and self.indus_layer and self.indus_layer.fields().indexOf(self._id_field_cache) >= 0:
+            return self._id_field_cache
+        if not self.indus_layer:
+            return None
+        fields = {name.lower(): name for name in self.indus_layer.fields().names()}
+        for field_name in ("id", "id_indus", "id_industriel", "idindus", "idindustriel"):
+            mapped = fields.get(field_name)
+            if mapped:
+                self._id_field_cache = mapped
+                return mapped
+        for lname, original in fields.items():
+            if "id" in lname and "indus" in lname:
+                self._id_field_cache = original
+                return original
+        for lname, original in fields.items():
+            if lname == "id":
+                self._id_field_cache = original
+                return original
+        return None
+
+    def _build_liaison_cache(self) -> Dict[str, List[int]]:
+        if self._liaison_fids_by_node is not None:
+            return self._liaison_fids_by_node
+
+        cache: Dict[str, List[int]] = {}
+        if self.liaison_layer and self.liaison_layer.isValid():
+            for lf in self.liaison_layer.getFeatures():
+                try:
+                    node = str(lf['id_ouvrage'] or '').strip()
+                    if not node or node.upper() == 'INCONNU':
+                        continue
+                    cache.setdefault(node, []).append(lf.id())
+                except Exception:
+                    continue
+
+        self._liaison_fids_by_node = cache
+        return cache
+
+    def _build_indus_id_cache(self) -> Dict[str, int]:
+        if self._indus_fid_by_id is not None:
+            return self._indus_fid_by_id
+
+        cache: Dict[str, int] = {}
+        if self.indus_layer and self.indus_layer.isValid():
+            id_field = self._get_indus_id_field()
+            if id_field:
+                for feat in self.indus_layer.getFeatures():
+                    try:
+                        val = feat.attribute(id_field)
+                        if val is None:
+                            continue
+                        iid = str(val).strip()
+                        if iid and iid.upper() != 'INCONNU':
+                            cache[iid] = feat.id()
+                    except Exception:
+                        continue
+
+        self._indus_fid_by_id = cache
+        return cache
+
+    def indus_fids_from_ids(self, ids: Set[str]) -> List[int]:
+        """Résout rapidement des IDs industriels texte vers FIDs couche."""
+        cache = self._build_indus_id_cache()
+        return [cache[i] for i in ids if i in cache]
 
     # ------------------------------------------------------------------
     # Sélection via nœuds atteints
@@ -30,16 +105,15 @@ class IndustrialsService:
                 self.liaison_layer.removeSelection()
             return []
 
-        esc = lambda s: (s or "").replace("'", "''")
-        values = ",".join("'{}'".format(esc(n)) for n in nodes if n)
-        if not values:
-            self.liaison_layer.removeSelection()
-            return []
+        by_node = self._build_liaison_cache()
+        ids_set: Set[int] = set()
+        for n in nodes:
+            key = str(n or '').strip()
+            if not key:
+                continue
+            ids_set.update(by_node.get(key, []))
 
-        expr = QgsExpression("\"id_ouvrage\" IN ({})".format(values))
-        req = QgsFeatureRequest(expr)
-        ids = [f.id() for f in self.liaison_layer.getFeatures(req)]
-
+        ids = list(ids_set)
         self.liaison_layer.removeSelection()
         if ids:
             self.liaison_layer.selectByIds(ids)
@@ -62,11 +136,7 @@ class IndustrialsService:
 
         self.indus_layer.removeSelection()
         if ind_ids:
-            esc = lambda s: (s or "").replace("'", "''")
-            values = ",".join("'{}'".format(esc(i)) for i in ind_ids)
-            exprI = QgsExpression("\"id\" IN ({})".format(values))
-            reqI = QgsFeatureRequest(exprI)
-            fids = [f.id() for f in self.indus_layer.getFeatures(reqI)]
+            fids = self.indus_fids_from_ids(ind_ids)
             if fids:
                 self.indus_layer.selectByIds(fids)
 
@@ -92,7 +162,11 @@ class IndustrialsService:
         if not self.indus_layer:
             return {}
 
-        expr = QgsExpression("\"id\" = '{}'".format(str(ind_id).replace("'", "''")))
+        id_field = self._get_indus_id_field()
+        if not id_field:
+            return {}
+
+        expr = QgsExpression("\"{}\" = '{}'".format(id_field, str(ind_id).replace("'", "''")))
         req = QgsFeatureRequest(expr)
 
         for f in self.indus_layer.getFeatures(req):
@@ -100,15 +174,12 @@ class IndustrialsService:
             for name in f.fields().names():
                 out[name] = "" if f[name] is None else str(f[name])
 
-            # Renommages usuels (on ajoute ces clés si absentes)
             out.setdefault("Nom", out.get("nom", ""))
             out.setdefault("Adresse", out.get("adresse", ""))
             out.setdefault("Activite", out.get("activite", ""))
             out.setdefault("Risques", out.get("risques", ""))
             out.setdefault("Produits", out.get("produits", ""))
             out.setdefault("siret", out.get("SIRET", out.get("siret", "")))
-
-            # Toujours stocker l'id pour le tableau
             out.setdefault("id", str(ind_id))
 
             return out
@@ -120,6 +191,37 @@ class IndustrialsService:
         Renvoie {id_indus: {champ: valeur, ...}, ...}
         """
         out: Dict[str, Dict[str, str]] = {}
+        if not ids or not self.indus_layer:
+            return out
+
+        id_field = self._get_indus_id_field()
+        if not id_field:
+            for i in ids:
+                out[i] = self.fetch(i)
+            return out
+
+        esc = lambda s: (s or "").replace("'", "''")
+        values = ",".join("'{}'".format(esc(i)) for i in ids if i)
+        if not values:
+            return out
+        expr = QgsExpression("\"{}\" IN ({})".format(id_field, values))
+        req = QgsFeatureRequest(expr)
+        for f in self.indus_layer.getFeatures(req):
+            ind_val = f.attribute(id_field)
+            if ind_val is None:
+                continue
+            ind_id = str(ind_val)
+            row: Dict[str, str] = {}
+            for name in f.fields().names():
+                row[name] = "" if f[name] is None else str(f[name])
+            row.setdefault("Nom", row.get("nom", ""))
+            row.setdefault("Adresse", row.get("adresse", ""))
+            row.setdefault("Activite", row.get("activite", ""))
+            row.setdefault("Risques", row.get("risques", ""))
+            row.setdefault("Produits", row.get("produits", ""))
+            row.setdefault("siret", row.get("SIRET", row.get("siret", "")))
+            row.setdefault("id", ind_id)
+            out[ind_id] = row
         for i in ids:
-            out[i] = self.fetch(i)
+            out.setdefault(i, self.fetch(i))
         return out

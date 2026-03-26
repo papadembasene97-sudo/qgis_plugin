@@ -1,6 +1,6 @@
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║           CheminerIndus v1.1.1 - Plugin QGIS                    ║
+║           TRACK-EAU-POLL v1.1.1 - Plugin QGIS                    ║
 ║                                                                  ║
 ║              INSTALLATION EN 3 ÉTAPES SIMPLES                   ║
 ║                                                                  ║
@@ -26,17 +26,17 @@ Taille : 5.4 MB
 4. Cliquer sur "..." et sélectionner le fichier téléchargé
 5. Cliquer sur "Installer le plugin"
 
-✅ Message attendu : "Installation réussie : CheminerIndus v1.1.1"
+✅ Message attendu : "Installation réussie : TRACK-EAU-POLL v1.1.1"
 
 
 ┌──────────────────────────────────────────────────────────────────┐
 │ ÉTAPE 3 : VÉRIFIER L'INSTALLATION                               │
 └──────────────────────────────────────────────────────────────────┘
 
-Le dock "CheminerIndus" doit apparaître dans QGIS.
+Le dock "TRACK-EAU-POLL" doit apparaître dans QGIS.
 
 Si le dock n'apparaît pas :
-→ Menu "Extensions" → "CheminerIndus" → Cliquer pour afficher
+→ Menu "Extensions" → "TRACK-EAU-POLL" → Cliquer pour afficher
 
 
 ┌──────────────────────────────────────────────────────────────────┐
@@ -64,10 +64,10 @@ Pour recevoir les mises à jour automatiquement :
 2. Onglet "Paramètres"
 3. Section "Dépôts de plugins" → Cliquer sur "Ajouter..."
 4. Remplir :
-   Nom : CheminerIndus
+   Nom : TRACK-EAU-POLL
    URL : https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
 5. Cliquer sur "OK"
-6. Onglet "Tous" → Chercher "CheminerIndus"
+6. Onglet "Tous" → Chercher "TRACK-EAU-POLL"
 7. Cliquer sur "Installer le plugin"
 
 
@@ -108,6 +108,6 @@ Checksum : 54ffac4d4a290ab1cb415b6e427690c284caaf8cd6b1e83dc57e1b280ec6d4d8
 
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║  Bon cheminement avec CheminerIndus ! 🚀                        ║
+║  Bon cheminement avec TRACK-EAU-POLL ! 🚀                        ║
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝

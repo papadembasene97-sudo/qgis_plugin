@@ -1,4 +1,4 @@
-# 📋 Nommage des Couches QGIS - CheminerIndus Plugin
+# 📋 Nommage des Couches QGIS - TRACK-EAU-POLL Plugin
 
 **Version:** 1.3.0  
 **Date:** 2026-01-19
@@ -7,7 +7,7 @@
 
 ## 🎯 Règles de Détection Automatique des Couches
 
-Le plugin CheminerIndus détecte automatiquement les couches dans QGIS selon leur **nom**. Les mots-clés sont recherchés **en minuscules** (non sensible à la casse).
+Le plugin TRACK-EAU-POLL détecte automatiquement les couches dans QGIS selon leur **nom**. Les mots-clés sont recherchés **en minuscules** (non sensible à la casse).
 
 ---
 
@@ -145,7 +145,7 @@ def _populate_layers(self):
 
 ### Méthode 1 : Via l'Onglet PARAMÈTRES
 
-1. Ouvrir le plugin CheminerIndus
+1. Ouvrir le plugin TRACK-EAU-POLL
 2. Aller dans l'onglet **⚙️ PARAMÈTRES**
 3. Vérifier les 7 combo boxes :
    - 🔵 Canalisations
@@ -348,4 +348,4 @@ Si la détection ne fonctionne toujours pas :
 
 ---
 
-**CheminerIndus v1.3.0** - Détection automatique des couches 🎯
+**TRACK-EAU-POLL v1.3.0** - Détection automatique des couches 🎯

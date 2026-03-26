@@ -1,7 +1,7 @@
 # 🎯 SYNTHÈSE FINALE : Désélection de branches & Exclusion PV
 
 **Date** : 2026-01-19  
-**Plugin** : CheminerIndus v1.2.3  
+**Plugin** : TRACK-EAU-POLL v1.2.3  
 **Statut** : Analyse complète ✅ | Implémentation à démarrer
 
 ---
