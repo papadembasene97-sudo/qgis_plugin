@@ -1,4 +1,4 @@
-# Dépendances pour le module IA de CheminerIndus
+# Dépendances pour le module IA de TRACK-EAU-POLL
 
 # Machine Learning et analyse de données
 scikit-learn>=1.3.0

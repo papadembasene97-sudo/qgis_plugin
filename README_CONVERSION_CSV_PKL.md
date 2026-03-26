@@ -25,7 +25,7 @@ python gestionnaire_csv_pkl.py
 **Menu** :
 ```
 ============================================================
-🔄 GESTIONNAIRE CSV ↔ PKL - CheminerIndus v1.2.2
+🔄 GESTIONNAIRE CSV ↔ PKL - TRACK-EAU-POLL v1.2.2
 ============================================================
 
 📋 MENU :
@@ -337,7 +337,7 @@ Gain de taille supplémentaire : **60-80%** !
 | **PKL** | Plus simple, plus rapide pour petits fichiers | Python uniquement, pas standard |
 | **Parquet** | Standard, compatible multi-langages | Plus complexe, overhead pour petits fichiers |
 
-Pour CheminerIndus, **PKL suffit largement**.
+Pour TRACK-EAU-POLL, **PKL suffit largement**.
 
 ---
 
