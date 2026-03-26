@@ -1,4 +1,4 @@
-# CheminerIndus v1.2.0 - SYNTHÈSE RAPIDE
+# TRACK-EAU-POLL v1.2.0 - SYNTHÈSE RAPIDE
 
 ## ✅ Ce qui a été fait
 
@@ -23,7 +23,7 @@
 ```
 1. QGIS → Extensions → Installer/Gérer
 2. Paramètres → Dépôts → Ajouter
-3. Nom: CheminerIndus
+3. Nom: TRACK-EAU-POLL
 4. URL: https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml
 5. Installer le plugin
 ```
@@ -94,7 +94,7 @@ Nœud_D12 → 23.1% FAIBLE  → Surveillance normale
 ## 📋 Checklist d'installation
 
 - [ ] QGIS ouvert (version 3.28-3.40)
-- [ ] Dépôt CheminerIndus ajouté
+- [ ] Dépôt TRACK-EAU-POLL ajouté
 - [ ] Plugin installé
 - [ ] Dépendances Python installées (`pip install scikit-learn numpy matplotlib pyvista`)
 - [ ] QGIS redémarré
@@ -120,6 +120,6 @@ Nœud_D12 → 23.1% FAIBLE  → Surveillance normale
 
 ---
 
-**CheminerIndus v1.2.0 - Le plugin QGIS intelligent pour les réseaux d'assainissement** 🚀🤖
+**TRACK-EAU-POLL v1.2.0 - Le plugin QGIS intelligent pour les réseaux d'assainissement** 🚀🤖
 
 **Papa Demba SENE** - 2026-01-15

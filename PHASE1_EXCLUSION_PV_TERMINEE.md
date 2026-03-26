@@ -1,7 +1,7 @@
 # ✅ PHASE 1 TERMINÉE : Correction bug exclusion PV
 
 **Date** : 2026-01-19  
-**Version** : CheminerIndus v1.2.3  
+**Version** : TRACK-EAU-POLL v1.2.3  
 **Statut** : ✅ **IMPLÉMENTÉ ET TESTÉ**
 
 ---

@@ -1,7 +1,7 @@
 # 🔄 ANALYSE : Désélection de branches et exclusion d'industriels/PV
 
 **Date** : 2026-01-19  
-**Version** : CheminerIndus v1.2.3  
+**Version** : TRACK-EAU-POLL v1.2.3  
 **Objectif** : Préserver et optimiser la fonctionnalité de désélection de branches lors de la visite de nœuds
 
 ---
