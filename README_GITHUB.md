@@ -1,11 +1,11 @@
-# 🚀 CheminerIndus v1.2.3 - Plugin QGIS
+# 🚀 TRACK-EAU-POLL v1.2.3 - Plugin QGIS
 
 [![Version](https://img.shields.io/badge/version-1.2.3-blue.svg)](https://github.com/papadembasene97-sudo/qgis_plugin)
 [![QGIS](https://img.shields.io/badge/QGIS-3.28--3.40-green.svg)](https://qgis.org)
 [![License](https://img.shields.io/badge/license-GPL-orange.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-yellow.svg)](https://www.python.org/)
 
-**CheminerIndus** est un plugin QGIS professionnel pour l'analyse avancée des réseaux d'assainissement (EU/EP), la détection de pollutions industrielles et la gestion de la conformité des branchements domestiques.
+**TRACK-EAU-POLL** est un plugin QGIS professionnel pour l'analyse avancée des réseaux d'assainissement (EU/EP), la détection de pollutions industrielles et la gestion de la conformité des branchements domestiques.
 
 ---
 
@@ -390,16 +390,16 @@ Ce projet est sous licence GPL. Voir le fichier [LICENSE](LICENSE) pour plus de 
 ## 🎯 Cas d'usage
 
 ### 1. Détection de pollution industrielle
-> *"Un industriel est suspecté de déverser des hydrocarbures. CheminerIndus trace automatiquement le cheminement depuis l'ouvrage pollué jusqu'à l'industriel, génère un rapport PDF avec photos Street View et historique des interventions."*
+> *"Un industriel est suspecté de déverser des hydrocarbures. TRACK-EAU-POLL trace automatiquement le cheminement depuis l'ouvrage pollué jusqu'à l'industriel, génère un rapport PDF avec photos Street View et historique des interventions."*
 
 ### 2. Contrôle de conformité domestique
-> *"Un secteur présente des débordements récurrents. CheminerIndus détecte automatiquement les 23 PV non conformes dans le secteur (inversions EU→EP), désigne un PV comme origine probable et génère un parcours optimisé pour les visites terrain."*
+> *"Un secteur présente des débordements récurrents. TRACK-EAU-POLL détecte automatiquement les 23 PV non conformes dans le secteur (inversions EU→EP), désigne un PV comme origine probable et génère un parcours optimisé pour les visites terrain."*
 
 ### 3. Optimisation des visites terrain
-> *"Le service d'exploitation doit planifier 50 visites. CheminerIndus utilise l'IA pour prédire les nœuds à risque (probabilité 80%+) et génère un parcours optimisé sur 5 jours, réduisant de 30% la distance totale."*
+> *"Le service d'exploitation doit planifier 50 visites. TRACK-EAU-POLL utilise l'IA pour prédire les nœuds à risque (probabilité 80%+) et génère un parcours optimisé sur 5 jours, réduisant de 30% la distance totale."*
 
 ---
 
-**🚀 CheminerIndus v1.2.3 - L'outil professionnel pour l'analyse des réseaux d'assainissement**
+**🚀 TRACK-EAU-POLL v1.2.3 - L'outil professionnel pour l'analyse des réseaux d'assainissement**
 
 *Développé avec ❤️ pour les professionnels de l'assainissement*
