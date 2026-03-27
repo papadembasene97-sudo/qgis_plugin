@@ -1,4 +1,4 @@
-# 🎉 PHASES 1, 2 & 3 COMPLÈTES - CheminerIndus v1.2.3
+# 🎉 PHASES 1, 2 & 3 COMPLÈTES - TRACK-EAU-POLL v1.2.3
 
 **Date** : 2026-01-19  
 **Temps total** : ~7 heures  
@@ -335,4 +335,4 @@ if not self.pv_analyzer:
 **Documentation** : 68 KB  
 **Tests** : 7 scénarios définis
 
-**CheminerIndus v1.2.3 est maintenant complet et opérationnel !** ✨
+**TRACK-EAU-POLL v1.2.3 est maintenant complet et opérationnel !** ✨

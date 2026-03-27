@@ -1,6 +1,6 @@
-# 🤖 Scripts d'entraînement IA - CheminerIndus
+# 🤖 Scripts d'entraînement IA - TRACK-EAU-POLL
 
-Scripts Python pour entraîner et tester le modèle de prédiction de pollution pour le plugin QGIS CheminerIndus.
+Scripts Python pour entraîner et tester le modèle de prédiction de pollution pour le plugin QGIS TRACK-EAU-POLL.
 
 ---
 
@@ -215,10 +215,10 @@ Rang  ID Nœud         Proba    Niveau          Inversions   Industriels  Histor
 
 ## 🎯 Utiliser le modèle dans QGIS
 
-### Option 1 : Via l'interface CheminerIndus
+### Option 1 : Via l'interface TRACK-EAU-POLL
 
 1. **Ouvrir QGIS** et charger votre projet
-2. **Menu Extensions** → **CheminerIndus**
+2. **Menu Extensions** → **TRACK-EAU-POLL**
 3. **Onglet "IA"**
 4. **Section PRÉDICTION** :
    - Couche à analyser : `raepa_ouvrass_p`
@@ -349,7 +349,7 @@ DOSSIER_DONNEES = 'P:/BASES_SIG/...'
 
 ## 📄 Licence
 
-Ces scripts font partie du plugin CheminerIndus. Licence identique au plugin principal.
+Ces scripts font partie du plugin TRACK-EAU-POLL. Licence identique au plugin principal.
 
 ---
 

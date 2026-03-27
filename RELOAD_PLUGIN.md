@@ -1,4 +1,4 @@
-# 🔄 Instructions pour recharger le plugin CheminerIndus dans QGIS
+# 🔄 Instructions pour recharger le plugin TRACK-EAU-POLL dans QGIS
 
 ## ⚠️ Problème
 
@@ -13,7 +13,7 @@ Les modifications du code Python **ne sont PAS automatiquement rechargées** par
 
 ### Utilisation
 1. Cliquer sur l'icône **Plugin Reloader** dans la barre d'outils
-2. Sélectionner **CheminerIndus** dans la liste
+2. Sélectionner **TRACK-EAU-POLL** dans la liste
 3. Cliquer sur **Recharger le plugin**
 4. ✅ Les modifications sont maintenant actives !
 
@@ -30,9 +30,9 @@ Les modifications du code Python **ne sont PAS automatiquement rechargées** par
 ## ✅ Solution 3 : Réinstallation du plugin
 
 1. Dans QGIS : **Extensions** → **Installer/Gérer les extensions**
-2. **Désinstaller** CheminerIndus
+2. **Désinstaller** TRACK-EAU-POLL
 3. **Copier** les nouveaux fichiers vers le dossier plugins
-4. **Réinstaller** CheminerIndus
+4. **Réinstaller** TRACK-EAU-POLL
 5. ✅ Plugin mis à jour !
 
 ## 📋 Fichiers modifiés dans ce commit

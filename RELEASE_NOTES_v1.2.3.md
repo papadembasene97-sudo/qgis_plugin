@@ -141,7 +141,7 @@ graph LR
 ### Option 1 : Via QGIS Plugin Manager (recommandé)
 ```
 1. QGIS → Extensions → Gérer et installer les extensions
-2. Rechercher "CheminerIndus"
+2. Rechercher "TRACK-EAU-POLL"
 3. Installer
 ```
 
@@ -270,7 +270,7 @@ Propriétaire - Tous droits réservés
 
 ## 🎉 Notes de version
 
-Cette version marque une **évolution majeure** de CheminerIndus avec :
+Cette version marque une **évolution majeure** de TRACK-EAU-POLL avec :
 
 1. **L'ajout du module PV Conformité** qui permet d'analyser 10 694 points de visite et de détecter 3 298 non-conformités
 2. **L'enrichissement du modèle IA** qui passe de 35 à 59 features (+69%)
@@ -279,7 +279,7 @@ Cette version marque une **évolution majeure** de CheminerIndus avec :
 
 Cette version **stabilise la base de données** et **prépare l'interface graphique** pour la version 1.2.4.
 
-**Merci d'utiliser CheminerIndus ! 🚀**
+**Merci d'utiliser TRACK-EAU-POLL ! 🚀**
 
 ---
 
