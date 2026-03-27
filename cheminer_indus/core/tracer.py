@@ -105,12 +105,18 @@ class NetworkTracer:
 
         if fcat:
             cat = self._feat_val_by_key(layer, feat, "cat")
-            if cat is not None and cat != fcat:
+            # Filtrage strict : si un filtre est demandé, une entité sans champ
+            # catégorie exploitable ne doit pas passer (évite d'ouvrir tout le graphe).
+            if cat is None:
+                return False
+            if cat != fcat:
                 return False
 
         if ffun:
             fun = self._feat_val_by_key(layer, feat, "func")
-            if fun is not None and fun != ffun:
+            if fun is None:
+                return False
+            if fun != ffun:
                 return False
 
         return True
