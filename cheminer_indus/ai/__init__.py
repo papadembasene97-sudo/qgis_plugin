@@ -1,5 +1,5 @@
 """
-Module IA pour CheminerIndus
+Module IA pour TRACK-EAU-POLL
 Prédiction de pollution et optimisation des visites
 """
 

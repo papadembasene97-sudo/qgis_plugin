@@ -1,4 +1,4 @@
-# 🏠 Module PV de Conformité - CheminerIndus v1.2.3
+# 🏠 Module PV de Conformité - TRACK-EAU-POLL v1.2.3
 
 ## 📋 Vue d'ensemble
 
@@ -238,7 +238,7 @@ class PVAnalyzer:
 
 ---
 
-## 📈 Statistiques CheminerIndus v1.2.3
+## 📈 Statistiques TRACK-EAU-POLL v1.2.3
 
 ### Données PV_CONFORMITE
 
@@ -414,5 +414,5 @@ print(f"PV non conformes : {len(non_conformes)}")
 
 ---
 
-**CheminerIndus v1.2.3** - Module PV de Conformité  
+**TRACK-EAU-POLL v1.2.3** - Module PV de Conformité  
 *Détection intelligente des non-conformités domestiques*

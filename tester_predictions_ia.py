@@ -1,6 +1,6 @@
 """
 Script de test des prédictions du modèle IA
-CheminerIndus - Version 1.2.1
+TRACK-EAU-POLL - Version 1.2.1
 """
 
 import pandas as pd

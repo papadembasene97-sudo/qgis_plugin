@@ -1,12 +1,12 @@
-# CheminerIndus - Plugin QGIS
+# TRACK-EAU-POLL - Plugin QGIS
 
 [![QGIS](https://img.shields.io/badge/QGIS-3.28--3.40-green.svg)](https://qgis.org)
 [![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/papadembasene97-sudo/qgis_plugin/releases/latest)
 [![License](https://img.shields.io/badge/license-GPL-orange.svg)](LICENSE)
 
-**CheminerIndus** est un plugin QGIS professionnel pour l'analyse et le cheminement des réseaux d'assainissement (EU/EP), avec détection automatique des industries connectées, diagnostics avancés et génération de rapports PDF.
+**TRACK-EAU-POLL** est un plugin QGIS professionnel pour l'analyse et le cheminement des réseaux d'assainissement (EU/EP), avec détection automatique des industries connectées, diagnostics avancés et génération de rapports PDF.
 
-![CheminerIndus](cheminer_indus/icons/logo.png)
+![TRACK-EAU-POLL](cheminer_indus/icons/logo.png)
 
 ---
 
@@ -67,10 +67,10 @@
 1. Dans QGIS : **Extensions** → **Installer/Gérer les extensions**
 2. Onglet **Paramètres**
 3. Cliquer sur **Ajouter...** et remplir :
-   - **Nom** : `CheminerIndus`
+   - **Nom** : `TRACK-EAU-POLL`
    - **URL** : `https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml`
 4. Cliquer sur **OK**
-5. Onglet **Tous**, rechercher `CheminerIndus`
+5. Onglet **Tous**, rechercher `TRACK-EAU-POLL`
 6. Cliquer sur **Installer le plugin**
 
 ### 📦 Autres méthodes
@@ -103,7 +103,7 @@
 ## 🚀 Démarrage rapide
 
 ### 1. Activer le plugin
-Après installation : cliquer sur l'icône CheminerIndus dans la barre d'outils
+Après installation : cliquer sur l'icône TRACK-EAU-POLL dans la barre d'outils
 
 ### 2. Configurer les couches
 - Onglet **COUCHES**
@@ -244,4 +244,4 @@ Si ce plugin vous est utile, n'hésitez pas à :
 
 ---
 
-**Bon cheminement rapide avec CheminerIndus ! 🚀⚡**
+**Bon cheminement rapide avec TRACK-EAU-POLL ! 🚀⚡**

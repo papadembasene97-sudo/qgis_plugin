@@ -1,4 +1,4 @@
-# 📋 CHANGELOG - CheminerIndus
+# 📋 CHANGELOG - TRACK-EAU-POLL
 
 ## Version 1.3.6 (2026-01-19) - Support CRS différents + Détection PV améliorée 🌍
 

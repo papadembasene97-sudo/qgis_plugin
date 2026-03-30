@@ -443,9 +443,9 @@ class AIModuleDock(QWidget):
                 'id': feature.id(),
                 'geometry': {'coordinates': coords},
                 'diametre': feature.attribute('diametre') or 300,
-                'pente': feature.attribute('pente') or 0.005,
-                'z_amont': feature.attribute('z_amont') or 0,
-                'z_aval': feature.attribute('z_aval') or 0,
+                '_pente': feature.attribute('_pente') or feature.attribute('pente') or 0.005,
+                'zmont': feature.attribute('zmont') or feature.attribute('zamont') or 0,
+                'zaval': feature.attribute('zaval') or feature.attribute('zaval') or 0,
                 'type_reseau': feature.attribute('type_reseau') or 'EU',
                 'materiau': feature.attribute('materiau') or 'PVC',
                 'longueur': geom.length()
