@@ -1,6 +1,6 @@
 -- ============================================================================
 -- VUE MATÉRIALISÉE COMPLÈTE POUR L'IA ET LA VISUALISATION 3D
--- CheminerIndus v1.2.2 - Version enrichie avec points noirs et conformité
+-- TRACK-EAU-POLL v1.2.2 - Version enrichie avec points noirs et conformité
 -- ============================================================================
 
 -- Créer le schéma si nécessaire

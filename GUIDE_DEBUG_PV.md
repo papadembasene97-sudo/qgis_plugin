@@ -7,7 +7,7 @@
 
 ## 🎯 Objectif
 
-Ce guide vous aide à diagnostiquer pourquoi votre couche PV n'est pas détectée par le plugin CheminerIndus.
+Ce guide vous aide à diagnostiquer pourquoi votre couche PV n'est pas détectée par le plugin TRACK-EAU-POLL.
 
 ---
 
@@ -114,7 +114,7 @@ Votre couche n'a PAS les bons mots-clés dans son nom.
 Le plugin affiche maintenant des logs de débogage dans la console Python de QGIS.
 
 1. **Ouvrir la console Python** : Plugins → Console Python
-2. **Ouvrir le plugin CheminerIndus**
+2. **Ouvrir le plugin TRACK-EAU-POLL**
 3. **Chercher dans la console** les messages commençant par `=== DEBUG _populate_layers ===`
 
 ### Exemple de Log Correct
@@ -200,7 +200,7 @@ Copier-coller tout le résultat du script Python
 ### 3. Logs de Débogage du Plugin
 ```
 Ouvrir la console Python
-Ouvrir le plugin CheminerIndus
+Ouvrir le plugin TRACK-EAU-POLL
 Copier les messages entre:
   === DEBUG _populate_layers ===
   ...
@@ -276,4 +276,4 @@ Cette version (1.3.2) contient des logs de débogage dans la console Python.
 
 ---
 
-**CheminerIndus v1.3.2 (DEBUG)** - Avec logs de débogage activés 🔍
+**TRACK-EAU-POLL v1.3.2 (DEBUG)** - Avec logs de débogage activés 🔍

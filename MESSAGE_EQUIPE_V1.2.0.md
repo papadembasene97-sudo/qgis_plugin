@@ -1,12 +1,12 @@
-# 🚀 CheminerIndus v1.2.0 - Message pour l'équipe
+# 🚀 TRACK-EAU-POLL v1.2.0 - Message pour l'équipe
 
 ---
 
-## 🎉 Annonce : CheminerIndus v1.2.0 disponible avec Intelligence Artificielle !
+## 🎉 Annonce : TRACK-EAU-POLL v1.2.0 disponible avec Intelligence Artificielle !
 
 Bonjour à tous,
 
-Je suis heureux de vous annoncer la sortie de **CheminerIndus v1.2.0**, une mise à jour majeure qui intègre l'**Intelligence Artificielle** pour révolutionner notre gestion des réseaux d'assainissement !
+Je suis heureux de vous annoncer la sortie de **TRACK-EAU-POLL v1.2.0**, une mise à jour majeure qui intègre l'**Intelligence Artificielle** pour révolutionner notre gestion des réseaux d'assainissement !
 
 ---
 
@@ -40,9 +40,9 @@ Visualisez vos réseaux en **3D interactif** :
 
 1. **Ouvrir QGIS** → Extensions → Installer/Gérer les extensions
 2. **Paramètres** → Dépôts de plugins → Ajouter
-3. **Nom** : `CheminerIndus`
+3. **Nom** : `TRACK-EAU-POLL`
 4. **URL** : `https://raw.githubusercontent.com/papadembasene97-sudo/qgis_plugin/main/plugins.xml`
-5. **OK** → Onglet "Tous" → Rechercher "CheminerIndus" → **Installer**
+5. **OK** → Onglet "Tous" → Rechercher "TRACK-EAU-POLL" → **Installer**
 
 ### Installer les dépendances IA
 

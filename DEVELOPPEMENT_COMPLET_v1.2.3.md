@@ -1,4 +1,4 @@
-# 🎊 DÉVELOPPEMENT COMPLET - CheminerIndus v1.2.3
+# 🎊 DÉVELOPPEMENT COMPLET - TRACK-EAU-POLL v1.2.3
 
 **Date** : 2026-01-16  
 **Statut** : ✅ **DÉVELOPPEMENT TERMINÉ**  
@@ -269,7 +269,7 @@ if self.pv_analyzer:
 ## 🧪 TESTS À EFFECTUER
 
 ### Test 1 : Interface graphique
-1. Ouvrir QGIS et charger le plugin CheminerIndus
+1. Ouvrir QGIS et charger le plugin TRACK-EAU-POLL
 2. Réaliser un cheminement depuis l'onglet "CHEMINEMENT"
 3. Basculer vers l'onglet "🏠 PV"
 4. Cliquer sur "Analyser le cheminement"
@@ -384,7 +384,7 @@ print(f"Cheminement : {len(canal_ids)} canalisations depuis nœud {node_id}")
 
 ## 🎉 RÉSUMÉ ULTRA-COURT
 
-**CheminerIndus v1.2.3 - Développement complet terminé ! 🎊**
+**TRACK-EAU-POLL v1.2.3 - Développement complet terminé ! 🎊**
 
 ### Phase 1 (✅ TERMINÉE)
 - Module PVAnalyzer (10 KB)
@@ -415,12 +415,12 @@ print(f"Cheminement : {len(canal_ids)} canalisations depuis nœud {node_id}")
 
 ---
 
-**🚀 CheminerIndus v1.2.3 - Prêt pour les tests !**
+**🚀 TRACK-EAU-POLL v1.2.3 - Prêt pour les tests !**
 
 *Développé avec ❤️ pour les professionnels de l'assainissement*
 
 ---
 
 *Document généré automatiquement le 2026-01-16 à 11:25 UTC*  
-*CheminerIndus v1.2.3 - Module PV Conformité - Phase 2 complète*  
+*TRACK-EAU-POLL v1.2.3 - Module PV Conformité - Phase 2 complète*  
 *Repository : https://github.com/papadembasene97-sudo/qgis_plugin*
