@@ -41,6 +41,8 @@ class NetworkTracer:
             "func": ["fonccanass", "fonction", "function"],
             "type": ["typreseau", "type_reseau"],
             "len": ["l_longcana_reelle", "longueur", "length"],
+            "node_ini": ["idnini", "IDNINI", "idn_ini", "id_ini", "idamont", "noeud_amont"],
+            "node_term": ["idnterm", "IDNTERM", "idn_term", "id_term", "idaval", "noeud_aval"],
         }
         if field_alias:
             for k, v in field_alias.items():
@@ -99,6 +101,11 @@ class NetworkTracer:
         g: QgsGeometry = feat.geometry()
         return float(g.length() if g else 0.0)
 
+    def _node_ids(self, layer: QgsVectorLayer, feat: QgsFeature) -> Tuple[str, str]:
+        idnini = _as_str(self._feat_val_by_key(layer, feat, "node_ini")).strip()
+        idnterm = _as_str(self._feat_val_by_key(layer, feat, "node_term")).strip()
+        return idnini, idnterm
+
     def _pass_filters(self, layer: QgsVectorLayer, feat: QgsFeature) -> bool:
         fcat = (self.filters.get("category") or "").strip()
         ffun = (self.filters.get("function") or "").strip()
@@ -137,9 +144,7 @@ class NetworkTracer:
         for is_canal, lyr in layers:
             for feat in lyr.getFeatures():
                 try:
-                    names = feat.fields().names()
-                    idnini = _as_str(feat["idnini"]).strip() if "idnini" in names else ""
-                    idnterm = _as_str(feat["idnterm"]).strip() if "idnterm" in names else ""
+                    idnini, idnterm = self._node_ids(lyr, feat)
                     if not idnini or not idnterm:
                         continue
                     if idnini.upper() == "INCONNU" or idnterm.upper() == "INCONNU":
