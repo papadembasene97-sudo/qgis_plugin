@@ -148,6 +148,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -4214,7 +4215,6 @@ class MainDock:
         self.visited.clear()
         self.polluter_id = ""; self.polluter_note = ""; self.astreint_details.clear()
         self.polluter_type = ""
-        self.polluter_details = {}
         self._last_trace_nodes.clear()
         self._mask_on = False
         self._last_indus_data = {}
