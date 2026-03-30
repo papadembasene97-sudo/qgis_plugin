@@ -301,10 +301,11 @@ class NetworkTracer:
         if not closest_canal:
             return [], [], None
 
+        idnini, idnterm = self._node_ids(self.canal_layer, closest_canal)
         if downstream:
-            start_node_id = _as_str(closest_canal.attribute("idnini"))
+            start_node_id = idnini
         else:
-            start_node_id = _as_str(closest_canal.attribute("idnterm"))
+            start_node_id = idnterm
 
         if not start_node_id or start_node_id == "INCONNU":
             return [], [], None

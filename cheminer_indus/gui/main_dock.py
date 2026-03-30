@@ -140,6 +140,7 @@ class MainDock:
         self.polluter_id   : str = ""
         self.polluter_note : str = ""
         self.polluter_type : str = ""
+        self.polluter_details: Dict[str, Any] = {}
         self.astreint_details: Dict[str, object] = {}
 
         # masque étiquettes (via LABEL_CI)
@@ -2558,6 +2559,19 @@ class MainDock:
         except Exception:
             return None
 
+    def _pollution_divers_report_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalise les infos pollution divers pour affichage tableau PDF."""
+        return {
+            "id": data.get("id", data.get("fid", self.polluter_id)),
+            "type_pollution": data.get("type_pollution", data.get("categorie", "")),
+            "description": data.get("description", data.get("details", "")),
+            "date_observation": data.get("date_observation", data.get("date_obs", data.get("date_saisie", ""))),
+            "observateur": data.get("observateur", data.get("agent", data.get("saisi_par", ""))),
+            "gravite": data.get("gravite", data.get("criticite", data.get("niveau", ""))),
+            "commentaire": data.get("commentaire", data.get("comment", data.get("notes", data.get("details", "")))),
+            "photo": data.get("photo", data.get("photo_path", data.get("image", ""))),
+        }
+
     def _choose_nearest_ouvrage_from_point(self, pt: QgsPointXY) -> Optional[str]:
         """Laisse l'utilisateur choisir l'ouvrage le plus proche d'un point."""
         if not self.ouvr_layer or not self.ouvr_layer.isValid() or not pt:
@@ -2696,6 +2710,8 @@ class MainDock:
             self.polluter_id = oid
             self.polluter_type = "OUVRAGE"
             self.polluter_note = commentaire
+            self.polluter_details = dict(payload)
+            self.polluter_details["id"] = oid
             if self.label_layer:
                 self._toggle_mask_labels(True)
 
@@ -2744,6 +2760,8 @@ class MainDock:
             self.polluter_id = str(new_fid) if new_fid is not None else ""
             self.polluter_type = "POLLUTION_DIVERS"
             self.polluter_note = commentaire
+            self.polluter_details = dict(payload)
+            self.polluter_details["id"] = self.polluter_id
             if self.label_layer:
                 self._toggle_mask_labels(True)
 
@@ -2758,6 +2776,7 @@ class MainDock:
         self.polluter_id = str(pv_id)
         self.polluter_type = "PV"
         self.polluter_note = (self.note_text.toPlainText() or "").strip() if self.note_text else ""
+        self.polluter_details = {}
         if self.pv_layer and self.pv_layer.isValid():
             for field_name in ('id', 'num_pv', 'ID', 'NUM_PV'):
                 if self.pv_layer.fields().indexOf(field_name) >= 0:
@@ -3039,6 +3058,7 @@ class MainDock:
         self.polluter_note = (self.note_text.toPlainText() or "").strip()
         self.polluter_id = ind_id
         self.polluter_type = "INDUS"
+        self.polluter_details = {}
         if self.indus_layer and self.indus_layer.isValid():
             expr_h = QgsExpression("trim(\"id\") = '{}'".format(ind_id.replace("'", "''")))
             for inf in self.indus_layer.getFeatures(QgsFeatureRequest(expr_h)):
@@ -3606,9 +3626,11 @@ class MainDock:
                     pdf.ln(2)
             elif self.polluter_id and polluter_type == "OUVRAGE":
                 pdf.section_title("Origine ouvrage / point pollution")
-                pdf.set_font('Helvetica','',10)
-                pdf.cell(0, 6, f"Type : {polluter_type}", ln=True)
-                pdf.cell(0, 6, f"Identifiant ouvrage : {self.polluter_id}", ln=True)
+                data = dict(self.polluter_details or {})
+                data.setdefault("id", self.polluter_id)
+                data.setdefault("source_type", "OUVRAGE")
+                data.setdefault("description", data.get("description", "Pollution observée à l'ouvrage désigné"))
+                pdf.table_pollution_divers_info(self._pollution_divers_report_data(data), bordered=True)
                 self.polluter_note = (self.note_text.toPlainText() or "").strip()
                 if self.polluter_note:
                     pdf.sub_section(self._tr_report("note"))
@@ -3617,23 +3639,12 @@ class MainDock:
             elif self.polluter_id and polluter_type == "POLLUTION_DIVERS":
                 pdf.section_title("Origine pollution divers")
                 feat = self._get_pollution_divers_feature_by_fid(self.polluter_id)
-                data = {}
+                data = dict(self.polluter_details or {})
                 if feat:
                     for k in feat.fields().names():
                         data[k] = feat[k]
-                pdf.table_pollution_divers_info(
-                    {
-                        "id": self.polluter_id,
-                        "type_pollution": data.get("type_pollution", data.get("categorie", "")),
-                        "description": data.get("description", data.get("details", "")),
-                        "date_observation": data.get("date_observation", data.get("date_saisie", "")),
-                        "observateur": data.get("observateur", data.get("agent", "")),
-                        "gravite": data.get("gravite", ""),
-                        "commentaire": data.get("commentaire", data.get("details", "")),
-                        "photo": data.get("photo", ""),
-                    },
-                    bordered=True
-                )
+                data.setdefault("id", self.polluter_id)
+                pdf.table_pollution_divers_info(self._pollution_divers_report_data(data), bordered=True)
             elif self.polluter_id:
                 d = {}
                 if not self.indus_svc and self.indus_combo:
@@ -3779,6 +3790,7 @@ class MainDock:
             "polluter_id": self.polluter_id,
             "polluter_note": self.polluter_note,
             "polluter_type": self.polluter_type,
+            "polluter_details": {k: _safe_json(v) for k, v in (self.polluter_details or {}).items()},
             "astreinte": {k:_safe_json(v) for k,v in self.astreint_details.items()},
             "mask_on": self._mask_on,
             "label_ci": label_dump,
@@ -3856,6 +3868,7 @@ class MainDock:
             self.polluter_id = st.get("polluter_id","")
             self.polluter_note = st.get("polluter_note","")
             self.polluter_type = st.get("polluter_type","")
+            self.polluter_details = st.get("polluter_details", {}) or {}
             if self.note_text:
                 self.note_text.setPlainText(self.polluter_note or "")
             self.astreint_details = st.get("astreinte",{})
