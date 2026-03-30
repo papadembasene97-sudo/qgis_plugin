@@ -194,6 +194,10 @@ class MainDock:
         self._indus_svc_key = None
         self._pv_svc_key = None
         self._node_ops_key = None
+        self._network_cache_key = None
+        self._canal_nodes_by_fid: Dict[int, Tuple[str, str]] = {}
+        self._fosse_nodes_by_fid: Dict[int, Tuple[str, str]] = {}
+        self._liaison_fids_by_node: Dict[str, Set[int]] = {}
 
     # ---------------------------------------------------------
     # Integration QGIS
@@ -1428,6 +1432,64 @@ class MainDock:
         except Exception:
             return None
 
+    def _build_network_fast_caches(self):
+        """Construit des caches locaux pour limiter les requêtes provider répétées (terrain/réseau lent)."""
+        def _sig(layer: Optional[QgsVectorLayer]) -> Tuple[str, int]:
+            if not layer or not layer.isValid():
+                return ("", -1)
+            try:
+                return (layer.id(), int(layer.featureCount()))
+            except Exception:
+                return (layer.id(), -1)
+
+        key = (
+            _sig(self.canal_layer),
+            _sig(self.fosse_layer),
+            _sig(self.liaison_layer),
+        )
+        if self._network_cache_key == key and self._canal_nodes_by_fid is not None:
+            return
+
+        self._canal_nodes_by_fid = {}
+        self._fosse_nodes_by_fid = {}
+        self._liaison_fids_by_node = {}
+
+        def _norm(v: Any) -> str:
+            s = str(v or "").strip()
+            return "" if not s or s.upper() == "INCONNU" else s
+
+        if self.canal_layer and self.canal_layer.isValid():
+            for f in self.canal_layer.getFeatures():
+                try:
+                    ini = _norm(f["idnini"])
+                    term = _norm(f["idnterm"])
+                    if ini or term:
+                        self._canal_nodes_by_fid[f.id()] = (ini, term)
+                except Exception:
+                    continue
+
+        if self.fosse_layer and self.fosse_layer.isValid():
+            for f in self.fosse_layer.getFeatures():
+                try:
+                    ini = _norm(f["idnini"])
+                    term = _norm(f["idnterm"])
+                    if ini or term:
+                        self._fosse_nodes_by_fid[f.id()] = (ini, term)
+                except Exception:
+                    continue
+
+        if self.liaison_layer and self.liaison_layer.isValid():
+            for f in self.liaison_layer.getFeatures():
+                try:
+                    node = _norm(f["id_ouvrage"])
+                    if not node:
+                        continue
+                    self._liaison_fids_by_node.setdefault(node, set()).add(f.id())
+                except Exception:
+                    continue
+
+        self._network_cache_key = key
+
     def _do_trace(self):
         start_id = (self.id_input.text() or "").strip()
         if not start_id:
@@ -1444,6 +1506,7 @@ class MainDock:
         if not self.canal_layer or not self.ouvr_layer:
             QMessageBox.warning(self.iface.mainWindow(),PLUGIN_DISPLAY_NAME,"Sélectionnez au minimum CANALISATION et OUVRAGE.")
             return
+        self._build_network_fast_caches()
 
         mode = self.direction_combo.currentText()
         filters = {'category': self.cat_combo.currentData() or '',
@@ -1532,6 +1595,7 @@ class MainDock:
             self.liaison_layer = self.liaison_combo.currentData() if self.liaison_combo else None
         if not self.pv_layer or not self.pv_layer.isValid():
             self.pv_layer = self.pv_combo.currentData() if self.pv_combo else None
+        self._build_network_fast_caches()
 
         self.tracer = NetworkTracer(
             canal_layer=self.canal_layer,
@@ -1647,14 +1711,33 @@ class MainDock:
     # ---------------------------------------------------------
     def _collect_nodes_from_ids(self, canal_ids: List[int], fosse_ids: List[int], downstream: bool) -> Set[str]:
         nodes: Set[str] = set()
-        if self.canal_layer and canal_ids:
+        if self._canal_nodes_by_fid and canal_ids:
+            for fid in canal_ids:
+                ini, term = self._canal_nodes_by_fid.get(fid, ("", ""))
+                nid = term if downstream else ini
+                nid2 = ini if downstream else term
+                if nid:
+                    nodes.add(str(nid))
+                if nid2:
+                    nodes.add(str(nid2))
+        elif self.canal_layer and canal_ids:
             req = QgsFeatureRequest().setFilterFids(canal_ids)
             for f in self.canal_layer.getFeatures(req):
                 nid = f['idnterm'] if downstream else f['idnini']
                 if nid and str(nid) != 'INCONNU': nodes.add(str(nid))
                 nid2 = f['idnini'] if downstream else f['idnterm']
                 if nid2 and str(nid2) != 'INCONNU': nodes.add(str(nid2))
-        if self.fosse_layer and fosse_ids:
+
+        if self._fosse_nodes_by_fid and fosse_ids:
+            for fid in fosse_ids:
+                ini, term = self._fosse_nodes_by_fid.get(fid, ("", ""))
+                nid = term if downstream else ini
+                nid2 = ini if downstream else term
+                if nid:
+                    nodes.add(str(nid))
+                if nid2:
+                    nodes.add(str(nid2))
+        elif self.fosse_layer and fosse_ids:
             req = QgsFeatureRequest().setFilterFids(fosse_ids)
             for f in self.fosse_layer.getFeatures(req):
                 nid = f['idnterm'] if downstream else f['idnini']
@@ -1671,6 +1754,13 @@ class MainDock:
         if clear:
             self.liaison_layer.removeSelection()
         if not nodes:
+            return
+        if self._liaison_fids_by_node:
+            ids: Set[int] = set()
+            for n in nodes:
+                ids.update(self._liaison_fids_by_node.get((n or "").strip(), set()))
+            if ids:
+                self.liaison_layer.selectByIds(sorted(ids))
             return
         esc = lambda s: (s or "").replace("'", "''")
         values = ",".join("'{}'".format(esc(n.strip())) for n in nodes)
@@ -4129,6 +4219,10 @@ class MainDock:
         self._mask_on = False
         self._last_indus_data = {}
         self._last_pv_data = {}
+        self._network_cache_key = None
+        self._canal_nodes_by_fid = {}
+        self._fosse_nodes_by_fid = {}
+        self._liaison_fids_by_node = {}
 
         if self.industrial_dock:
             self.iface.removeDockWidget(self.industrial_dock); self.industrial_dock = None
