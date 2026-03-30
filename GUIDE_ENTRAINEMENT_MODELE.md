@@ -1,4 +1,4 @@
-# 📚 Guide d'entraînement du modèle IA CheminerIndus
+# 📚 Guide d'entraînement du modèle IA TRACK-EAU-POLL
 
 ## 🎯 Objectif du modèle
 
@@ -78,7 +78,7 @@ Si vous n'avez pas encore d'historique, le plugin peut **générer des données 
    - Couche de canalisations chargée dans QGIS
    - Couche de visites chargée dans QGIS (avec champ `polluted`)
 
-2. **Ouvrir CheminerIndus** :
+2. **Ouvrir TRACK-EAU-POLL** :
    - Cliquer sur l'icône du plugin
    - Aller dans l'onglet **"🤖 IA"**
 
@@ -325,7 +325,7 @@ INSERT INTO visites_terrain (id_noeud, date_visite, pollue, niveau_pollution) VA
 
 ### Étape 3 : Entraîner via l'interface
 
-1. CheminerIndus → Onglet "IA"
+1. TRACK-EAU-POLL → Onglet "IA"
 2. Cliquer "⚙️ Entraîner le modèle"
 3. Sauvegarder : `C:/Modeles/pollution_2024.pkl`
 4. ✅ "Modèle entraîné avec succès !"
@@ -357,7 +357,7 @@ Top 10 des zones à risque :
 |-------|--------|-------|
 | 1️⃣ Préparer les données | Créer couche visites avec champ `pollue` | 30 min |
 | 2️⃣ Charger dans QGIS | Ajouter couches Canalisations + Visites | 5 min |
-| 3️⃣ Ouvrir l'onglet IA | CheminerIndus → "🤖 IA" | 10 sec |
+| 3️⃣ Ouvrir l'onglet IA | TRACK-EAU-POLL → "🤖 IA" | 10 sec |
 | 4️⃣ Entraîner | Cliquer "⚙️ Entraîner le modèle" | 2-5 min |
 | 5️⃣ Prédire | Cliquer "🎯 Prédire les zones à risque" | 30 sec |
 

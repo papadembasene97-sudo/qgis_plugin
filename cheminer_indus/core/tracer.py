@@ -9,7 +9,6 @@ from qgis.core import (
     QgsFeatureRequest,
     QgsGeometry,
     QgsVectorLayer,
-    QgsExpression,
 )
 
 
@@ -21,32 +20,9 @@ def _as_str(v) -> str:
 
 class NetworkTracer:
     """
-    Traçage unifié sur 2 couches linéaires formant UN SEUL graphe topologique :
-      - canalisations (obligatoire)
-      - cours_d_eau_et_fosse_ (optionnelle)
-
-    La continuité se fait via les nœuds `idnini` / `idnterm`.
-    Le parcours peut alterner librement entre canalisation et fossé.
-
-    Paramètres
-    ----------
-    canal_layer : QgsVectorLayer
-        Couche linéaire des canalisations (obligatoire).
-    fosse_layer : Optional[QgsVectorLayer]
-        Couche linéaire cours d'eau / fossé (optionnelle).
-    field_alias : Optional[Dict[str, Iterable[str]]]
-        Champs alternatifs à essayer, par clé:
-         - 'cat'  : catégorie     (ex. contcanass)
-         - 'func' : fonction      (ex. fonccanass)
-         - 'type' : type de flux  (ex. typreseau: '01','02','03')
-         - 'len'  : longueur      (ex. l_longcana_reelle)
-    filters : Optional[Dict[str, str]]
-        Filtres applicables : {'category': '01/02/03' ou '', 'function': '01/02' ou ''}
-
-    Attributs résultats (après trace)
-    ---------------------------------
-    total_length : float         Longueur cumulée suivie
-    flux_types   : Set[str]      Codes rencontrés (ex. {'01','02'})
+    Traçage unifié sur 2 couches linéaires formant UN SEUL graphe topologique.
+    Version optimisée: construit un graphe en mémoire pour éviter les requêtes
+    provider répétées à chaque nœud parcouru.
     """
 
     def __init__(
@@ -60,41 +36,35 @@ class NetworkTracer:
         self.fosse_layer = fosse_layer if (fosse_layer and fosse_layer.isValid()) else None
         self.filters = filters or {"category": "", "function": ""}
 
-        # Alias par défaut
         self.alias: Dict[str, List[str]] = {
             "cat": ["contcanass", "categorie", "cat_reseau"],
             "func": ["fonccanass", "fonction", "function"],
             "type": ["typreseau", "type_reseau"],
             "len": ["l_longcana_reelle", "longueur", "length"],
+            "node_ini": ["idnini", "IDNINI", "idn_ini", "id_ini", "idamont", "noeud_amont"],
+            "node_term": ["idnterm", "IDNTERM", "idn_term", "id_term", "idaval", "noeud_aval"],
         }
         if field_alias:
             for k, v in field_alias.items():
                 if v:
                     self.alias[k] = list(v)
 
-        # Caches (par couche) pour éviter de tester 15 fois les mêmes noms
         self._layer_field_name_cache: Dict[str, Dict[str, Optional[str]]] = {}
 
-        # Stats
+        # Graph caches: node -> list[(is_canal, fid, next_node, length, flux_type)]
+        self._graph_out: Optional[Dict[str, List[Tuple[bool, int, str, float, Optional[str]]]]] = None
+        self._graph_in: Optional[Dict[str, List[Tuple[bool, int, str, float, Optional[str]]]]] = None
+
         self.total_length: float = 0.0
         self.flux_types: Set[str] = set()
-        
-        # Résultats du dernier trace (pour accès externe)
+
         self.canal_ids: List[int] = []
         self.fosse_ids: List[int] = []
-
-    # ------------------------------------------------------------------ #
-    # Utils champs / valeurs
-    # ------------------------------------------------------------------ #
 
     def _layer_id(self, layer: QgsVectorLayer) -> str:
         return layer.id()
 
     def _resolve_field_name(self, layer: QgsVectorLayer, key: str) -> Optional[str]:
-        """
-        Retourne le premier nom de champ existant pour la clé d'alias donnée.
-        Résultat mis en cache par couche.
-        """
         lid = self._layer_id(layer)
         cache = self._layer_field_name_cache.setdefault(lid, {})
         if key in cache:
@@ -110,9 +80,6 @@ class NetworkTracer:
         return None
 
     def _feat_val_by_key(self, layer: QgsVectorLayer, feat: QgsFeature, key: str) -> Optional[str]:
-        """
-        Lit la valeur d'un champ (par clé d'alias) si présent sur la couche.
-        """
         fname = self._resolve_field_name(layer, key)
         if not fname:
             return None
@@ -123,9 +90,6 @@ class NetworkTracer:
         return _as_str(val) if val not in (None, "") else None
 
     def _len_of(self, layer: QgsVectorLayer, feat: QgsFeature) -> float:
-        """
-        Longueur d'un segment : champ 'len' s'il existe, sinon géométrie.
-        """
         fname = self._resolve_field_name(layer, "len")
         if fname:
             try:
@@ -137,114 +101,181 @@ class NetworkTracer:
         g: QgsGeometry = feat.geometry()
         return float(g.length() if g else 0.0)
 
+    def _node_ids(self, layer: QgsVectorLayer, feat: QgsFeature) -> Tuple[str, str]:
+        idnini = _as_str(self._feat_val_by_key(layer, feat, "node_ini")).strip()
+        idnterm = _as_str(self._feat_val_by_key(layer, feat, "node_term")).strip()
+        return idnini, idnterm
+
     def _pass_filters(self, layer: QgsVectorLayer, feat: QgsFeature) -> bool:
-        """
-        Applique les filtres 'category' et 'function' **si** les champs existent sur la couche.
-        S'ils n'existent pas, on laisse passer (ne pas bloquer les fossés par ex.).
-        """
         fcat = (self.filters.get("category") or "").strip()
         ffun = (self.filters.get("function") or "").strip()
 
         if fcat:
             cat = self._feat_val_by_key(layer, feat, "cat")
-            if cat is not None and cat != fcat:
+            # Filtrage strict : si un filtre est demandé, une entité sans champ
+            # catégorie exploitable ne doit pas passer (évite d'ouvrir tout le graphe).
+            if cat is None:
+                return False
+            if cat != fcat:
                 return False
 
         if ffun:
             fun = self._feat_val_by_key(layer, feat, "func")
-            if fun is not None and fun != ffun:
+            if fun is None:
+                return False
+            if fun != ffun:
                 return False
 
         return True
 
-    # ------------------------------------------------------------------ #
-    # Parcours unifié
-    # ------------------------------------------------------------------ #
+    def _ensure_graph_cache(self):
+        if self._graph_out is not None and self._graph_in is not None:
+            return
 
-    def _iter_edges_from_node(
-        self, node_id: str, downstream: bool
-    ) -> Iterable[Tuple[QgsVectorLayer, QgsFeature, str]]:
-        """
-        Itère sur TOUTES les arêtes sortant du nœud courant, sur canal + fossé.
-        Pour downstream=True : on cherche idnini = node_id  -> next = idnterm
-        Pour downstream=False : on cherche idnterm = node_id -> next = idnini
-        """
-        if not self.canal_layer or not self.canal_layer.isValid():
-            return []
+        out: Dict[str, List[Tuple[bool, int, str, float, Optional[str]]]] = {}
+        inn: Dict[str, List[Tuple[bool, int, str, float, Optional[str]]]] = {}
 
-        # Choix du côté à filtrer
-        key_attr = "idnini" if downstream else "idnterm"
-        next_attr = "idnterm" if downstream else "idnini"
+        layers: List[Tuple[bool, QgsVectorLayer]] = []
+        if self.canal_layer and self.canal_layer.isValid():
+            layers.append((True, self.canal_layer))
+        if self.fosse_layer and self.fosse_layer.isValid():
+            layers.append((False, self.fosse_layer))
 
-        layers = [self.canal_layer]
-        if self.fosse_layer:
-            layers.append(self.fosse_layer)
+        for is_canal, lyr in layers:
+            for feat in lyr.getFeatures():
+                try:
+                    idnini, idnterm = self._node_ids(lyr, feat)
+                    if not idnini or not idnterm:
+                        continue
+                    if idnini.upper() == "INCONNU" or idnterm.upper() == "INCONNU":
+                        continue
+                    if not self._pass_filters(lyr, feat):
+                        continue
 
-        results: List[Tuple[QgsVectorLayer, QgsFeature, str]] = []
-        for lyr in layers:
-            expr = QgsExpression(f'"{key_attr}" = \'{node_id}\'')
-            req = QgsFeatureRequest(expr)
-            for feat in lyr.getFeatures(req):
-                idnini = _as_str(feat["idnini"]) if "idnini" in feat.fields().names() else ""
-                idnterm = _as_str(feat["idnterm"]) if "idnterm" in feat.fields().names() else ""
-                if idnini == "INCONNU" or idnterm == "INCONNU":
+                    edge_out = (is_canal, feat.id(), idnterm, self._len_of(lyr, feat), self._feat_val_by_key(lyr, feat, "type"))
+                    out.setdefault(idnini, []).append(edge_out)
+
+                    edge_in = (is_canal, feat.id(), idnini, self._len_of(lyr, feat), self._feat_val_by_key(lyr, feat, "type"))
+                    inn.setdefault(idnterm, []).append(edge_in)
+                except Exception:
                     continue
 
-                if not self._pass_filters(lyr, feat):
-                    continue
+        self._graph_out = out
+        self._graph_in = inn
 
-                nxt = _as_str(feat[next_attr]) if next_attr in feat.fields().names() else ""
-                if nxt and nxt != "INCONNU":
-                    results.append((lyr, feat, nxt))
-        return results
-
-    def trace(self, start_id: str, downstream: bool = True) -> Tuple[List[int], List[int]]:
-        """
-        Lance le parcours sur le graphe unifié.
-
-        Retour
-        ------
-        (canal_ids, fosse_ids) : List[int], List[int]
-            Les FIDs sélectionnés par couche.
-        """
+    def trace(
+        self,
+        start_id: str,
+        downstream: bool = True,
+        max_distance: Optional[float] = None,
+    ) -> Tuple[List[int], List[int]]:
         self.total_length = 0.0
         self.flux_types.clear()
 
-        visited_nodes: Set[str] = set()
+        self._ensure_graph_cache()
+        graph = self._graph_out if downstream else self._graph_in
+
+        import heapq
+
+        best_dist: Dict[str, float] = {start_id: 0.0}
+        queue: List[Tuple[float, str]] = [(0.0, start_id)]
+
+        seen_edge_ids: Set[int] = set()
         canal_ids: List[int] = []
         fosse_ids: List[int] = []
 
-        stack: List[str] = [start_id]
-
-        while stack:
-            cur = stack.pop()
-            if cur in visited_nodes:
+        while queue:
+            cur_dist, cur = heapq.heappop(queue)
+            if cur_dist > best_dist.get(cur, float("inf")):
                 continue
-            visited_nodes.add(cur)
 
-            for lyr, feat, nxt in self._iter_edges_from_node(cur, downstream):
-                # Accumuler IDs par couche
-                if lyr == self.canal_layer:
-                    canal_ids.append(feat.id())
-                else:
-                    fosse_ids.append(feat.id())
+            for is_canal, fid, nxt, length, flux_type in graph.get(cur, []) if graph else []:
+                next_dist = cur_dist + float(length or 0.0)
+                if max_distance is not None and next_dist > float(max_distance):
+                    continue
 
-                # Longueur cumulée
-                self.total_length += self._len_of(lyr, feat)
+                if fid not in seen_edge_ids:
+                    seen_edge_ids.add(fid)
+                    if is_canal:
+                        canal_ids.append(fid)
+                    else:
+                        fosse_ids.append(fid)
+                    self.total_length += float(length or 0.0)
+                    if flux_type:
+                        self.flux_types.add(flux_type)
 
-                # Types de flux (si dispo)
-                t = self._feat_val_by_key(lyr, feat, "type")
-                if t:
-                    self.flux_types.add(t)
+                if nxt and nxt != "INCONNU":
+                    if next_dist < best_dist.get(nxt, float("inf")):
+                        best_dist[nxt] = next_dist
+                        heapq.heappush(queue, (next_dist, nxt))
 
-                # Continuer
-                if nxt and nxt not in visited_nodes and nxt != "INCONNU":
-                    stack.append(nxt)
-
-        # Stocker les résultats pour accès externe
         self.canal_ids = canal_ids
         self.fosse_ids = fosse_ids
+        return canal_ids, fosse_ids
 
+    def trace_multi_source(
+        self,
+        start_ids: Iterable[str],
+        downstream: bool = True,
+        max_distance: Optional[float] = None,
+    ) -> Tuple[List[int], List[int]]:
+        """
+        Variante multi-sources optimisée du traçage.
+        Évite de relancer un Dijkstra complet pour chaque nœud de départ.
+        """
+        starts = [str(s).strip() for s in (start_ids or []) if str(s).strip()]
+        if not starts:
+            self.total_length = 0.0
+            self.flux_types.clear()
+            self.canal_ids = []
+            self.fosse_ids = []
+            return [], []
+
+        self.total_length = 0.0
+        self.flux_types.clear()
+
+        self._ensure_graph_cache()
+        graph = self._graph_out if downstream else self._graph_in
+
+        import heapq
+
+        best_dist: Dict[str, float] = {}
+        queue: List[Tuple[float, str]] = []
+        for s in starts:
+            if s not in best_dist or 0.0 < best_dist[s]:
+                best_dist[s] = 0.0
+                heapq.heappush(queue, (0.0, s))
+
+        seen_edge_ids: Set[int] = set()
+        canal_ids: List[int] = []
+        fosse_ids: List[int] = []
+
+        while queue:
+            cur_dist, cur = heapq.heappop(queue)
+            if cur_dist > best_dist.get(cur, float("inf")):
+                continue
+
+            for is_canal, fid, nxt, length, flux_type in graph.get(cur, []) if graph else []:
+                next_dist = cur_dist + float(length or 0.0)
+                if max_distance is not None and next_dist > float(max_distance):
+                    continue
+
+                if fid not in seen_edge_ids:
+                    seen_edge_ids.add(fid)
+                    if is_canal:
+                        canal_ids.append(fid)
+                    else:
+                        fosse_ids.append(fid)
+                    self.total_length += float(length or 0.0)
+                    if flux_type:
+                        self.flux_types.add(flux_type)
+
+                if nxt and nxt != "INCONNU" and next_dist < best_dist.get(nxt, float("inf")):
+                    best_dist[nxt] = next_dist
+                    heapq.heappush(queue, (next_dist, nxt))
+
+        self.canal_ids = canal_ids
+        self.fosse_ids = fosse_ids
         return canal_ids, fosse_ids
 
     def trace_from_pv(
@@ -253,63 +284,31 @@ class NetworkTracer:
         downstream: bool = True,
         search_distance: float = 50.0
     ) -> Tuple[List[int], List[int], Optional[str]]:
-        """
-        Lance un cheminement depuis un PV en trouvant la canalisation la plus proche.
-        
-        Paramètres
-        ----------
-        pv_geometry : QgsGeometry
-            Géométrie du PV (point)
-        downstream : bool
-            True = Amont→Aval, False = Aval→Amont
-        search_distance : float
-            Distance de recherche maximale en mètres (défaut: 50m)
-            
-        Retour
-        ------
-        (canal_ids, fosse_ids, start_node_id) : Tuple[List[int], List[int], Optional[str]]
-            Les FIDs sélectionnés par couche et l'ID du nœud de départ trouvé
-        """
-        # 1. Trouver la canalisation la plus proche du PV
         closest_canal = None
         min_distance = search_distance
-        closest_node_id = None
-        
-        # Créer une bbox autour du PV
-        pv_point = pv_geometry.asPoint()
+
         bbox = pv_geometry.buffer(search_distance, 5).boundingBox()
-        
-        # Parcourir les canalisations dans la bbox
         request = QgsFeatureRequest().setFilterRect(bbox)
         for feat in self.canal_layer.getFeatures(request):
             geom = feat.geometry()
             if not geom or geom.isEmpty():
                 continue
-            
-            # Calculer la distance
             distance = pv_geometry.distance(geom)
-            
             if distance < min_distance:
                 min_distance = distance
                 closest_canal = feat
-        
+
         if not closest_canal:
-            # Aucune canalisation trouvée dans le rayon de recherche
             return [], [], None
-        
-        # 2. Récupérer le nœud de départ (idnini ou idnterm selon downstream)
+
+        idnini, idnterm = self._node_ids(self.canal_layer, closest_canal)
         if downstream:
-            # Amont→Aval : partir du nœud amont (idnini)
-            start_node_id = _as_str(closest_canal.attribute("idnini"))
+            start_node_id = idnini
         else:
-            # Aval→Amont : partir du nœud aval (idnterm)
-            start_node_id = _as_str(closest_canal.attribute("idnterm"))
-        
+            start_node_id = idnterm
+
         if not start_node_id or start_node_id == "INCONNU":
-            # Nœud invalide
             return [], [], None
-        
-        # 3. Lancer le cheminement depuis ce nœud
+
         canal_ids, fosse_ids = self.trace(start_node_id, downstream=downstream)
-        
         return canal_ids, fosse_ids, start_node_id
