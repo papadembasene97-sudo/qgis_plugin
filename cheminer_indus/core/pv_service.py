@@ -450,13 +450,3 @@ class PVService:
                     return False
                 return True
         return True
-
-    def _is_visit_or_contre(self, feat) -> bool:
-        """Retourne True si le type PV est VISITE ou CONTRE VISITE."""
-        for field_name in ["type_visite", "type", "nature_visite", "typ_visite"]:
-            if feat.fields().indexOf(field_name) >= 0:
-                sval = str(feat.attribute(field_name) or "").strip().upper().replace("-", " ")
-                sval = " ".join(sval.split())
-                return sval in ("VISITE", "CONTRE VISITE")
-        # Si champ absent, ne pas exclure par défaut (compat datasets)
-        return True
