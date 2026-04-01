@@ -32,6 +32,8 @@ class PVService:
         self._pv_geom_cache_all: Optional[Dict[int, QgsGeometry]] = None
         self._pv_index_nonconf: Optional[QgsSpatialIndex] = None
         self._pv_geom_cache_nonconf: Optional[Dict[int, QgsGeometry]] = None
+        self._pv_index_nonconf_visit: Optional[QgsSpatialIndex] = None
+        self._pv_geom_cache_nonconf_visit: Optional[Dict[int, QgsGeometry]] = None
         self._pv_cache_target_crs: Optional[str] = None
 
         self._canal_spatial_index: Optional[QgsSpatialIndex] = None
@@ -45,6 +47,8 @@ class PVService:
         self._pv_geom_cache_all = None
         self._pv_index_nonconf = None
         self._pv_geom_cache_nonconf = None
+        self._pv_index_nonconf_visit = None
+        self._pv_geom_cache_nonconf_visit = None
         self._pv_cache_target_crs = None
         self._canal_spatial_index = None
         self._canal_geom_cache = None
@@ -91,16 +95,26 @@ class PVService:
         self._canal_geom_cache = geom_cache
         return idx, geom_cache
 
-    def _build_pv_spatial_cache(self, include_conformes: bool, transform: Optional[QgsCoordinateTransform], target_crs_authid: str):
+    def _build_pv_spatial_cache(
+        self,
+        include_conformes: bool,
+        transform: Optional[QgsCoordinateTransform],
+        target_crs_authid: str,
+        only_visit_or_contre: bool = False
+    ):
         if self._pv_cache_target_crs != target_crs_authid:
             self._pv_index_all = None
             self._pv_geom_cache_all = None
             self._pv_index_nonconf = None
             self._pv_geom_cache_nonconf = None
+            self._pv_index_nonconf_visit = None
+            self._pv_geom_cache_nonconf_visit = None
             self._pv_cache_target_crs = target_crs_authid
 
         if include_conformes and self._pv_index_all is not None and self._pv_geom_cache_all is not None:
             return self._pv_index_all, self._pv_geom_cache_all
+        if (not include_conformes) and only_visit_or_contre and self._pv_index_nonconf_visit is not None and self._pv_geom_cache_nonconf_visit is not None:
+            return self._pv_index_nonconf_visit, self._pv_geom_cache_nonconf_visit
         if (not include_conformes) and self._pv_index_nonconf is not None and self._pv_geom_cache_nonconf is not None:
             return self._pv_index_nonconf, self._pv_geom_cache_nonconf
 
@@ -110,6 +124,8 @@ class PVService:
         if self.pv_layer and self.pv_layer.isValid():
             for pv_feat in self.pv_layer.getFeatures():
                 if not include_conformes and not self._is_non_conforme(pv_feat):
+                    continue
+                if (not include_conformes) and only_visit_or_contre and (not self._is_visit_or_contre(pv_feat)):
                     continue
                 pv_geom = pv_feat.geometry()
                 if not pv_geom:
@@ -125,6 +141,9 @@ class PVService:
         if include_conformes:
             self._pv_index_all = pv_index
             self._pv_geom_cache_all = pv_geom_cache
+        elif only_visit_or_contre:
+            self._pv_index_nonconf_visit = pv_index
+            self._pv_geom_cache_nonconf_visit = pv_geom_cache
         else:
             self._pv_index_nonconf = pv_index
             self._pv_geom_cache_nonconf = pv_geom_cache
@@ -138,7 +157,8 @@ class PVService:
         self,
         nodes: Set[str],
         distance: float = 15.0,
-        include_conformes: bool = False
+        include_conformes: bool = False,
+        only_visit_or_contre: bool = False
     ) -> List[int]:
         """
         À partir d'un ensemble de nœuds, sélectionne les PV dans un rayon donné
@@ -164,7 +184,7 @@ class PVService:
             return []
 
         # Trouver les PV proches de ces canalisations
-        pv_fids = self._find_pv_near_canals(canal_ids, distance, include_conformes)
+        pv_fids = self._find_pv_near_canals(canal_ids, distance, include_conformes, only_visit_or_contre)
         
         # Sélectionner les PV dans la couche
         self.pv_layer.removeSelection()
@@ -195,7 +215,8 @@ class PVService:
         self,
         canal_ids: Set[int],
         distance: float,
-        include_conformes: bool
+        include_conformes: bool,
+        only_visit_or_contre: bool
     ) -> List[int]:
         """
         Trouve les PV dans un rayon autour des canalisations données.
@@ -222,7 +243,7 @@ class PVService:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
         # Construire/relire un index spatial PV cache pour accélérer les recherches
-        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform, canal_crs.authid())
+        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform, canal_crs.authid(), only_visit_or_contre)
 
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
@@ -248,7 +269,8 @@ class PVService:
         self,
         nodes: Set[str],
         distance: float = 15.0,
-        include_conformes: bool = False
+        include_conformes: bool = False,
+        only_visit_or_contre: bool = False
     ) -> List[str]:
         """
         Raccourci : à partir des nœuds → sélectionner PV → renvoyer IDs texte.
@@ -260,7 +282,7 @@ class PVService:
         Returns:
             Liste des IDs texte des PV (colonne 'id' ou 'num_pv')
         """
-        fids = self.select_pv_from_nodes(nodes, distance, include_conformes)
+        fids = self.select_pv_from_nodes(nodes, distance, include_conformes, only_visit_or_contre)
         
         if not fids or not self.pv_layer:
             return []

@@ -1665,7 +1665,11 @@ class MainDock:
                 self._pv_svc_key = None
         
         if self.pv_svc and self.pv_layer:
-            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
+            pv_ids = self.pv_svc.connected_ids_from_nodes(
+                nodes,
+                distance=pv_distance,
+                only_visit_or_contre=True
+            )
             
             # Sélection explicite des PV sur la carte
             if pv_ids:
@@ -1996,7 +2000,11 @@ class MainDock:
                 self._pv_svc_key = None
         if not self.pv_svc:
             return []
-        return self.pv_svc.connected_ids_from_nodes(set(nodes), distance=15.0)
+        return self.pv_svc.connected_ids_from_nodes(
+            set(nodes),
+            distance=15.0,
+            only_visit_or_contre=True
+        )
 
     def _get_ouvrage_z_by_id(self, node_id: str) -> Optional[float]:
         """Retourne Z (fil d'eau/radier) depuis la couche Ouvrages."""
@@ -2463,7 +2471,11 @@ class MainDock:
 
         pv_ids = []
         if self.pv_svc and self.pv_layer and self.pv_layer.isValid():
-            pv_ids = self.pv_svc.connected_ids_from_nodes(nodes, distance=pv_distance)
+            pv_ids = self.pv_svc.connected_ids_from_nodes(
+                nodes,
+                distance=pv_distance,
+                only_visit_or_contre=True
+            )
 
             self.pv_layer.removeSelection()
             if pv_ids:
