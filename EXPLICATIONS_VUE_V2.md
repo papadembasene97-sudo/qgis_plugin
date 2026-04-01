@@ -1,4 +1,4 @@
-# 🆕 Vue matérialisée enrichie - CheminerIndus v1.2.2
+# 🆕 Vue matérialisée enrichie - TRACK-EAU-POLL v1.2.2
 
 ## 📊 Nouvelles données intégrées
 
@@ -175,7 +175,7 @@ LIMIT 10;
 
 **Option A : Via QGIS**
 ```
-CheminerIndus → IA → Entraîner le modèle
+TRACK-EAU-POLL → IA → Entraîner le modèle
 → Sélectionner donnees_entrainement_ia
 → Sauvegarder : modele_pollution_v2.pkl
 ```

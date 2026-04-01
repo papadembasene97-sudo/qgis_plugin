@@ -432,7 +432,7 @@ python entrainer_modele_ia.py
 
 ### ✅ L'IA est prête !
 
-Le module IA de CheminerIndus **accepte automatiquement** les 59 features de la nouvelle vue SQL v1.2.3.
+Le module IA de TRACK-EAU-POLL **accepte automatiquement** les 59 features de la nouvelle vue SQL v1.2.3.
 
 **Aucune modification de code nécessaire** - Il suffit de :
 1. Créer la vue SQL corrigée

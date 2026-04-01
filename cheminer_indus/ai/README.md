@@ -1,8 +1,8 @@
-# 🤖 Module IA - CheminerIndus
+# 🤖 Module IA - TRACK-EAU-POLL
 
 ## Vue d'ensemble
 
-Ce module ajoute des capacités d'**Intelligence Artificielle** au plugin CheminerIndus pour :
+Ce module ajoute des capacités d'**Intelligence Artificielle** au plugin TRACK-EAU-POLL pour :
 
 1. **Prédire les zones de pollution** avant même de faire les visites terrain
 2. **Optimiser les parcours de visite** en priorisant les nœuds à risque
@@ -134,7 +134,7 @@ Cela génère `training_data_synthetic.json` avec 200 échantillons.
 
 #### Via l'interface graphique (recommandé)
 
-1. Ouvrir l'onglet **"IA"** dans CheminerIndus
+1. Ouvrir l'onglet **"IA"** dans TRACK-EAU-POLL
 2. Cliquer sur **"📂 Charger historique des visites"**
 3. Sélectionner votre fichier JSON
 4. Cliquer sur **"🚀 Entraîner le modèle"**
@@ -304,9 +304,9 @@ viz.export_complex_zones_report(
   "upstream_data": [
     {
       "diametre": 400,
-      "pente": 0.008,
-      "z_amont": 127.5,
-      "z_aval": 125.3,
+      "_pente": 0.008,
+      "zmont": 127.5,
+      "zaval": 125.3,
       "longueur": 45.2,
       "type_reseau": "EU",
       "materiau": "PVC"
@@ -426,7 +426,7 @@ Pour toute question sur le module IA :
 
 ## 📄 Licence
 
-Ce module fait partie de CheminerIndus et est distribué sous la même licence que le plugin principal.
+Ce module fait partie de TRACK-EAU-POLL et est distribué sous la même licence que le plugin principal.
 
 ---
 

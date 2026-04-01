@@ -1,4 +1,4 @@
-# 🎉 RÉCAPITULATIF FINAL - CheminerIndus v1.2.3
+# 🎉 RÉCAPITULATIF FINAL - TRACK-EAU-POLL v1.2.3
 
 **Date** : 2026-01-16  
 **Statut** : ✅ **PLUGIN MIS À JOUR SUR GITHUB**
@@ -7,7 +7,7 @@
 
 ## 🚀 RÉSUMÉ EN 30 SECONDES
 
-**CheminerIndus v1.2.3** est maintenant disponible sur GitHub avec :
+**TRACK-EAU-POLL v1.2.3** est maintenant disponible sur GitHub avec :
 - ✅ Module PV Conformité opérationnel (10 694 PV)
 - ✅ IA enrichie : 35 → 59 features (+24)
 - ✅ Précision IA : 87% → 92-94% (+5-7%)
@@ -107,7 +107,7 @@ https://github.com/papadembasene97-sudo/qgis_plugin
 ### Dernier commit
 ```
 0df1ba4 - docs: Confirmation du push GitHub v1.2.3
-192cc3f - release: CheminerIndus v1.2.3 - Module PV Conformité
+192cc3f - release: TRACK-EAU-POLL v1.2.3 - Module PV Conformité
 ```
 
 ### Historique complet (10 commits aujourd'hui)
@@ -164,7 +164,7 @@ psql -U postgres -d votre_base -f vue_ia_complete_v2.sql
 ### Option 3 : Dans QGIS
 ```
 1. Ouvrir QGIS
-2. Extensions → CheminerIndus
+2. Extensions → TRACK-EAU-POLL
 3. Vérifier que osmose.PV_CONFORMITE est chargée
 4. Tester un cheminement
 ```
@@ -243,7 +243,7 @@ psql -U postgres -d votre_base -f vue_ia_complete_v2.sql
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ CheminerIndus v1.2.3                                │
+│ TRACK-EAU-POLL v1.2.3                                │
 │ ✅ PLUGIN MIS À JOUR SUR GITHUB                     │
 ├─────────────────────────────────────────────────────┤
 │ Module PV Conformité      : ✅ Opérationnel         │
