@@ -1,7 +1,7 @@
 # ✅ PHASES 2 & 3 TERMINÉES : Optimisations + Interface
 
 **Date** : 2026-01-19  
-**Version** : CheminerIndus v1.2.3  
+**Version** : TRACK-EAU-POLL v1.2.3  
 **Status** : ✅ **IMPLÉMENTÉ**
 
 ---
