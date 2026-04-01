@@ -1785,6 +1785,8 @@ class MainDock:
         if not node_id:
             QMessageBox.information(self.iface.mainWindow(),"Info","Saisir un ID visite.")
             return
+        # Prépare les caches locaux de nœuds pour éviter des requêtes provider répétées.
+        self._build_network_fast_caches()
 
         # Initialiser l'optimiseur (et n'invalider que si couches changées)
         node_ops_key = (
@@ -1895,6 +1897,7 @@ class MainDock:
             removed_indus_down = self._node_ops.deselect_liaisons_and_indus_from_nodes_optimized(nodes_ds)
 
             # 5.b Construire l'ensemble KEEP = branches cochées + tout leur amont (sur la sélection)
+            sel_c_keep, sel_f_keep = self._selected_id_sets()
             for typ, fid, amont, _ in branches:
                 if fid not in chosen_keep:
                     continue
@@ -1904,8 +1907,7 @@ class MainDock:
                     keep_fids.add(fid)
                 # Remonter sur la sélection à partir de l'amont de la branche cochée - VERSION OPTIMISÉE
                 if amont:
-                    sel_c, sel_f = self._selected_id_sets()
-                    kc, kf, kn = self._node_ops.walk_upstream_on_selected_optimized(amont, sel_c, sel_f)
+                    kc, kf, kn = self._node_ops.walk_upstream_on_selected_optimized(amont, sel_c_keep, sel_f_keep)
                     keep_cids.update(kc); keep_fids.update(kf); keep_nodes.update(kn)
             # Inclure le nœud visité dans l'ensemble KEEP de nœuds
             keep_nodes.add(node_id.strip())
@@ -1924,7 +1926,26 @@ class MainDock:
             # récupérer nœuds depuis les tronçons retirés
             def _nodes_from_ids(layer, ids):
                 out = set()
-                if not layer or not ids:
+                if not ids:
+                    return out
+                # Fast-path: caches locaux (évite un aller provider sur gros graphes)
+                if layer is self.canal_layer and self._canal_nodes_by_fid:
+                    for fid in ids:
+                        ini, term = self._canal_nodes_by_fid.get(fid, ("", ""))
+                        if ini:
+                            out.add(str(ini))
+                        if term:
+                            out.add(str(term))
+                    return out
+                if layer is self.fosse_layer and self._fosse_nodes_by_fid:
+                    for fid in ids:
+                        ini, term = self._fosse_nodes_by_fid.get(fid, ("", ""))
+                        if ini:
+                            out.add(str(ini))
+                        if term:
+                            out.add(str(term))
+                    return out
+                if not layer:
                     return out
                 req = QgsFeatureRequest().setFilterFids(ids)
                 for f in layer.getFeatures(req):
