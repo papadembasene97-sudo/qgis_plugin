@@ -289,7 +289,7 @@ cheminer_indus/
 
 ### Compatibilité
 
-- ✅ CheminerIndus v1.2.2+
+- ✅ TRACK-EAU-POLL v1.2.2+
 - ✅ Python 3.7+
 - ✅ QGIS 3.16+
 
@@ -361,7 +361,7 @@ cheminer_indus/
 
 ## 🎓 Conclusion
 
-Le **Module PV Conformité v1.2.3** est maintenant **prêt à être intégré** dans CheminerIndus.
+Le **Module PV Conformité v1.2.3** est maintenant **prêt à être intégré** dans TRACK-EAU-POLL.
 
 ### ✅ Ce qui est fait
 
@@ -387,7 +387,7 @@ Le **Module PV Conformité v1.2.3** est maintenant **prêt à être intégré** 
 
 ---
 
-**CheminerIndus v1.2.3** - Module PV de Conformité  
+**TRACK-EAU-POLL v1.2.3** - Module PV de Conformité  
 *Détection intelligente des non-conformités domestiques*
 
 **Date :** 2026-01-16  

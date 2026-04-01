@@ -1,4 +1,4 @@
-# Dépendances Python pour le plugin CheminerIndus
+# Dépendances Python pour le plugin TRACK-EAU-POLL
 
 # Génération de PDF
 fpdf2>=2.7.0

@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from qgis.PyQt.QtCore import QTimer, QObject
 from qgis.PyQt.QtGui import QColor
-from qgis.core import QgsVectorLayer, QgsGeometry, QgsWkbTypes, QgsPointXY
+from qgis.core import QgsVectorLayer, QgsGeometry, QgsWkbTypes, QgsPointXY, QgsFeatureRequest
 from qgis.gui import QgsRubberBand
 
 from ..utils.geom_utils import safe_interpolate_point, calculate_angle, create_arrow_geometry
@@ -49,6 +49,10 @@ class FlowAnimator(QObject):
 
         # Vitesse en pixels par tick (tick ~ 40ms)
         self._px_speed = 10.0
+
+        # Garde-fous performance
+        self._max_features_per_layer = 1200
+        self._max_items = 1800
 
         # Couleurs (défauts, modifiables via set_colors)
         # EP = 01 (bleu), EU = 02 (brun), Défaut = rouge (selon demande)
@@ -120,7 +124,7 @@ class FlowAnimator(QObject):
         self._rebuild_items()
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
-        self.timer.start(80)  # ~25 FPS
+        self.timer.start(self._timer_interval_ms())
         self._nav_paused = False  # on part actif
 
     def stop(self):
@@ -205,10 +209,19 @@ class FlowAnimator(QObject):
         # Relancer le timer
         if self.timer and not self.timer.isActive():
             try:
-                self.timer.start(40)
+                self.timer.start(self._timer_interval_ms())
             except Exception:
                 pass
         self.canvas.refresh()
+
+    def _timer_interval_ms(self) -> int:
+        """Adapte la fréquence d'animation en fonction de la charge."""
+        n = len(self.items)
+        if n > 1200:
+            return 180
+        if n > 700:
+            return 130
+        return 80
 
     # ---------------------------
     # Logique interne
@@ -256,7 +269,6 @@ class FlowAnimator(QObject):
 
     def _rebuild_items(self):
         """Reconstruit tous les items (taille, couleur, espacement) à partir des entités sélectionnées."""
-        # Nettoyage précédent
         for it in self.items:
             try:
                 it["rb"].reset()
@@ -267,21 +279,38 @@ class FlowAnimator(QObject):
         if not self.layers:
             return
 
-        # Taille des flèches en unités cartes (fonction du MUPP)
         self._mupp = self.canvas.mapSettings().mapUnitsPerPixel()
         size = max(4.0 * self._mupp, 1.0)
 
-        # Parcours des couches
+        remaining_budget = int(self._max_items)
+
         for layer in self.layers:
+            if remaining_budget <= 0:
+                break
             try:
                 if layer.geometryType() != QgsWkbTypes.LineGeometry:
                     continue
             except Exception:
                 continue
 
-            # On ne prend que les entités SÉLECTIONNÉES
-            feats = layer.getSelectedFeatures()
-            for f in feats:
+            try:
+                sel_ids = list(layer.selectedFeatureIds())
+            except Exception:
+                sel_ids = []
+            if not sel_ids:
+                continue
+
+            # Échantillonnage des entités si sélection massive
+            if len(sel_ids) > self._max_features_per_layer:
+                step = max(1, len(sel_ids) // self._max_features_per_layer)
+                sampled_ids = sel_ids[::step]
+            else:
+                sampled_ids = sel_ids
+
+            req = QgsFeatureRequest().setFilterFids(sampled_ids)
+            for f in layer.getFeatures(req):
+                if remaining_budget <= 0:
+                    break
                 geom: QgsGeometry = f.geometry()
                 if not geom or geom.isEmpty():
                     continue
@@ -289,12 +318,15 @@ class FlowAnimator(QObject):
                 if L <= 0.0:
                     continue
 
-                nb = self._choose_nb(L)
+                nb = min(self._choose_nb(L), remaining_budget)
+                if nb <= 0:
+                    continue
                 color = self._color_for(layer, f)
                 spacing = L / float(nb)
 
-                # Crée 'nb' items répartis régulièrement
                 for k in range(nb):
+                    if remaining_budget <= 0:
+                        break
                     rb = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
                     rb.setColor(color)
                     rb.setFillColor(color)
@@ -302,13 +334,14 @@ class FlowAnimator(QObject):
 
                     self.items.append({
                         "layer": layer,
-                        "geom": geom,      # on conserve la géométrie QGIS
+                        "geom": geom,
                         "length": L,
                         "offset": k * spacing,
                         "spacing": spacing,
                         "rb": rb,
                         "size": size,
                     })
+                    remaining_budget -= 1
 
     def _tick(self):
         """Une étape d’animation: avance les offsets, redessine les triangles."""

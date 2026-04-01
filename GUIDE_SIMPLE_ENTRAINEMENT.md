@@ -1,4 +1,4 @@
-# 🎓 Comment entraîner l'IA CheminerIndus - Guide simple
+# 🎓 Comment entraîner l'IA TRACK-EAU-POLL - Guide simple
 
 ## 🚀 Résumé en 30 secondes
 
@@ -6,7 +6,7 @@
 
 1. **Créer la vue PostgreSQL** `cheminer_indus.donnees_entrainement_ia` (voir SQL ci-dessous)
 2. **Charger la vue dans QGIS** (Ajouter → Couche PostgreSQL)
-3. **Cliquer "Entraîner"** dans CheminerIndus → Onglet IA
+3. **Cliquer "Entraîner"** dans TRACK-EAU-POLL → Onglet IA
 
 **Temps total : 10 minutes** ⏱️
 
@@ -153,8 +153,8 @@ SELECT Populate_Geometry_Columns('cheminer_indus.donnees_entrainement_ia'::regcl
    - Sélectionner `cheminer_indus.donnees_entrainement_ia`
    - Ajouter
 
-2. **Ouvrir CheminerIndus** :
-   - Extensions → CheminerIndus → Onglet **"IA"**
+2. **Ouvrir TRACK-EAU-POLL** :
+   - Extensions → TRACK-EAU-POLL → Onglet **"IA"**
 
 3. **Entraîner** :
    - Section COUCHES → Sélectionner `donnees_entrainement_ia`
@@ -224,7 +224,7 @@ python entrainer_modele_ia.py
 ### **Prédire les zones à risque**
 
 ```
-CheminerIndus → IA → PRÉDICTION
+TRACK-EAU-POLL → IA → PRÉDICTION
 
 1. Couche : raepa_ouvrass_p
 2. Modèle : modele_pollution_2026.pkl
@@ -262,7 +262,7 @@ git pull origin main
 ## 📝 Résumé en 3 points
 
 1. ✅ **SQL** : Créer la vue `cheminer_indus.donnees_entrainement_ia`
-2. ✅ **QGIS** : Charger → CheminerIndus → IA → Entraîner
+2. ✅ **QGIS** : Charger → TRACK-EAU-POLL → IA → Entraîner
 3. ✅ **Prédire** : Sélectionner le modèle → Prédire sur vos réseaux
 
 **Temps total : 10 minutes** ⏱️  
