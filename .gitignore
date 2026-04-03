@@ -41,3 +41,6 @@ temp*.png
 # OS
 .DS_Store
 Thumbs.db
+
+# Documents binaires non supportés par Codex
+*.docx

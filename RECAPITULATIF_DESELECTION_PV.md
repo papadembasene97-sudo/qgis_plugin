@@ -1,7 +1,7 @@
 # ✅ RÉCAPITULATIF : Désélection de branches et exclusion des industriels/PV
 
 **Date** : 2026-01-19  
-**Version** : CheminerIndus v1.2.3  
+**Version** : TRACK-EAU-POLL v1.2.3  
 **Objectif** : Préserver et optimiser la fonctionnalité existante
 
 ---
