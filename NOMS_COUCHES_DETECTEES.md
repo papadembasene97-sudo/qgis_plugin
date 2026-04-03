@@ -1,4 +1,4 @@
-# 🗺️ Noms de Couches Détectées par CheminerIndus
+# 🗺️ Noms de Couches Détectées par TRACK-EAU-POLL
 
 **Date:** 2026-01-19  
 **Version:** 1.3.1
@@ -16,7 +16,7 @@
 
 ## 🔍 Règles de Détection
 
-Le plugin CheminerIndus détecte automatiquement les couches QGIS en cherchant des **mots-clés** dans le **nom de la couche** (insensible à la casse).
+Le plugin TRACK-EAU-POLL détecte automatiquement les couches QGIS en cherchant des **mots-clés** dans le **nom de la couche** (insensible à la casse).
 
 ### Méthode de Détection
 ```python
@@ -253,7 +253,7 @@ if ("pv" in name and ("conform" in name or "confomit" in name)) or name == "pv_c
 
 Après avoir renommé une couche dans QGIS :
 
-1. **Ouvrir le plugin CheminerIndus**
+1. **Ouvrir le plugin TRACK-EAU-POLL**
 2. **Aller dans l'onglet ⚙️ PARAMÈTRES**
 3. **Fermer et rouvrir le plugin** (ou recharger avec Plugin Reloader)
 4. **Vérifier que la couche apparaît maintenant dans les combos**
@@ -374,4 +374,4 @@ if "pv" in name and ("conform" in name or "confomit" in name):
 
 ---
 
-**CheminerIndus v1.3.1** - Détection améliorée pour PV_CONFORMITE ✅
+**TRACK-EAU-POLL v1.3.1** - Détection améliorée pour PV_CONFORMITE ✅
