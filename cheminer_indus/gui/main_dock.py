@@ -148,6 +148,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
