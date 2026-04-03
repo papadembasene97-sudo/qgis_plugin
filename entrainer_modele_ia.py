@@ -1,6 +1,6 @@
 """
 Script d'entraînement du modèle IA de prédiction de pollution
-CheminerIndus - Version 1.2.1
+TRACK-EAU-POLL - Version 1.2.1
 """
 
 import pandas as pd
@@ -275,7 +275,7 @@ def main():
         print(f"   • Features : {len(X.columns)}")
         print(f"   • Modèle : {FICHIER_MODELE}")
         print(f"\n🎯 Prochaines étapes :")
-        print(f"   1. Charger le modèle dans QGIS (CheminerIndus → IA)")
+        print(f"   1. Charger le modèle dans QGIS (TRACK-EAU-POLL → IA)")
         print(f"   2. Prédire les pollutions sur vos réseaux")
         print(f"   3. Optimiser vos parcours de visite")
         print("\n")

@@ -1,4 +1,4 @@
-# 🚀 MISE À JOUR PLUGIN CheminerIndus v1.2.3
+# 🚀 MISE À JOUR PLUGIN TRACK-EAU-POLL v1.2.3
 
 **Date** : 2026-01-16  
 **Version** : 1.2.3  
@@ -246,7 +246,7 @@ python entrainer_modele_ia.py
 
 ### ✅ MISSION ACCOMPLIE
 
-**CheminerIndus v1.2.3** est prêt pour la production avec :
+**TRACK-EAU-POLL v1.2.3** est prêt pour la production avec :
 - ✅ Module PV Conformité opérationnel (10 694 PV)
 - ✅ Corrections SQL appliquées
 - ✅ Compatibilité IA vérifiée (59 features)
