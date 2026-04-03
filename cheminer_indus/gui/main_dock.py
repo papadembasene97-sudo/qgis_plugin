@@ -148,6 +148,7 @@ class MainDock:
 
         # Optimisations pour désélection de nœuds
         self._node_ops: Optional[OptimizedNodeOps] = None
+        self._process_durations: Dict[str, float] = {}
 
         # widgets
         self.canal_combo = self.ouvr_combo = self.fosse_combo = None
@@ -4293,9 +4294,6 @@ class MainDock:
         self._mask_on = False
         self._last_indus_data = {}
         self._last_pv_data = {}
-        self._indus_detail_cache = {}
-        self._pv_detail_cache = {}
-        self._pv_distance_cache = {}
         self._tracer_key = None
         self._network_cache_key = None
         self._canal_nodes_by_fid = {}
