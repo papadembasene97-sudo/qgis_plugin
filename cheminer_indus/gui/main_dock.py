@@ -180,6 +180,9 @@ class MainDock:
 
         self._last_trace_nodes: Set[str] = set()
         self._ouvrage_z_cache: Dict[str, float] = {}
+        self._indus_detail_cache: Dict[str, Dict[str, str]] = {}
+        self._pv_detail_cache: Dict[str, Dict[str, str]] = {}
+        self._pv_distance_cache: Dict[str, Optional[float]] = {}
         
         # Chemins personnalisés pour logo et icône
         self.custom_logo_path: str = ""  # Chemin vers le logo personnalisé
@@ -1566,6 +1569,38 @@ class MainDock:
 
         self._autosave()
 
+    def _fetch_indus_details_cached(self, indus_ids: List[str]) -> Dict[str, Dict[str, str]]:
+        ids = [str(i) for i in (indus_ids or []) if str(i)]
+        if not ids or not self.indus_svc:
+            return {}
+        missing = [i for i in ids if i not in self._indus_detail_cache]
+        if missing:
+            fetched = self.indus_svc.fetch_many(missing) or {}
+            for iid, vals in fetched.items():
+                self._indus_detail_cache[str(iid)] = vals or {}
+        return {i: self._indus_detail_cache.get(i, {}) for i in ids}
+
+    def _fetch_pv_details_cached(self, pv_ids: List[str], with_distance: bool = True) -> Dict[str, Dict[str, str]]:
+        ids = [str(i) for i in (pv_ids or []) if str(i)]
+        if not ids or not self.pv_svc:
+            return {}
+        missing = [i for i in ids if i not in self._pv_detail_cache]
+        if missing:
+            fetched = self.pv_svc.fetch_many(missing) or {}
+            for pid, vals in fetched.items():
+                self._pv_detail_cache[str(pid)] = vals or {}
+        out: Dict[str, Dict[str, str]] = {}
+        for pid in ids:
+            rec = dict(self._pv_detail_cache.get(pid, {}) or {})
+            if with_distance and self.pv_svc:
+                if pid not in self._pv_distance_cache:
+                    self._pv_distance_cache[pid] = self.pv_svc.get_distance_to_network(pid)
+                dist = self._pv_distance_cache.get(pid)
+                if dist is not None:
+                    rec['distance'] = str(dist)
+            out[pid] = rec
+        return out
+
     def _indus_fids_from_ids_compat(self, ind_ids):
         """Retourne des FIDs industriels à partir d'IDs texte avec fallback compatibilité."""
         if not (self.indus_layer and self.indus_layer.isValid() and self.indus_svc and ind_ids):
@@ -1634,6 +1669,7 @@ class MainDock:
         if (not self.indus_svc) or (self._indus_svc_key != indus_key):
             self.indus_svc = IndustrialsService(self.indus_layer, self.liaison_layer)
             self._indus_svc_key = indus_key
+            self._indus_detail_cache = {}
 
         self.indus_svc.select_liaisons_from_nodes(nodes)  # sélectionne liaisons dans la couche
         ind_ids = self.indus_svc.select_industrials_from_selected_liaisons()  # renvoie les IDs texte
@@ -1646,7 +1682,7 @@ class MainDock:
                 if fids:
                     self.indus_layer.selectByIds(fids)
 
-        details = self.indus_svc.fetch_many(ind_ids)
+        details = self._fetch_indus_details_cached(ind_ids)
         self._last_indus_data = details
         
         # PV non conformes (même pattern que les industriels)
@@ -1660,6 +1696,8 @@ class MainDock:
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
                 self._pv_svc_key = pv_key
+                self._pv_detail_cache = {}
+                self._pv_distance_cache = {}
             else:
                 self.pv_svc = None
                 self._pv_svc_key = None
@@ -1693,12 +1731,7 @@ class MainDock:
         # Récupérer les données PV
         pv_details = {}
         if self.pv_svc and pv_ids:
-            pv_details = self.pv_svc.fetch_many(pv_ids)
-            # Ajouter la distance au réseau pour chaque PV
-            for pv_id in pv_details:
-                distance = self.pv_svc.get_distance_to_network(pv_id)
-                if distance is not None:
-                    pv_details[pv_id]['distance'] = str(distance)
+            pv_details = self._fetch_pv_details_cached(pv_ids, with_distance=True)
         
         self._last_pv_data = pv_details
         
@@ -1995,6 +2028,8 @@ class MainDock:
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
                 self._pv_svc_key = pv_key
+                self._pv_detail_cache = {}
+                self._pv_distance_cache = {}
             else:
                 self.pv_svc = None
                 self._pv_svc_key = None
@@ -2442,9 +2477,10 @@ class MainDock:
         if (not self.indus_svc) or (self._indus_svc_key != indus_key):
             self.indus_svc = IndustrialsService(self.indus_layer, self.liaison_layer)
             self._indus_svc_key = indus_key
+            self._indus_detail_cache = {}
 
         indus_ids = self.indus_svc.connected_ids_from_nodes(nodes) if self.indus_svc else []
-        indus_details = self.indus_svc.fetch_many(indus_ids) if self.indus_svc else {}
+        indus_details = self._fetch_indus_details_cached(indus_ids)
 
         if self.indus_layer and self.indus_layer.isValid():
             self.indus_layer.removeSelection()
@@ -2465,6 +2501,8 @@ class MainDock:
             if self.pv_layer and self.pv_layer.isValid():
                 self.pv_svc = PVService(self.pv_layer, self.canal_layer)
                 self._pv_svc_key = pv_key
+                self._pv_detail_cache = {}
+                self._pv_distance_cache = {}
             else:
                 self.pv_svc = None
                 self._pv_svc_key = None
@@ -2496,11 +2534,7 @@ class MainDock:
 
         pv_details = {}
         if self.pv_svc and pv_ids:
-            pv_details = self.pv_svc.fetch_many(pv_ids)
-            for pv_id in pv_details:
-                distance = self.pv_svc.get_distance_to_network(pv_id)
-                if distance is not None:
-                    pv_details[pv_id]['distance'] = str(distance)
+            pv_details = self._fetch_pv_details_cached(pv_ids, with_distance=True)
 
         self._last_indus_data = indus_details
         self._last_pv_data = pv_details
