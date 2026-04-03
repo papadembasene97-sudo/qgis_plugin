@@ -9,6 +9,7 @@ Ajouts :
 
 from __future__ import annotations
 import os
+import re
 from typing import Dict, Any
 from fpdf import FPDF
 
@@ -154,8 +155,31 @@ class PDFGenerator(FPDF):
             self._set_font_bold()
             self.cell(key_w, th, str(k), border=1 if bordered else 0)
             self._set_font_base()
-            self.multi_cell(val_w, th, "" if v is None else str(v), border=1 if bordered else 0)
+            self.multi_cell(val_w, th, self._fmt_value(v), border=1 if bordered else 0)
         self.ln(1)
+
+    def _fmt_value(self, v: Any) -> str:
+        if v is None:
+            return ""
+        if hasattr(v, "toString"):
+            try:
+                txt = v.toString("yyyy-MM-dd HH:mm:ss")
+                if txt and txt != "  ::":
+                    return txt.strip()
+            except Exception:
+                pass
+            try:
+                txt = v.toString("yyyy-MM-dd")
+                if txt:
+                    return txt.strip()
+            except Exception:
+                pass
+        s = str(v)
+        m = re.match(r".*QDate\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\).*", s)
+        if m:
+            y, mo, d = m.groups()
+            return f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+        return s
 
     def table_industrial_info(self, data: Dict[str, Any], bordered: bool = True):
         self._ensure_page()

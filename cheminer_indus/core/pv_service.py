@@ -2,6 +2,8 @@
 # cheminer_indus/core/pv_service.py
 
 from __future__ import annotations
+import datetime
+import re
 from typing import List, Dict, Set, Optional
 
 from qgis.core import (
@@ -125,7 +127,7 @@ class PVService:
             for pv_feat in self.pv_layer.getFeatures():
                 if not include_conformes and not self._is_non_conforme(pv_feat):
                     continue
-                if (not include_conformes) and only_visit_or_contre and (not self._is_visit_or_contre(pv_feat)):
+                if only_visit_or_contre and (not self._is_visit_or_contre(pv_feat)):
                     continue
                 pv_geom = pv_feat.geometry()
                 if not pv_geom:
@@ -242,12 +244,19 @@ class PVService:
         if canal_crs != pv_crs:
             transform = QgsCoordinateTransform(pv_crs, canal_crs, QgsProject.instance())
 
+        # Cas métier "cheminement pollution": on doit considérer la DERNIÈRE visite/contre-visite
+        # (conforme OU non conforme), puis garder uniquement les dernières non conformes.
+        effective_include_conformes = include_conformes or only_visit_or_contre
+
         # Construire/relire un index spatial PV cache pour accélérer les recherches
-        pv_index, pv_geom_cache = self._build_pv_spatial_cache(include_conformes, transform, canal_crs.authid(), only_visit_or_contre)
+        pv_index, pv_geom_cache = self._build_pv_spatial_cache(
+            effective_include_conformes, transform, canal_crs.authid(), only_visit_or_contre
+        )
 
         # Pour chaque canalisation, chercher les PV proches
         req_canals = QgsFeatureRequest().setFilterFids(list(canal_ids))
         
+        candidate_fids: Set[int] = set()
         for canal_feat in self.canal_layer.getFeatures(req_canals):
             canal_geom = canal_feat.geometry()
             if not canal_geom:
@@ -260,8 +269,17 @@ class PVService:
             for fid in candidate_ids:
                 pv_geom = pv_geom_cache.get(fid)
                 if pv_geom and buffer_geom.intersects(pv_geom):
-                    if fid not in pv_fids:
-                        pv_fids.append(fid)
+                    candidate_fids.add(fid)
+
+        if not candidate_fids:
+            return []
+
+        # Règle métier: pour chaque établissement/support, seul le dernier point (visite/contre-visite) compte.
+        if only_visit_or_contre:
+            return self._latest_non_conforme_fids(candidate_fids)
+
+        # Cas standard: on garde simplement les candidats (avec filtre conformité selon include_conformes)
+        pv_fids = sorted(candidate_fids)
 
         return pv_fids
 
@@ -293,6 +311,8 @@ class PVService:
         
         for feat in self.pv_layer.getFeatures(req):
             if not include_conformes and not self._is_non_conforme(feat):
+                continue
+            if only_visit_or_contre and not self._is_visit_or_contre(feat):
                 continue
             # Essayer plusieurs noms de colonnes possibles
             pv_id = None
@@ -337,7 +357,7 @@ class PVService:
                         return {}
                     out: Dict[str, str] = {}
                     for name in f.fields().names():
-                        out[name] = "" if f[name] is None else str(f[name])
+                        out[name] = self._to_text_value(f[name])
 
                     # Normaliser les noms de champs
                     out.setdefault("id", str(pv_id))
